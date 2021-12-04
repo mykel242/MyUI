@@ -21,7 +21,6 @@ local defaults = {
 -- Configuration UI Elements
 -------------------------------------------------------------------------------
 function createMyConfigWidget()
-
   myConfigFrame = CreateFrame("Frame", "MYUI_Frame",
     UIParent, "BasicFrameTemplateWithInset")
   myConfigFrame:SetSize(200,320)
