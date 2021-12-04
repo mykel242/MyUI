@@ -1,0 +1,10 @@
+## Interface: 90105
+## Version: v9.1.5-0.0.1
+## Title: |cff00ccffMykelUI|r
+## Author: @myk31_
+## DefaultState: enabled
+## SavedVariables: MyUIData
+## Notes: Just getting started
+
+config.lua
+MyHello.lua
