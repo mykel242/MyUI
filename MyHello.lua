@@ -26,7 +26,7 @@ local myTileInfo = {
 };
 
 local tiles_wide = 5;
-local tiles_height = 5;
+local tiles_height = 10;
 local gap = 0;
 local tWidth;
 local tHeight;
@@ -103,13 +103,14 @@ end
 
 local function makeTiles()
 -- Col 0
-createTile(0, 0, 1, 4, 0.2);
+createTile(0, 0, 1, 8, 0.4);
 
 -- Col 4
-createTile(4, 0,  1, 4, 0.2);
+createTile(4, 0,  1, 8, 0.4);
 
 -- Tray
-createTile(0, 4,  5, 1, 0.6);
+createTile(0, 8,  5, 2, 0.7);
+createTile(1.825, 7.35,  1.4, 0.645, 0.7);
 end
 
 -------------------------------------------------------------------------------
