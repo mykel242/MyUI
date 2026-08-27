@@ -218,6 +218,7 @@ local COMMANDS = {
     { "outline",      "diagnostic boxes around every frame, above everything" },
     { "claims",       "who is claiming each frame, and every recent transition" },
     { "modifier",     "which keys reveal the HUD: alt shift ctrl, or none" },
+    { "notify",       "feed the rail: <type> [name] [count] | demo | clear | dismiss" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -257,6 +258,52 @@ local HANDLERS = {
         else
             ns.Print("frames released to their resting alphas, placeholders cleared.")
         end
+    end,
+    -- SPEC.md 6 specifies the rail completely and never says what produces a
+    -- notification. Rather than invent a data binding the design did not ask
+    -- for, Phase 3 ships this as the source, which is also what the acceptance
+    -- test needs: eight at once, on demand.
+    notify       = function(arg)
+        local Rail = ns.Rail
+        arg = arg or ""
+
+        if arg == "clear" then
+            Rail.Clear()
+            ns.Print("rail cleared")
+            return
+        end
+        if arg == "dismiss" then
+            if Rail.Collapse() then
+                ns.Print("toast dismissed")
+            else
+                ns.Print("nothing to dismiss")
+            end
+            return
+        end
+        if arg == "demo" then
+            -- Ten, so the 8-dot cap and the "+2 more" square both show.
+            local kinds = { "blue", "amber", "green", "violet", "orange" }
+            for i = 1, 10 do
+                Rail.Add(kinds[(i - 1) % #kinds + 1], "Notice " .. i, i % 3 + 1)
+            end
+            ns.Print(("added 10 -- %d dots capped, %d behind the square")
+                     :format(Rail.CAP, Rail.Overflow()))
+            return
+        end
+
+        local kind, name, count = arg:match("^(%a+)%s*(.-)%s*(%d*)$")
+        if not kind or kind == "" then
+            ns.Print("usage: /myui notify <blue|amber|green|violet|orange> "
+                     .. "[name] [count], or demo | clear | dismiss")
+            return
+        end
+        local item, why = Rail.Add(kind, name ~= "" and name or nil, count)
+        if not item then
+            ns.Print(why)
+            return
+        end
+        ns.Print(("%s: %s x%d -- %d on the rail")
+                 :format(item.kind, item.name, item.count, #Rail.items))
     end,
     modifier     = function(arg)
         local Reveal = ns.Reveal

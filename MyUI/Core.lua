@@ -5,8 +5,8 @@ local ADDON, ns = ...
 
 ns.name    = ADDON
 ns.version = C_AddOns and C_AddOns.GetAddOnMetadata
-             and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "0.3.0-phase2"
-ns.phase   = 2
+             and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "0.4.0-phase3"
+ns.phase   = 3
 
 -- Bump on any change to the stored shape, and add the matching migration.
 local SCHEMA_VERSION = 1
@@ -156,11 +156,18 @@ loader:SetScript("OnEvent", function(self, event, addon)
     elseif event == "PLAYER_LOGIN" then
         self:UnregisterEvent("PLAYER_LOGIN")
 
-        for label, module in pairs({
-            registry = ns.Registry,
-            frames   = ns.Frames,
-            reveal   = ns.Reveal,
+        -- ORDERED, not a pairs() over a table. Login order is a real
+        -- dependency: Frames creates what Registry hands out, and Rail cannot
+        -- find its container until Frames has built it. With pairs() that
+        -- worked or failed depending on Lua's internal table layout, which is
+        -- the worst kind of bug -- it passes until it doesn't.
+        for _, step in ipairs({
+            { "registry",     ns.Registry },
+            { "frames",       ns.Frames   },
+            { "reveal engine", ns.Reveal  },
+            { "rail",         ns.Rail     },
         }) do
+            local label, module = step[1], step[2]
             if module and module.OnLogin then
                 local ok, err = pcall(module.OnLogin)
                 if not ok then

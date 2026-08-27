@@ -324,6 +324,97 @@ Testing.scripts = {
               end },
         },
     },
+
+    [3] = {
+        title = "Phase 3 — the rail",
+        accept = "Eight simultaneous notifications cap correctly and show "
+              .. "\"+N more\"; a toast speaks once and collapses after 4s; "
+              .. "the rail at rest reads as calm.",
+        steps = {
+            { awaits = "notify clear", act = "Type /myui notify clear",
+              expect = "The rail empties.",
+              check = function()
+                  if #ns.Rail.items > 0 then
+                      return false, #ns.Rail.items .. " still on the rail"
+                  end
+                  return true, "empty"
+              end },
+            { act = "Look at the left edge of the screen.",
+              expect = "One vertical hairline and nothing else. This is the "
+                    .. "rail at rest, and it should read as calm." },
+
+            { act = "Type /myui notify blue Whisper",
+              expect = "A toast slides in near the top of the rail and speaks "
+                    .. "once." },
+            { act = "Watch that toast without touching anything.",
+              expect = "It collapses on its own after about four seconds." },
+            { act = "Look at the top of the rail now.",
+              expect = "One coloured dot, with the name beside it and an age to "
+                    .. "the right." },
+            { act = "Wait a few seconds and look at that age again.",
+              expect = "It has counted up on its own." },
+
+            { act = "Type /myui notify amber Loot",
+              expect = "The new one takes the top row; the first drops to the "
+                    .. "second row and keeps its text." },
+
+            { awaits = "notify demo", act = "Type /myui notify demo",
+              expect = "Ten arrive at once. Eight dots, two behind the square.",
+              check = function()
+                  local Rail = ns.Rail
+                  local shown = 0
+                  for i = 1, Rail.CAP do
+                      if Rail.slots and Rail.slots[i]:IsShown() then
+                          shown = shown + 1
+                      end
+                  end
+                  if shown ~= Rail.CAP then
+                      return false, shown .. " dots shown, cap is " .. Rail.CAP
+                  end
+                  if Rail.Overflow() < 1 then
+                      return false, "nothing overflowed"
+                  end
+                  return true, ("%d dots, +%d behind the square")
+                               :format(shown, Rail.Overflow())
+              end },
+            { act = "Count the dots on the rail.",
+              expect = "Exactly eight, however many were sent." },
+            { act = "Look below the eighth dot.",
+              expect = "A hollow square with a count beside it, not a ninth dot. "
+                    .. "Hollow because a solid one would read as another item." },
+            { act = "Look at rows three and below.",
+              expect = "Bare dots with no text. Only the newest two are named." },
+            { act = "Compare the lower dots with the top two.",
+              expect = "The lower ones are visibly dimmer." },
+
+            { act = "Type /myui notify green Urgent, then /myui notify dismiss "
+                 .. "before four seconds pass.",
+              expect = "The toast collapses immediately rather than waiting." },
+            { act = "Send another, and click the toast itself.",
+              expect = "It collapses on the click too." },
+
+            -- Folded in from Phase 2: the hold binding shipped after that
+            -- phase was accepted, so it has never been verified in game.
+            { awaits = "claims",
+              act = "Bind MyUI -> Hold to reveal to a free key, run /myui "
+                 .. "modifier none, hold that key, release, then /myui claims.",
+              expect = "The log shows the channel arming via binding, not via "
+                    .. "keys -- so the HUD no longer fights your ability rows.",
+              check = function()
+                  for _, e in ipairs(ns.Reveal.log) do
+                      if e.kind == "claim" and e.channel == "modifier"
+                         and e.via == "binding" then
+                          return true, "armed via binding"
+                      end
+                  end
+                  return false, "no binding-armed claim recorded yet"
+              end },
+
+            { act = "Stand back and look at the whole screen with the rail full.",
+              expect = "It still reads as calm. If the rail draws your eye at "
+                    .. "rest, that is the finding this phase exists to catch." },
+        },
+    },
 }
 
 -- ---------------------------------------------------------------------------

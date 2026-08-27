@@ -21,7 +21,7 @@ deliberately rejected explorations and must not be treated as a reference.
 | **0 — Skeleton and compliance harness** | **Delivered** — `v0.1.0-phase0`, verified in game |
 | **1 — Anchors and frame registry** | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
 | **2 — Reveal engine** | **Delivered** — `v0.3.0-phase2`, 16/16 in game |
-| 3 — Rail | Not started |
+| **3 — Rail** | **Built.** 389 addon + 15 lint checks green. In-game acceptance not yet run |
 | 4 — Bars and low health | Not started |
 | 5 — Edit mode | Not started |
 | 6 — Polish and persistence | Not started |
@@ -66,6 +66,7 @@ MyUI/                 the addon
   Frames.lua          SPEC.md 2, built once at its permanent anchor
   Reveal.lua          SPEC.md 4: four channels, one arbiter, the only OnUpdate
   Peek.lua            tap-to-peek and its drain clock
+  Rail.lua            SPEC.md 6: dots, rows, the 8-dot cap, the toast lifecycle
   Bindings.xml        peek and hold-to-reveal -- loaded by filename, NOT in the TOC
   Outline.lua         diagnostic boxes: placed wrong, or hidden?
   Testing.lua         the in-game acceptance checklist, per phase
@@ -93,6 +94,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui outline         diagnostic boxes around every frame, above everything
 /myui claims          who is claiming each frame, and every recent transition
 /myui modifier        which keys reveal the HUD: alt shift ctrl, or none
+/myui notify          feed the rail: <type> [name] [count] | demo | clear | dismiss
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset

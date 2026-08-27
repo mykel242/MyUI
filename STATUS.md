@@ -14,17 +14,21 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | 0 — Skeleton and compliance harness | **Delivered** — `v0.1.0-phase0`, verified in game |
 | 1 — Anchors and frame registry | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
 | 2 — Reveal engine | **Delivered** — `v0.3.0-phase2`, 16/16 in game |
-| 3 — Rail | Not started |
+| 3 — Rail | **Built**, awaiting in-game acceptance |
 | 4 — Bars and low health | Not started |
 | 5 — Edit mode | Not started |
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### Nothing is blocking
+### The one thing waiting on you
 
-Phase 3 is the next action: the rail. SPEC § 6 — dots, the two-newest text rows,
-the 8-dot cap, "+N more", and the toast lifecycle. It touches no protected data,
-which is why PLAN puts it ahead of the bars.
+**Phase 3's in-game acceptance.** `/myui test` — sixteen steps, three auto-checked.
+`/myui notify demo` sends ten at once, which is what the cap and the "+N more"
+square exist for.
+
+One step is folded in from Phase 2: the **Hold to reveal** binding shipped after
+that phase was accepted, so it has never been verified in game. Bind it to a free
+key first.
 
 Running a phase acceptance test: `/myui test` in game, work down the checklist,
 hit **report**, `/reload`. The report lands in `MyUIDB.testRuns` and can be read
@@ -105,6 +109,35 @@ Full detail with citations in `API-NOTES-12.1.md`.
 
 The scale factor lives in one constant, added in Phase 1 as `Scale.lua`, so the reading
 above is one edit to revisit if it turns out wrong.
+
+---
+
+## Phase 3: what was decided where SPEC is silent
+
+**Nothing produces a notification.** SPEC § 6 specifies the rail completely — dot size,
+spacing, hues, cap, the two named rows, the toast's timings — and never says what puts an
+item on it. Rather than invent a data binding the design never asked for, Phase 3 ships
+`/myui notify` as the source. That is also exactly what the acceptance test needs: eight
+at once, on demand. **The real sources are an open design question.**
+
+**Where the toast sits.** Named in § 6 and § 8 with its timings, never with its geometry.
+Anchored to the newest dot and extending right, since that is what it collapses into.
+Slides 12 in over 180ms. **Wants your eye.**
+
+**What a second toast does.** § 6 says a toast "speaks once, then collapses after 4s or on
+dismissal" and says nothing about two arriving together. A newer one takes the slot and
+restarts its own dwell rather than queueing — the rail already holds every item, so the
+toast is the announcement, not the record.
+
+**Row text geometry.** § 6 gives the name and age their fonts and alignment but no
+offsets. Name sits 8 right of the dot; age is right-aligned in a 160-wide row.
+
+### A conflict between PLAN and SPEC
+
+PLAN.md's Phase 3 scope line lists "bloom texture" among the things to build. SPEC § 6 cut
+the bloom permanently and says explicitly **do not implement it**, with two ladder images
+as evidence that it is invisible at every size and opacity tried. SPEC is authoritative
+per its own first line, so the bloom is not built. PLAN's line is stale.
 
 ---
 

@@ -139,6 +139,8 @@ function M.frame(spec)
         "SetAllPoints", "SetColorTexture", "SetText", "StartMoving",
         "StopMovingOrSizing", "SetJustifyH", "SetMinMaxValues", "SetFont",
         "SetTextColor", "SetStatusBarTexture", "SetDrawLayer",
+        "SetDuration", "SetFromAlpha", "SetToAlpha", "SetOffset", "SetOrder",
+        "SetSmoothing", "ClearAllPoints",
     }) do
         f[method] = setter(method)
     end
@@ -154,6 +156,27 @@ function M.frame(spec)
             if calls[i].method == "SetText" then return calls[i][1] end
         end
         return nil
+    end
+
+    f.CreateAnimationGroup = function()
+        local group = M.frame({ objectType = "AnimationGroup" })
+        group.__animations = {}
+        group.__playing = false
+        group.CreateAnimation = function(_, kind)
+            local anim = M.frame({ objectType = kind })
+            anim.__kind = kind
+            group.__animations[#group.__animations + 1] = anim
+            return anim
+        end
+        group.Play = function() group.__playing = true end
+        group.Stop = function() group.__playing = false end
+        group.IsPlaying = function() return group.__playing end
+        group.SetScript = function(_, name, fn) group.scripts[name] = fn end
+        group.Finish = function()
+            group.__playing = false
+            if group.scripts.OnFinished then group.scripts.OnFinished(group) end
+        end
+        return group
     end
 
     f.CreateTexture    = function() return M.frame({ objectType = "Texture" }) end
@@ -210,6 +233,7 @@ function M.advance(ns, seconds, steps)
     steps = steps or 1
     for _ = 1, steps do
         M.time = M.time + (seconds / steps)
+        M.runTimers()
         ns.Reveal.Tick()
     end
 end
@@ -261,6 +285,32 @@ function M.install()
     -- fades, the 3s peek -- can be tested against a real one.
     M.time = 1000
     _G.GetTime = function() return M.time end
+
+    -- A real scheduler, not a fire-immediately stub. Running every timer the
+    -- instant it is scheduled would make the toast's 4s dwell untestable and,
+    -- worse, would pass -- the lifecycle would look correct while collapsing
+    -- the moment it opened.
+    M.timers = {}
+    _G.C_Timer = {
+        After = function(delay, fn)
+            M.timers[#M.timers + 1] = { at = M.time + delay, fn = fn }
+        end,
+    }
+
+    function M.runTimers()
+        local due = {}
+        for i = #M.timers, 1, -1 do
+            if M.timers[i].at <= M.time then
+                due[#due + 1] = M.timers[i]
+                table.remove(M.timers, i)
+            end
+        end
+        -- Oldest first, so a timer that schedules another keeps its order.
+        table.sort(due, function(a, b) return a.at < b.at end)
+        for _, t in ipairs(due) do
+            t.fn()
+        end
+    end
 
     -- Cursor is stored in UI units; GetCursorPosition reports the scaled value
     -- the client would, so the addon's division by effective scale is exercised

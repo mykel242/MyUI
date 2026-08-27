@@ -28,7 +28,8 @@ Frames.STRATA = "MEDIUM"
 
 -- SPEC.md gives type sizes in mock pixels like every other measurement, so they
 -- go through the same conversion. 12pt reads as 9.6 units.
-local FONT = _G.STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+Frames.FONT = _G.STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
+local FONT = Frames.FONT
 
 local function Fill(parent, colorName, layer)
     local t = parent:CreateTexture(nil, layer or "ARTWORK")

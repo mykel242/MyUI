@@ -51,7 +51,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 14, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 15, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -67,7 +67,7 @@ check("  and the addon agrees with it",
 check("  and reports the TOC version, not a stale one",
       ns.version == toc.Version, ns.version .. " vs " .. tostring(toc.Version))
 for _, mod in ipairs({ "Compat", "Scale", "Palette", "Guard", "Registry",
-                       "Frames", "Reveal", "Peek", "Outline", "Testing",
+                       "Frames", "Reveal", "Peek", "Rail", "Outline", "Testing",
                        "Rules", "Copy" }) do
     check("  ns." .. mod .. " exists", ns[mod] ~= nil)
 end
@@ -944,6 +944,157 @@ check("releasing it returns every frame to resting",
       stackEntry.target == 0.35 and stripEntry.target == 0)
 
 -- ---------------------------------------------------------------------------
+section("Rail -- notifications")
+-- ---------------------------------------------------------------------------
+-- SPEC 6. The rail touches no protected data, which is why PLAN puts it ahead
+-- of the bars: it exercises the reveal engine hard with no taint risk at all.
+
+local Rail = ns.Rail
+
+-- Login order is a real dependency, and it used to be a pairs() over a table.
+check("the rail built at login", Rail.slots ~= nil and #Rail.slots == Rail.CAP)
+check("  which means Frames ran before it", Registry.Get("Rail") ~= nil)
+
+Rail.Clear()
+check("an unknown type is refused", select(1, Rail.Add("puce", "x")) == nil)
+check("  naming the ones that exist",
+      select(2, Rail.Add("puce", "x")):find("violet", 1, true) ~= nil)
+
+Rail.Clear()
+Rail.Add("blue", "First", 1)
+Rail.Add("amber", "Second", 3)
+check("newest goes to the top", Rail.items[1].name == "Second")
+check("  carrying its count", Rail.items[1].count == 3)
+check("slot one shows name and count", Rail.slots[1].name:GetText() == "Second x3")
+check("  and an age", Rail.slots[1].age:GetText() == "0s")
+check("a count of one is not written out", (function()
+    Rail.Add("green", "Single", 1)
+    return Rail.slots[1].name:GetText() == "Single"
+end)())
+
+-- SPEC 6: the two newest carry text; older items are the dot alone at 0.4.
+Rail.Clear()
+for i = 1, 5 do Rail.Add("blue", "Item " .. i) end
+check("exactly two rows carry text", (function()
+    local withText = 0
+    for i = 1, Rail.CAP do
+        local t = Rail.slots[i].name:GetText()
+        if t and t ~= "" then withText = withText + 1 end
+    end
+    return withText == Rail.NAMED
+end)())
+check("  the newest two", Rail.slots[1].name:GetText() == "Item 5"
+      and Rail.slots[2].name:GetText() == "Item 4")
+check("older dots sit at 0.4", Compat.Get(Rail.slots[3].dot, "GetAlpha") == Rail.OLD_ALPHA,
+      Compat.Get(Rail.slots[3].dot, "GetAlpha"))
+check("  while the named ones are full", Compat.Get(Rail.slots[1].dot, "GetAlpha") == 1)
+check("empty slots are hidden", not Rail.slots[6]:IsShown())
+
+-- PLAN's acceptance: eight simultaneous notifications cap and show "+N more".
+Rail.Clear()
+for i = 1, 8 do Rail.Add("amber", "Eight " .. i) end
+check("eight fill the rail exactly", Rail.slots[8]:IsShown())
+check("  with nothing overflowing", Rail.Overflow() == 0)
+check("  so no square", not Rail.overflow:IsShown())
+
+Rail.Add("green", "Ninth")
+check("the ninth overflows rather than adding a dot", Rail.Overflow() == 1)
+check("  showing the hollow square", Rail.overflow:IsShown())
+check("  labelled with the count", Rail.overflow.label:GetText() == "+1 more")
+check("  and the cap holds", (function()
+    local shown = 0
+    for i = 1, Rail.CAP do
+        if Rail.slots[i]:IsShown() then shown = shown + 1 end
+    end
+    return shown == Rail.CAP
+end)())
+
+for i = 1, 5 do Rail.Add("violet", "More " .. i) end
+check("the square counts everything behind it", Rail.overflow.label:GetText() == "+6 more",
+      Rail.overflow.label:GetText())
+
+-- Hues come from the palette, so the rail cannot introduce a fifteenth colour.
+check("every notification type maps to a palette entry", (function()
+    for kind, name in pairs(Rail.HUES) do
+        if ns.Palette.colors[name] == nil then return false, kind end
+    end
+    return true
+end)())
+check("  and there are five of them", (function()
+    local n = 0
+    for _ in pairs(Rail.HUES) do n = n + 1 end
+    return n == 5
+end)())
+
+-- ---------------------------------------------------------------------------
+section("Rail -- age")
+-- ---------------------------------------------------------------------------
+
+check("seconds under a minute", Rail.FormatAge(0) == "0s" and Rail.FormatAge(59) == "59s")
+check("minutes after that", Rail.FormatAge(60) == "1m" and Rail.FormatAge(3599) == "59m")
+check("hours after that", Rail.FormatAge(3600) == "1h")
+check("nonsense is not rendered as a number", Rail.FormatAge(nil) == "?")
+
+Rail.Clear()
+Rail.Add("blue", "Ageing")
+check("a new item reads as 0s", Rail.slots[1].age:GetText() == "0s")
+mock.advance(ns, 5, 1)
+check("the age ticks over on its own timer", Rail.slots[1].age:GetText() == "5s",
+      Rail.slots[1].age:GetText())
+
+-- ---------------------------------------------------------------------------
+section("Rail -- toast lifecycle")
+-- ---------------------------------------------------------------------------
+-- SPEC 8: slide + fade 180ms in, 4s dwell, 200ms to collapse.
+
+Rail.Clear()
+check("nothing is toasting at rest", not Rail.IsToasting())
+
+Rail.Add("blue", "Spoken")
+check("an arrival speaks", Rail.IsToasting())
+check("  showing the toast", Rail.toastFrame:IsShown())
+check("  with the item's text", Rail.toastFrame.label:GetText() == "Spoken")
+check("  playing the entrance", Rail.toastFrame.entrance:IsPlaying())
+
+mock.advance(ns, 3.9, 4)
+check("it is still up before the dwell runs out", Rail.IsToasting())
+mock.advance(ns, 0.2, 1)
+check("and collapses after 4s", not Rail.IsToasting())
+check("  by playing the collapse, not by vanishing",
+      Rail.toastFrame.collapse:IsPlaying())
+Rail.toastFrame.collapse:Finish()
+check("  and hides when that finishes", not Rail.toastFrame:IsShown())
+
+-- "speaks once": a second arrival takes the slot rather than queueing behind it.
+Rail.Add("amber", "First")
+mock.advance(ns, 1, 1)
+Rail.Add("green", "Second")
+check("a newer arrival takes over the toast",
+      Rail.toastFrame.label:GetText() == "Second")
+check("  and restarts the dwell rather than inheriting it", (function()
+    mock.advance(ns, 3.5, 4)
+    return Rail.IsToasting()
+end)())
+mock.advance(ns, 0.7, 1)
+check("  then collapses on its own clock", not Rail.IsToasting())
+
+-- SPEC 6: "after 4s OR on dismissal".
+Rail.toastFrame.collapse:Finish()
+Rail.Add("orange", "Dismissed")
+check("dismissal collapses early", Rail.Collapse() == true)
+check("  and there is nothing left to dismiss", Rail.Collapse() == false)
+check("clicking the toast dismisses it", (function()
+    Rail.toastFrame.collapse:Finish()
+    Rail.Add("blue", "Clicked")
+    Rail.toastFrame.scripts.OnMouseDown(Rail.toastFrame)
+    return not Rail.IsToasting()
+end)())
+
+Rail.toastFrame.collapse:Finish()
+Rail.Clear()
+check("clearing empties the rail", #Rail.items == 0 and not Rail.slots[1]:IsShown())
+
+-- ---------------------------------------------------------------------------
 section("Core -- saved variables")
 -- ---------------------------------------------------------------------------
 
@@ -1221,12 +1372,25 @@ check("  no step asks you to type while holding a modifier", (function()
     return true
 end)())
 
-check("  with a step for every reveal channel", (function()
+-- Pinned to phase 2: that is the phase whose acceptance is the reveal engine.
+-- A later phase's script has no reason to mention every channel.
+check("phase 2's script covers every reveal channel", (function()
     local text = ""
-    for _, step in ipairs(Testing.Steps()) do
+    for _, step in ipairs(Testing.scripts[2].steps) do
         text = text .. " " .. step.act:lower() .. " " .. step.expect:lower()
     end
     for _, word in ipairs({ "cursor", "alt", "target", "combat", "peek" }) do
+        if not text:find(word, 1, true) then return false, word end
+    end
+    return true
+end)())
+
+check("phase 3's script covers what PLAN's acceptance names", (function()
+    local text = ""
+    for _, step in ipairs(Testing.scripts[3].steps) do
+        text = text .. " " .. step.act:lower() .. " " .. step.expect:lower()
+    end
+    for _, word in ipairs({ "dot", "square", "toast", "calm", "age" }) do
         if not text:find(word, 1, true) then return false, word end
     end
     return true
