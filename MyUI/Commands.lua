@@ -248,6 +248,10 @@ local HANDLERS = {
         end
         Registry.ForceVisible(on)
         ns.Frames.Placeholders(on)
+        -- Latch the checklist against the state as it is NOW. Without this the
+        -- auto-checks are only evaluated when the report is run, by which point
+        -- the sequence has moved on and they describe the wrong moment.
+        ns.Testing.Recheck()
         if on then
             ns.Print("all frames at alpha 1, with placeholder text and a nominal "
                      .. "bar fill so geometry can be judged. "
@@ -265,7 +269,9 @@ local HANDLERS = {
         else
             on = nil
         end
-        if ns.Outline.Toggle(on) then
+        local shown = ns.Outline.Toggle(on)
+        ns.Testing.Recheck()
+        if shown then
             ns.Print("outlines on. A box with nothing visible inside it means the "
                      .. "frame is placed correctly but hidden behind something.")
         else

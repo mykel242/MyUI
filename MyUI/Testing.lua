@@ -25,37 +25,51 @@ local Registry, Scale = ns.Registry, ns.Scale
 -- Each step: what to do, what to expect, and optionally a check that decides
 -- for itself. A check returns ok, detail.
 
--- These compare the registry's own target alpha, not the frame's. From Phase 4
--- a frame carrying a forwarded secret returns a secret from GetAlpha, so an
--- auto-check that reads the frame back would start failing on a UI that is
--- perfectly correct. What the eye is for is the step immediately after each of
--- these, which asks whether the frames actually look right.
+-- Check the registry's intent AND the frame's actual alpha.
+--
+-- The first version compared only entry.target, so it reported "4 frames
+-- targeted at 1" while the screen was still showing a barely-visible UI. An
+-- auto-check that can pass when nothing happened is worse than no check.
+--
+-- The live read is still guarded: from Phase 4 a frame carrying a forwarded
+-- secret returns a secret from GetAlpha, and that is not a failure. When the
+-- alpha is unreadable the check falls back to intent and says so, rather than
+-- pretending it verified something it could not see.
 
-local function everyFrameAt(alpha)
-    local bad
+local function compareAlphas(want)
+    local bad, unreadable = nil, false
     Registry.Each(function(entry)
-        if type(entry.target) ~= "number" or math.abs(entry.target - alpha) > 0.001 then
-            bad = bad or entry.name
+        local target = want
+        if want == nil then
+            target = entry.resting
+        end
+        if type(entry.target) ~= "number" or math.abs(entry.target - target) > 0.001 then
+            bad = bad or (entry.name .. " target")
+            return
+        end
+        local live = ns.Compat.Get(entry.frame, "GetAlpha")
+        if type(live) ~= "number" then
+            unreadable = true
+        elseif math.abs(live - target) > 0.001 then
+            bad = bad or (entry.name .. (" live %.2f, wanted %.2f"):format(live, target))
         end
     end)
     if bad then
-        return false, "first mismatch: " .. bad
+        return false, "mismatch: " .. bad
     end
-    return true, Registry.Count() .. " frames targeted at " .. alpha
+    local how = "verified on screen"
+    if unreadable then
+        how = "intent only -- some alphas are secret"
+    end
+    return true, ("%d frames, %s"):format(Registry.Count(), how)
+end
+
+local function everyFrameAt(alpha)
+    return compareAlphas(alpha)
 end
 
 local function everyFrameResting()
-    local bad
-    Registry.Each(function(entry)
-        if type(entry.target) ~= "number"
-           or math.abs(entry.target - entry.resting) > 0.001 then
-            bad = bad or entry.name
-        end
-    end)
-    if bad then
-        return false, "first mismatch: " .. bad
-    end
-    return true, "all back to resting"
+    return compareAlphas(nil)
 end
 
 -- SPEC.md 2's table, restated here so the test asserts against the spec rather
@@ -92,7 +106,7 @@ Testing.scripts = {
         accept = "Debug toggle shows every frame; positions and sizes match the "
               .. "mock; audit lists each frame with its spec resting alpha.",
         steps = {
-            { id = "show", act = "Type /myui show",
+            { id = "show", act = "Type /myui show on",
               expect = "Frames go opaque, with placeholder text and a nominal fill.",
               check = function()
                   if not Registry.forced then
@@ -105,11 +119,12 @@ Testing.scripts = {
               expect = "A wide one, a thinner one below it, a third below that." },
             { act = "Bottom centre: is there a number to the LEFT of the bars?",
               expect = "The placeholder 100, right-aligned, clear of the bar group." },
-            { act = "On the widest bar: a PALE tick about two fifths across?",
-              expect = "The 40% mark. One pixel wide, against the empty trough." },
             { act = "On the widest bar: a DARK tick about one fifth across?",
-              expect = "The 20% mark. It reads against the fill, so it is only "
-                    .. "visible because debug mode fills the bar." },
+              expect = "The 20% mark, inside the filled part. Debug fills the "
+                    .. "bar to 30% precisely so this tick has fill to read against." },
+            { act = "On the widest bar: a PALE tick about two fifths across?",
+              expect = "The 40% mark, just past where the fill ends, against the "
+                    .. "empty trough. One pixel wide." },
 
             { act = "Top centre: is there a wide thin bar?",
               expect = "The target health bar, wider than the bottom group." },
@@ -144,7 +159,7 @@ Testing.scripts = {
                                 :format(perUnit)
               end },
 
-            { act = "Type /myui outline -- is there a green box around each group?",
+            { act = "Type /myui outline on -- a green box around each group?",
               expect = "Four boxes, each snug around its frame with the name above "
                     .. "it. A box with nothing inside means the frame is placed "
                     .. "right but hidden." },
@@ -161,7 +176,7 @@ Testing.scripts = {
               end },
             { act = "After /myui show off: has the top-centre strip vanished entirely?",
               expect = "TargetStrip rests at alpha 0. The others dim but remain." },
-            { act = "Type /myui show again. Did anything move?",
+            { act = "Type /myui show on again. Did anything move?",
               expect = "Nothing shifts by a pixel. Position is fixed forever." },
         },
     },

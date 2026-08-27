@@ -205,7 +205,12 @@ end
 -- releases. Phase 4 replaces the placeholders with forwarded values.
 
 local PLACEHOLDER = { number = "100", name = "Target Name", level = "73" }
-local DEBUG_FILL = 0.65   -- past the 40% tick, short of full
+-- Between the two ticks, and that is the whole reason for the value. SPEC 2
+-- says the 20% tick "reads against the fill" and the 40% tick "reads against
+-- the empty trough" -- so the only fill that makes BOTH visible at once is one
+-- above 0.20 and below 0.40. The first debug fill was 0.65, which buried the
+-- 40% tick under a 92%-white fill and failed its own acceptance step.
+Frames.DEBUG_FILL = 0.30
 
 function Frames.Placeholders(on)
     if not Frames.built then
@@ -218,10 +223,10 @@ function Frames.Placeholders(on)
         stack.number:SetText(PLACEHOLDER.number)
         strip.name:SetText(PLACEHOLDER.name)
         strip.level:SetText(PLACEHOLDER.level)
-        stack.health:SetValue(DEBUG_FILL)
-        stack.resource:SetValue(DEBUG_FILL)
-        stack.cast:SetValue(DEBUG_FILL)
-        strip.health:SetValue(DEBUG_FILL)
+        stack.health:SetValue(Frames.DEBUG_FILL)
+        stack.resource:SetValue(Frames.DEBUG_FILL)
+        stack.cast:SetValue(Frames.DEBUG_FILL)
+        strip.health:SetValue(Frames.DEBUG_FILL)
     else
         stack.number:SetText("")
         strip.name:SetText("")

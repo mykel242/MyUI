@@ -138,6 +138,11 @@ Two rules the first live run taught, both enforced by tests:
 
 - **One assertion per step.** A step that bundles four things into one question cannot be
   answered: a fail says something was wrong without saying what.
+- **Never depend on a toggle.** A step saying "type /myui show" is unanswerable if the
+  command flips state — run when it was already on, it turns everything off. Steps use the
+  explicit `on` / `off` forms.
+- **An auto-check must verify the screen, not the intent.** Comparing only what the addon
+  asked for lets a check pass over a UI that never changed.
 - **Only ask for what the phase draws.** Phase 1 has no data, so its FontStrings are empty
   and its bars sit at zero — asking whether the health number is visible is asking to see
   something the phase is correct not to draw. The debug toggle now supplies placeholder

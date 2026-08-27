@@ -111,7 +111,31 @@ above is one edit to revisit if it turns out wrong.
 
 ---
 
-## Phase 1: first acceptance run, 2026-08-27
+## Phase 1: second acceptance run, 2026-08-27 15:57
+
+**10 passed, 5 failed — and the screenshots prove the frames are correct.** The health
+number, target name and level, target bar and cast tick all render exactly where SPEC puts
+them. Measured off the screenshot, the 20% tick sits at 20.1% of the bar's width.
+
+Three separate faults, all in the tooling:
+
+- **`/myui show` is a toggle**, and the script said "Type /myui show" as though it were
+  idempotent. Run when the state was already on, it turned everything *off* — which is why
+  the bars stayed faint and the target strip stayed invisible until a later `show` flipped
+  it back. The script now says `show on` and `show off` explicitly.
+- **The auto-check could pass while the screen was unchanged.** It compared only the
+  registry's intent, so it reported "4 frames targeted at 1" over a UI that was still at
+  resting alpha. It now checks the frame's real alpha too, falling back to intent only when
+  the alpha is genuinely unreadable — and saying which it did.
+- **The debug fill was 0.65**, which buried the 40% tick under a 92%-white fill. SPEC says
+  the 20% tick reads against the fill and the 40% tick against the empty trough, so the only
+  fill showing both is one between them. It is 0.30, and a test asserts the range rather
+  than the number.
+
+Auto-checks are also re-evaluated the moment a command changes state, so a latched pass
+records the step it belongs to rather than whatever was true when the report ran.
+
+## Phase 1: first acceptance run, 2026-08-27 15:45
 
 **6 passed, 3 failed — and all three failures were the test script's fault, not the
 addon's.** The bars, the target bar and the rail hairline all rendered where SPEC puts

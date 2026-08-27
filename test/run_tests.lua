@@ -393,10 +393,19 @@ check("  including the one that rests at zero", Compat.Get(strip, "GetAlpha") ==
 ns.Frames.Placeholders(true)
 check("debug fills the strings so their geometry can be judged",
       stack.number:GetText() == "100" and strip.name:GetText() == "Target Name")
-check("  and gives the bars a nominal value so the dark tick reads",
+-- The debug fill has to sit BETWEEN the two ticks. SPEC 2 says the 20% tick
+-- reads against the fill and the 40% tick reads against the empty trough, so
+-- only a value above 0.20 and below 0.40 makes both visible at once. The first
+-- attempt used 0.65 and buried the 40% tick under a 92%-white fill.
+check("debug fill sits between the two ticks",
+      ns.Frames.DEBUG_FILL > 0.20 and ns.Frames.DEBUG_FILL < 0.40,
+      ns.Frames.DEBUG_FILL)
+check("  and is applied to the bars",
       (function()
           for _, c in ipairs(stack.health.__calls) do
-              if c.method == "SetValue" and c[1] == 0.65 then return true end
+              if c.method == "SetValue" and c[1] == ns.Frames.DEBUG_FILL then
+                  return true
+              end
           end
           return false
       end)())
@@ -591,10 +600,25 @@ end)())
 Registry.ForceVisible(true)
 Testing.results = {}
 Testing.Recheck()
+-- Regression: the check used to compare only the registry's intent, so it
+-- reported success while the screen was unchanged. It must now notice when a
+-- frame's real alpha disagrees with what we asked for.
+Registry.Get("SelfStack").frame:SetAlpha(0.35)
+Testing.results = {}
+Testing.Recheck()
+check("a frame whose real alpha disagrees is caught",
+      Testing.results[Testing.IndexOf("show")].verdict == "fail",
+      Testing.results[Testing.IndexOf("show")].detail)
+Registry.ForceVisible(true)
+Testing.Recheck()
+
 check("auto-check passes when the frames are forced visible",
       Testing.results[SHOW] and Testing.results[SHOW].verdict == "pass",
       Testing.results[SHOW] and Testing.results[SHOW].detail)
 check("  and is marked as decided automatically", Testing.results[SHOW].auto == true)
+check("  saying it verified the screen, not just the intent",
+      Testing.results[SHOW].detail:find("verified on screen", 1, true) ~= nil,
+      Testing.results[SHOW].detail)
 check("  while the show-off step correctly fails",
       Testing.results[SHOWOFF] and Testing.results[SHOWOFF].verdict == "fail")
 
