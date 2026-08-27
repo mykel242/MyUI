@@ -1,0 +1,15 @@
+## Interface: 120100
+## Title: MyUI
+## Notes: A HUD that isn't there. Every element is summoned; nothing is permanent.|nPhase 0: skeleton and compliance harness.
+## Author: mykel
+## Version: 0.1.0-phase0
+## SavedVariables: MyUIDB
+## X-Phase: 0
+## X-Retail-Only: true
+
+Compat.lua
+Core.lua
+Guard.lua
+Registry.lua
+Rules.lua
+Commands.lua
