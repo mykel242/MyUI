@@ -273,6 +273,56 @@ threshold, and a fifth mechanism outside RULES.md.
 **Recommendation: step curves.** They stay inside the existing rules, keep the threshold
 ours, and are the technique a shipped 12.1 addon already relies on.
 
+## 7. Hiding Blizzard's player frame: rolesets, not Hide()
+
+The design implies a bare screen (the mock's backdrop has no Blizzard UI at all). Most of
+that is Edit Mode configuration the player can do: `EditModeAccountSetting` carries
+`ShowTargetAndFocus`, `ShowCastBar`, `ShowBuffsAndDebuffs`, `ShowPartyFrames`,
+`ShowRaidFrames`, `ShowBossFrames` and more, and each action bar has a `VisibleSetting`.
+
+**There is no setting for the player frame.** Twenty-three `EditModeUnitFrameSetting`
+values and thirty-six account settings, and the closest is `HidePortrait`. It is the one
+element only an addon can remove — and it sits directly under what Phase 4 draws.
+
+### The technique changed at 12.1
+
+Two approaches in the audited addons, and the split is by TOC version:
+
+```lua
+-- ShadowedUnitFrames, TOC 30300 (pre-12.1)
+PlayerFrame:UnregisterAllEvents()
+PlayerFrame:Hide()
+
+-- oUF, TOC 120100
+frame:UnregisterAllEvents()
+frame:SetRolesets('alwaysBlocked')     -- and no Hide() at all
+```
+
+oUF is the only one of the four claiming 12.1 support, and it **stopped calling `Hide()`**.
+That is worth taking seriously as a signal about what still works.
+
+### Why an undefined roleset name is the point
+
+`Frame:IsRolesetFiltered()` is documented as "returns whether this frame is hidden because
+of its rolesets being filtered" — the roleset system is a real visibility gate, separate
+from `Hide()`. A frame tagged with a roleset that no active UI mode includes is filtered
+out and stays hidden.
+
+The Rebar project's note that `"alwaysBlocked"` does not exist in 12.1 is factually correct
+— it appears nowhere in the source. But that is not a mistake in oUF: **the name existing
+is not required, and its not existing is exactly what makes it work.** Any string no
+roleset matches would do; `alwaysBlocked` is a self-documenting one. The real rolesets are
+`actionBars, alwaysIncluded, bags, buffs, chat, cooldownViewers, encounterUI,
+extraAbilities, microMenu, minimap, objectives, pvp, statusBars, unitFrames, widgets`.
+
+### The one thing to verify in game before Phase 4 relies on it
+
+`SetRolesets` is declared `IsProtectedFunction = true`
+(`SimpleFrameAPIDocumentation.lua:1458`), and `PlayerFrame` is a protected frame. oUF calls
+it unprotected, with no pcall and no version guard, which suggests it is permitted in
+practice — but that is inference from someone else's shipping code, not something read off
+the API. **Test it before building on it.**
+
 ## 5. Cooldown Manager
 
 `Interface/AddOns/Blizzard_CooldownViewer` (and `Blizzard_CooldownBroadcaster`) exist.

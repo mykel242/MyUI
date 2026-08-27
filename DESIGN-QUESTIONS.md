@@ -12,6 +12,36 @@ needed from you.
 
 ---
 
+## 0. The question the mock answers and the spec never asks
+
+**Whose job is the empty screen?**
+
+The mock's backdrop is a bare screenshot — no action bars, no player frame, no minimap, no
+chat, no bags. The intent is unmistakable. But **Rebar draws four things and the mock
+removes about a dozen**: nothing in the design replaces the action bars, the minimap, the
+chat frame or the bags. So the clean screen is either something Rebar produces, or a
+precondition the player arranges — and the handoff never says which.
+
+**Most of it the player can already do.** Edit Mode hides the target frame, the cast bar,
+buffs and debuffs, party/raid/boss/arena frames natively, and every action bar has a
+visibility setting.
+
+**Except the player frame.** Twenty-three unit-frame settings and thirty-six account
+settings, and not one hides it — only `HidePortrait`. It is the single element nothing but
+an addon can remove, and it sits directly on top of what Phase 4 draws.
+
+There is proven prior art, and it shows the technique changed at 12.1 — see API-NOTES § 7.
+Pre-12.1 addons call `Hide()`; oUF, the one audited addon claiming 12.1 support, stopped
+doing that and tags the frame with a roleset no UI mode includes, letting Blizzard's own
+visibility system filter it out. A few lines, and reversible.
+
+**Needed:** is the bare screen Rebar's output or its assumption? If it is the assumption,
+the mock is showing a configured client and should say so. If it is the output, we need the
+list element by element, and a position on the bars, minimap and chat, which nothing in the
+design replaces.
+
+---
+
 ## A. Verified failures in game
 
 ### A1. The age and the "+N more" count are unreadable — **one deviation shipped**
