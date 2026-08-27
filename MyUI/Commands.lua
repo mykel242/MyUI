@@ -333,8 +333,12 @@ local HANDLERS = {
                 if e.kind == "release" then
                     mark = "|cfff26b61-|r"
                 end
-                ns.Raw(("  %7s  %s %s %s"):format(
-                    when, mark, e.channel, e.frame or "|cffadb1b8(all)|r"))
+                local via = ""
+                if e.via then
+                    via = " |cff73777evia " .. e.via .. "|r"
+                end
+                ns.Raw(("  %7s  %s %s %s%s"):format(
+                    when, mark, e.channel, e.frame or "|cffadb1b8(all)|r", via))
             end
         end
     end,

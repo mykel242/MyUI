@@ -169,8 +169,10 @@ is unavailable in a normal layout, the channel wants either a different default 
 different mechanism, and that is a spec decision. The hold binding is an addition to § 4,
 not something it asked for.
 
-**Not yet verified in game** — the Phase 2 acceptance predates it. Folded into Phase 3's
-script, which exercises the reveal engine anyway.
+**Verified in game 2026-08-27**: the modifier channel arms and releases cleanly, one input
+entry with its three outcomes sharing a timestamp. The log now records `via binding` or
+`via keys` on the claim, because both mechanisms arm the same channel and a log that cannot
+tell them apart invites exactly the guessing it exists to end.
 
 ---
 

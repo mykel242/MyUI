@@ -807,6 +807,21 @@ driver2:Fire("MODIFIER_STATE_CHANGED")
 check("alt no longer reveals once it is deselected", stackEntry.target == 0.35,
       stackEntry.target)
 mock.altDown, mock.shiftDown = false, true
+Reveal.ClearLog()
+driver2:Fire("MODIFIER_STATE_CHANGED")
+check("a key press is logged as coming from the keys, not the binding", (function()
+    for _, e in ipairs(Reveal.log) do
+        if e.kind == "claim" and e.channel == "modifier" then
+            return e.via == "keys", e.via
+        end
+    end
+    return false, "no claim logged"
+end)())
+mock.shiftDown = false
+driver2:Fire("MODIFIER_STATE_CHANGED")
+mock.altDown = true
+driver2:Fire("MODIFIER_STATE_CHANGED")
+mock.altDown, mock.shiftDown = false, true
 driver2:Fire("MODIFIER_STATE_CHANGED")
 check("  while the chosen key still does", stackEntry.target == 1)
 mock.shiftDown = false
@@ -827,9 +842,18 @@ check("an unknown key is refused rather than silently dropped",
 -- reachable by a key the player actually has free.
 run("modifier none")
 check("the held reveal has a binding of its own", type(_G.MyUI_Hold) == "function")
+Reveal.ClearLog()
 _G.MyUI_Hold(true)
 check("holding the bound key claims the same channel", stackEntry.target == 1,
       stackEntry.target)
+check("  and the log says which mechanism armed it", (function()
+    for _, e in ipairs(Reveal.log) do
+        if e.kind == "claim" and e.channel == "modifier" then
+            return e.via == "binding", e.via
+        end
+    end
+    return false, "no claim logged"
+end)())
 check("  crediting the modifier channel", stackEntry.claim == "modifier")
 _G.MyUI_Hold(false)
 check("releasing it lets go", stackEntry.target == 0.35)

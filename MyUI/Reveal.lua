@@ -141,7 +141,10 @@ local function InScope(channel, name)
 end
 
 --- Assert a claim. name omitted claims every frame the channel may reach.
-function Reveal.Claim(channel, name)
+-- via names what armed it, for the log: the modifier channel can be armed by
+-- a modifier key or by the hold binding, and a log that cannot tell them apart
+-- invites exactly the kind of guessing this log exists to end.
+function Reveal.Claim(channel, name, via)
     local alpha = Reveal.CHANNELS[channel]
     if alpha == nil then
         error("no reveal channel " .. tostring(channel), 2)
@@ -169,14 +172,14 @@ function Reveal.Claim(channel, name)
     -- is held, and a log full of "claimed" for a key you pressed once would be
     -- exactly the noise this is meant to remove.
     if changed then
-        Record({ kind = "claim", channel = channel, frame = name })
+        Record({ kind = "claim", channel = channel, frame = name, via = via })
     end
     Reveal.Resolve()
     return true
 end
 
 --- Drop a claim. name omitted releases the channel everywhere.
-function Reveal.Release(channel, name)
+function Reveal.Release(channel, name, via)
     local changed = false
     if name then
         if claims[name] and claims[name][channel] ~= nil then
@@ -192,7 +195,7 @@ function Reveal.Release(channel, name)
         end
     end
     if changed then
-        Record({ kind = "release", channel = channel, frame = name })
+        Record({ kind = "release", channel = channel, frame = name, via = via })
     end
     Reveal.Resolve()
 end
@@ -462,9 +465,9 @@ end
 
 local function OnModifier()
     if AnyModifierDown() then
-        Reveal.Claim("modifier")
+        Reveal.Claim("modifier", nil, "keys")
     else
-        Reveal.Release("modifier")
+        Reveal.Release("modifier", nil, "keys")
     end
 end
 
@@ -482,9 +485,9 @@ Reveal.AnyModifierDown = AnyModifierDown
 -- gives both edges; Blizzard's MOVEFORWARD uses the identical shape.
 function MyUI_Hold(down)
     if down then
-        ns.Reveal.Claim("modifier")
+        ns.Reveal.Claim("modifier", nil, "binding")
     else
-        ns.Reveal.Release("modifier")
+        ns.Reveal.Release("modifier", nil, "binding")
     end
 end
 
