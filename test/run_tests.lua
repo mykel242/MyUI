@@ -44,6 +44,18 @@ section("Load")
 -- ---------------------------------------------------------------------------
 
 check("every file in the TOC was loaded", #ns.__loadedFiles == 7, #ns.__loadedFiles)
+
+-- Each delivered phase gets an annotated git tag named after the TOC version,
+-- so these three must agree before one is cut. They drift silently otherwise,
+-- and the tag is the thing a cold pickup trusts.
+local toc = ns.__toc
+check("TOC targets retail 12.1 only", toc.Interface == "120100", toc.Interface)
+check("TOC saves to MyUIDB", toc.SavedVariables == "MyUIDB", toc.SavedVariables)
+check("TOC version carries the phase suffix",
+      toc.Version:match("%-phase(%d+)$") == toc["X-Phase"],
+      toc.Version .. " vs X-Phase " .. tostring(toc["X-Phase"]))
+check("  and the addon agrees with it",
+      tonumber(toc["X-Phase"]) == ns.phase, toc["X-Phase"] .. " vs " .. tostring(ns.phase))
 for _, mod in ipairs({ "Compat", "Guard", "Registry", "Rules", "Copy" }) do
     check("  ns." .. mod .. " exists", ns[mod] ~= nil)
 end

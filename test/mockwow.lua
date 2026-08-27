@@ -312,11 +312,14 @@ end
 function M.loadAddon(dir)
     local toc = assert(io.open(dir .. "/MyUI.toc", "r"),
                        "cannot open " .. dir .. "/MyUI.toc")
-    local files = {}
+    local files, meta = {}, {}
     for line in toc:lines() do
         local name = line:match("^%s*([%w_%-]+%.lua)%s*$")
         if name then
             files[#files + 1] = name
+        else
+            local key, value = line:match("^##%s*([%w%-]+)%s*:%s*(.-)%s*$")
+            if key then meta[key] = value end
         end
     end
     toc:close()
@@ -329,6 +332,7 @@ function M.loadAddon(dir)
         chunk("MyUI", ns)
     end
     ns.__loadedFiles = files
+    ns.__toc = meta
     return ns
 end
 

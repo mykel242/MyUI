@@ -11,7 +11,7 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | Phase | State |
 |---|---|
 | -1 — Ground truth | **Complete.** Three corrections to the handoff, recorded with citations |
-| 0 — Skeleton and compliance harness | **Complete offline.** Never loaded by the client |
+| 0 — Skeleton and compliance harness | **Delivered** — `v0.1.0-phase0`, verified in game |
 | 1 — Anchors and frame registry | Not started |
 | 2 — Reveal engine | Not started |
 | 3 — Rail | Not started |
@@ -20,18 +20,16 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### The two things waiting on you
+### The one thing waiting on you
 
-**1. Phase 0's in-game acceptance has never been run.** Deploy and `/reload`. Expected:
-zero Lua errors, nothing visible on screen, `/myui audit` reporting an empty registry and
-a clean guard.
+**SPEC § 3 needs a decision.** The probe has run; the answer is below. It blocks Phase 4
+only — Phases 1 to 3 can proceed either way.
+
+Deploying a build:
 
 ```sh
-python3 ~/Development/cc-addon/wowaddons.py --dev MyUI ~/Development/MyUI
 python3 ~/Development/cc-addon/wowaddons.py --update MyUI
 ```
-
-**2. SPEC § 3 needs a decision.** The probe has run and the answer is below.
 
 ---
 
@@ -134,7 +132,9 @@ traces to a citation in `API-NOTES-12.1.md`.
 ## If picking up cold
 
 1. Read this file, then `API-NOTES-12.1.md`, then the handoff's `RULES.md` and `SPEC.md`.
-2. `./smoke.sh`.
-3. Deploy and run Phase 0's in-game acceptance.
-4. `/myui conditionals`, and settle SPEC § 3.
-5. Then Phase 1: `Scale.lua` and the frame registry from SPEC § 2.
+2. `./smoke.sh`, and `git tag -n99` for what each delivered phase actually contains.
+3. Settle SPEC § 3 — the decision above.
+4. Then Phase 1: `Scale.lua` and the frame registry from SPEC § 2.
+
+A phase is delivered when smoke is clean, `/myui audit` is clean in game, PLAN.md's
+acceptance test for it passes in game, and the tag is cut. See README for the convention.

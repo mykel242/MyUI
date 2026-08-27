@@ -114,6 +114,27 @@ cmd-C, escape. Use this when a reload is inconvenient.
 stream rather than just this addon, and whether it picks up addon `AddMessage` output is
 worth confirming before relying on it.
 
+## Phase tags
+
+Every delivered phase gets an annotated tag named after the TOC version:
+
+```
+v0.1.0-phase0    skeleton and compliance harness
+```
+
+The tag message records what the phase shipped, **what was verified in game versus only
+offline**, and what is still open. That distinction is the point — a phase can be green on
+116 offline checks and still have never met the client.
+
+A phase is delivered when all four hold:
+
+1. `./smoke.sh` clean
+2. `/myui audit` clean in game
+3. PLAN.md's acceptance test for that phase passes, in game
+4. the tag is cut
+
+There is no remote yet, so tags are local. Add one and `git push --follow-tags`.
+
 ## Running the tests
 
 `luajit` (Lua 5.1, matching the game client) and Python 3. Nothing else.
