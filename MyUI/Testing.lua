@@ -387,6 +387,14 @@ Testing.scripts = {
             { act = "Compare the lower dots with the top two.",
               expect = "The lower ones are visibly dimmer." },
 
+            -- The palette is light-on-dark and the dim greys lose to mid-tone
+            -- terrain in both directions. A shadow cannot fix a contrast
+            -- problem, only an edge problem.
+            { act = "Read the age on the top row and the count beside the square.",
+              expect = "Both legible against the ground you are standing on. If "
+                    .. "not, try /myui contrast lift and answer again -- SPEC 6 "
+                    .. "names that exact grey, so a fail here is a spec finding." },
+
             { act = "Type /myui notify green Urgent, then /myui notify dismiss "
                  .. "before four seconds pass.",
               expect = "The toast collapses immediately rather than waiting." },

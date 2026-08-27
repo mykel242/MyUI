@@ -127,6 +127,15 @@ than imposed. A structural test fails the build if any module creates a FontStri
 the helper, because such a string would miss the treatment and the miss would only show up
 on a bright backdrop.
 
+**The dim greys need more than a shadow.** `textTertiary` is `rgba(115,119,126,1)` — a
+mid-grey. Against the mid-brown of ordinary terrain it has almost no contrast in either
+direction, and a shadow cannot fix that: a shadow solves an edge problem, not a contrast
+one. The age and the "+N more" count were reported unreadable in game.
+
+`/myui contrast lift` moves dim text one step up the palette — tertiary to secondary,
+secondary to primary. Still SPEC § 7, no fifteenth colour, off by default. **SPEC § 6 names
+`rgba(115,119,126,1)` for the age specifically, so this is a spec conflict, not a bug.**
+
 **Not fixed for the dots.** The two named dots are at full alpha but their hues are pale
 pastels, and the six older ones sit at the specified 0.4 — over bright gold they are all
 faint. Options, none of them mine to choose:

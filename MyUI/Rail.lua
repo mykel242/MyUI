@@ -133,13 +133,27 @@ local function BuildSlot(rail, index)
     slot.dot:SetSize(U(Rail.DOT), U(Rail.DOT))
     slot.dot:SetPoint("TOPLEFT")
 
+    -- Name and age live in a child frame so their alpha can be animated as a
+    -- unit: the row has to fade IN as the toast fades out, or the changeover at
+    -- four seconds reads as a blink.
+    slot.text = CreateFrame("Frame", nil, slot)
+    slot.text:SetAllPoints()
+
     -- Only the two newest use these, but every slot owns them: creating widgets
     -- when a notification arrives would mean allocating in combat.
-    slot.name = ns.Frames.Text(slot, 11, "textPrimary", "LEFT")
+    slot.name = ns.Frames.Text(slot.text, 11, "textPrimary", "LEFT")
     slot.name:SetPoint("LEFT", slot.dot, "RIGHT", U(TEXT_GAP), 0)
 
-    slot.age = ns.Frames.Text(slot, 10, "textTertiary", "RIGHT")
-    slot.age:SetPoint("RIGHT", slot, "RIGHT", 0, 0)
+    slot.age = ns.Frames.Text(slot.text, 10, "textTertiary", "RIGHT")
+    slot.age:SetPoint("RIGHT", slot.text, "RIGHT", 0, 0)
+
+    local fade = slot.text:CreateAnimationGroup()
+    local alpha = fade:CreateAnimation("Alpha")
+    alpha:SetDuration(Rail.TOAST_OUT)
+    alpha:SetFromAlpha(0)
+    alpha:SetToAlpha(1)
+    fade:SetScript("OnFinished", function() slot.text:SetAlpha(1) end)
+    slot.fade = fade
 
     slot:Hide()
     return slot
@@ -220,8 +234,9 @@ local function BuildToast(rail)
     fadeOut:SetToAlpha(0)
     collapse:SetScript("OnFinished", function()
         frame:Hide()
+        frame:SetAlpha(1)
         Rail.toasting = nil
-        -- The row underneath takes over the moment the toast is gone.
+        -- The row has already faded in alongside; this only tidies up.
         Rail.Refresh()
     end)
     frame.collapse = collapse
@@ -274,19 +289,16 @@ function Rail.Refresh()
                 -- row expanded, and drawing both gives you the notification
                 -- twice, overlapping itself.
                 if i == 1 and Rail.toasting == item then
-                    slot.name:Hide()
-                    slot.age:Hide()
+                    slot.text:Hide()
                 else
-                    slot.name:Show()
-                    slot.age:Show()
+                    slot.text:Show()
                 end
             else
                 -- "Older items are the dot alone at alpha 0.4."
                 slot.dot:SetAlpha(Rail.OLD_ALPHA)
                 slot.name:SetText("")
                 slot.age:SetText("")
-                slot.name:Hide()
-                slot.age:Hide()
+                slot.text:Hide()
             end
         end
     end
@@ -345,12 +357,28 @@ function Rail.Collapse()
     Rail.toastUntil = nil
     toast.entrance:Stop()
     Rail.AnchorToast(0)
+
+    -- Cross-fade, not a swap. The toast and the row it collapses into hold the
+    -- same text in the same place, so revealing the row only after the toast
+    -- has finished fading leaves a gap where neither is drawn -- which reads as
+    -- the text blinking once, four seconds after the notification.
+    Rail.Refresh()
+    if slots[1] and slots[1]:IsShown() then
+        slots[1].text:SetAlpha(0)
+        slots[1].fade:Play()
+    end
     toast.collapse:Play()
     return true
 end
 
 function Rail.IsToasting()
     return Rail.toasting ~= nil
+end
+
+--- Is a row's text currently drawn? The dot is separate and always drawn.
+function Rail.RowVisible(index)
+    local slot = slots and slots[index]
+    return slot ~= nil and slot:IsShown() and slot.text:IsShown()
 end
 
 -- ---------------------------------------------------------------------------

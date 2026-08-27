@@ -55,6 +55,36 @@ function Frames.TextStyle()
     return "shadow"
 end
 
+-- A shadow rescues light text on a light backdrop. It does nothing for the dim
+-- greys: textTertiary is rgba(115,119,126,1), a mid-grey, and mid-grey on the
+-- mid-brown of a cave floor has almost no contrast in either direction. SPEC 6
+-- names that exact value for the age, so this is a spec conflict rather than an
+-- implementation bug -- but the age and the "+N more" count are unreadable in
+-- ordinary terrain, so there is a way to lift them.
+--
+-- Lifting moves dim text one step UP the palette. No fifteenth colour, and
+-- nothing outside SPEC 7.
+Frames.CONTRAST_LEVELS = { normal = true, lift = true }
+
+local LIFT = {
+    textTertiary  = "textSecondary",
+    textSecondary = "textPrimary",
+}
+
+function Frames.Contrast()
+    if ns.db and ns.db.contrast and Frames.CONTRAST_LEVELS[ns.db.contrast] then
+        return ns.db.contrast
+    end
+    return "normal"
+end
+
+local function ResolveColor(name)
+    if Frames.Contrast() == "lift" and LIFT[name] then
+        return LIFT[name]
+    end
+    return name
+end
+
 --- Apply the current legibility treatment to one string.
 local function Legible(fs, size)
     local style = Frames.TextStyle()
@@ -78,8 +108,9 @@ end
 function Frames.Text(parent, size, colorName, justify)
     local fs = parent:CreateFontString(nil, "OVERLAY")
     fs.__size = size
+    fs.__color = colorName
     Legible(fs, size)
-    fs:SetTextColor(Palette.Get(colorName))
+    fs:SetTextColor(Palette.Get(ResolveColor(colorName)))
     fs:SetJustifyH(justify)
     Frames.strings = Frames.strings or {}
     Frames.strings[#Frames.strings + 1] = fs
@@ -92,6 +123,7 @@ local Text = Frames.Text
 function Frames.RestyleText()
     for _, fs in ipairs(Frames.strings or {}) do
         Legible(fs, fs.__size)
+        fs:SetTextColor(Palette.Get(ResolveColor(fs.__color)))
     end
 end
 

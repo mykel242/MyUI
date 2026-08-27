@@ -220,6 +220,7 @@ local COMMANDS = {
     { "modifier",     "which keys reveal the HUD: alt shift ctrl, or none" },
     { "notify",       "feed the rail: <type> [name] [count] | demo | clear | dismiss" },
     { "text",         "legibility over bright scenery: shadow | outline | none" },
+    { "contrast",     "lift the dim greys one palette step: normal | lift" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -264,6 +265,25 @@ local HANDLERS = {
     -- notification. Rather than invent a data binding the design did not ask
     -- for, Phase 3 ships this as the source, which is also what the acceptance
     -- test needs: eight at once, on demand.
+    contrast     = function(arg)
+        local Frames = ns.Frames
+        if arg and Frames.CONTRAST_LEVELS[arg] then
+            if ns.db then
+                ns.db.contrast = arg
+            end
+            Frames.RestyleText()
+        elseif arg and arg ~= "" then
+            ns.Print(("unknown level %q -- normal or lift"):format(arg))
+            return
+        end
+        ns.Print("contrast: |cfff0f1f3" .. Frames.Contrast() .. "|r")
+        ns.Raw("  A shadow rescues light text on a light backdrop and does nothing "
+               .. "for the dim greys.")
+        ns.Raw("  |cffadb1b8lift|r moves tertiary to secondary and secondary to "
+               .. "primary -- still SPEC 7, no fifteenth colour.")
+        ns.Raw("  SPEC 6 names rgba(115,119,126,1) for the age specifically, so "
+               .. "this is a spec conflict, not a bug.")
+    end,
     text         = function(arg)
         local Frames = ns.Frames
         if arg and Frames.TEXT_STYLES[arg] then

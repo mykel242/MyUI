@@ -975,11 +975,15 @@ end)())
 -- SPEC 6: the two newest carry text; older items are the dot alone at 0.4.
 Rail.Clear()
 for i = 1, 5 do Rail.Add("blue", "Item " .. i) end
+-- SPEC 6 describes the rows "at rest", so settle the toast first: while one is
+-- speaking, the row it stands in for is deliberately not drawn.
+Rail.Collapse()
+Rail.slots[1].fade:Finish()
+Rail.toastFrame.collapse:Finish()
 check("exactly two rows carry text", (function()
     local withText = 0
     for i = 1, Rail.CAP do
-        local t = Rail.slots[i].name:GetText()
-        if t and t ~= "" then withText = withText + 1 end
+        if Rail.RowVisible(i) then withText = withText + 1 end
     end
     return withText == Rail.NAMED
 end)())
@@ -1141,19 +1145,30 @@ check("  borrowing the first slot's instead", (function()
     return p[2] == Rail.slots[1].dot
 end)())
 check("the row it stands in for is not drawn underneath it",
-      not Rail.slots[1].name:IsShown())
+      not Rail.RowVisible(1))
 check("  though the dot stays, since the toast collapses into it",
       Rail.slots[1].dot ~= nil and Rail.slots[1]:IsShown())
 check("  and the second row is unaffected", (function()
     Rail.Add("amber", "Older")
     Rail.Add("green", "Newest")
-    return Rail.slots[2].name:IsShown()
+    return Rail.RowVisible(2)
 end)())
 
+-- The changeover has to be a cross-fade. Revealing the row only after the
+-- toast finished fading left a gap where neither was drawn, which reads as the
+-- text blinking once, four seconds after the notification.
 Rail.Collapse()
+check("the row is drawn the instant the collapse begins", Rail.RowVisible(1))
+check("  starting transparent so the two cross-fade",
+      Compat.Get(Rail.slots[1].text, "GetAlpha") == 0,
+      Compat.Get(Rail.slots[1].text, "GetAlpha"))
+check("  fading in over the same 200ms the toast fades out",
+      Rail.slots[1].fade:IsPlaying())
+Rail.slots[1].fade:Finish()
+check("  and settling at full", Compat.Get(Rail.slots[1].text, "GetAlpha") == 1)
 Rail.toastFrame.collapse:Finish()
-check("the row appears once the toast has collapsed into it",
-      Rail.slots[1].name:IsShown())
+check("the row remains once the toast has collapsed into it",
+      Rail.RowVisible(1))
 check("  carrying the same text the toast had",
       Rail.slots[1].name:GetText() == "Newest")
 
@@ -1209,6 +1224,7 @@ end)())
 Rail.toastFrame.collapse:Finish()
 Rail.Clear()
 check("clearing empties the rail", #Rail.items == 0 and not Rail.slots[1]:IsShown())
+check("  and no row text survives it", not Rail.RowVisible(1))
 
 -- ---------------------------------------------------------------------------
 section("Core -- saved variables")
