@@ -823,6 +823,41 @@ driver2:Fire("MODIFIER_STATE_CHANGED")
 check("an unknown key is refused rather than silently dropped",
       select(1, Reveal.SetModifiers({ "meta" })) == nil)
 
+-- With every modifier already bound to an ability row, the channel has to be
+-- reachable by a key the player actually has free.
+run("modifier none")
+check("the held reveal has a binding of its own", type(_G.MyUI_Hold) == "function")
+_G.MyUI_Hold(true)
+check("holding the bound key claims the same channel", stackEntry.target == 1,
+      stackEntry.target)
+check("  crediting the modifier channel", stackEntry.claim == "modifier")
+_G.MyUI_Hold(false)
+check("releasing it lets go", stackEntry.target == 0.35)
+check("  and it works with key detection off entirely",
+      next(Reveal.Modifiers()) == nil)
+
+check("both bindings are named for the keybinding UI",
+      _G.BINDING_NAME_MYUI_HOLD ~= nil and _G.BINDING_NAME_MYUI_PEEK ~= nil
+      and _G.BINDING_HEADER_MYUI ~= nil)
+
+-- Bindings.xml is read straight off disk: it is the one file the client loads
+-- that the addon never sees, so nothing else can check it.
+local bindings = assert(io.open("../MyUI/Bindings.xml")):read("*a")
+check("the hold binding asks for both key edges",
+      bindings:match('name="MYUI_HOLD"[^>]*runOnUp="true"') ~= nil)
+check("  and reads keystate to tell them apart",
+      bindings:find('keystate == "down"', 1, true) ~= nil)
+check("the peek binding does not, since a tap is one edge",
+      bindings:match('name="MYUI_PEEK"[^>]*runOnUp') == nil)
+
+-- The rule that cost the Rebar project real time: the client loads
+-- Bindings.xml by filename, and listing it in the TOC sends the same file
+-- through the ordinary XML parser too, which rejects every attribute on
+-- <Binding> so no binding registers at all.
+local toc = assert(io.open("../MyUI/MyUI.toc")):read("*a")
+check("Bindings.xml is NOT listed in the TOC",
+      not toc:find("Bindings.xml", 1, true))
+
 run("modifier alt shift")
 check("the setting persists to saved variables",
       _G.MyUIDB.modifiers.alt and _G.MyUIDB.modifiers.shift)

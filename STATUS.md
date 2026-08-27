@@ -146,13 +146,31 @@ claim state really changes so a held key does not spam. (Re-reading the original
 modifier, so Alt was held throughout — which does point back to re-attribution. But that is
 inference, and the point is that it no longer has to be.)
 
-**SPEC § 4's default modifier is unusable for many players.** Alt and Shift are what most
-people bind ability modifiers to, so a HUD keyed to them flashes on every modified cast in
-a fight — the same incidental-reveal problem the 140ms dwell exists to prevent, arriving
-through a different door. Which keys arm the channel is now configurable and can be turned
-off entirely: `/myui modifier alt shift ctrl` or `/myui modifier none`, persisted. The
-default remains SPEC's Alt or Shift. **Worth raising with the designer** — a channel whose
-default conflicts with common keybinds may want a different default.
+**SPEC § 4's modifier channel conflicts with ordinary keybinds.** Not just the default —
+the whole mechanism. On this machine `Ctrl+1-6` is the top action row, `Alt+1-6` the
+middle, and bare `1-n` the bottom. That is a completely conventional three-row layout, and
+it leaves no modifier free. A HUD keyed to one reveals itself on every modified cast in a
+fight, which is the incidental-reveal problem the 140ms dwell exists to prevent, arriving
+through a different door.
+
+Two answers, both shipped:
+
+- `/myui modifier alt shift ctrl` chooses the keys, `/myui modifier none` disables
+  detection. Persisted; default remains SPEC's Alt or Shift.
+- **A bindable "Hold to reveal" key**, so the channel need not be a modifier at all. It
+  arms the same `modifier` channel, and `runOnUp="true"` with `keystate` gives both edges
+  of the key — the identical shape Blizzard uses for `MOVEFORWARD` and the ping listener.
+
+Recommended for a layout like this one: `/myui modifier none`, then bind **MyUI → Hold to
+reveal** to any free key.
+
+**Worth raising with the designer.** SPEC names Alt and Shift specifically. If a modifier
+is unavailable in a normal layout, the channel wants either a different default or a
+different mechanism, and that is a spec decision. The hold binding is an addition to § 4,
+not something it asked for.
+
+**Not yet verified in game** — the Phase 2 acceptance predates it. Folded into Phase 3's
+script, which exercises the reveal engine anyway.
 
 ---
 

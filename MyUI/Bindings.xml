@@ -3,7 +3,17 @@
          listing it sends the same file through the ordinary UI XML parser too,
          which does not know the <Binding> element and reports every attribute
          on it as unrecognised, so the bindings never register at all. -->
-    <Binding name="MYUI_PEEK" header="MYUI" category="MyUI">
+
+    <!-- runOnUp gives us both edges of the key, with keystate telling us which.
+         Blizzard's own MOVEFORWARD and TOGGLEPINGLISTENER use this exact shape.
+         It is what lets the held reveal be ANY key rather than a modifier: Alt,
+         Ctrl and Shift are all commonly bound to ability rows, so a HUD keyed
+         to them flashes on every modified cast. -->
+    <Binding name="MYUI_HOLD" runOnUp="true" header="MYUI" category="MyUI">
+        MyUI_Hold(keystate == "down")
+    </Binding>
+
+    <Binding name="MYUI_PEEK" category="MyUI">
         MyUI_Peek()
     </Binding>
 </Bindings>

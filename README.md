@@ -66,7 +66,7 @@ MyUI/                 the addon
   Frames.lua          SPEC.md 2, built once at its permanent anchor
   Reveal.lua          SPEC.md 4: four channels, one arbiter, the only OnUpdate
   Peek.lua            tap-to-peek and its drain clock
-  Bindings.xml        the peek key -- loaded by filename, NOT in the TOC
+  Bindings.xml        peek and hold-to-reveal -- loaded by filename, NOT in the TOC
   Outline.lua         diagnostic boxes: placed wrong, or hidden?
   Testing.lua         the in-game acceptance checklist, per phase
   Rules.lua           the forbidden list, printable in game

@@ -470,6 +470,26 @@ end
 
 Reveal.AnyModifierDown = AnyModifierDown
 
+-- The held reveal, as a binding rather than a modifier key.
+--
+-- SPEC 4 names Alt or Shift, but in a normal keybind layout every modifier is
+-- already spoken for -- Ctrl+1-6, Alt+1-6 and bare 1-n is an ordinary three-row
+-- setup, and Shift is usually taken too. A HUD keyed to a modifier then reveals
+-- itself on every modified cast in a fight, which is the incidental-reveal
+-- problem the 140ms dwell exists to prevent, arriving through a different door.
+--
+-- So the same channel can be armed by any key the player has free. runOnUp
+-- gives both edges; Blizzard's MOVEFORWARD uses the identical shape.
+function MyUI_Hold(down)
+    if down then
+        ns.Reveal.Claim("modifier")
+    else
+        ns.Reveal.Release("modifier")
+    end
+end
+
+_G.BINDING_NAME_MYUI_HOLD = "Hold to reveal"
+
 local function OnTargetChanged()
     local exists = _G.UnitExists and _G.UnitExists("target")
     if exists then

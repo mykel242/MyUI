@@ -283,9 +283,12 @@ local HANDLERS = {
         else
             ns.Print("modifier reveal: |cfff0f1f3" .. table.concat(active, " + ") .. "|r")
         end
-        ns.Raw("  Alt and Shift are SPEC's default, but they are also what most "
-               .. "players bind abilities to.")
-        ns.Raw("  |cffadb1b8/myui modifier none|r turns the channel off entirely.")
+        ns.Raw("  Alt and Shift are SPEC's default, but in a normal layout every "
+               .. "modifier is already bound to an ability row.")
+        ns.Raw("  |cffadb1b8/myui modifier none|r turns key detection off; then bind "
+               .. "|cfff0f1f3MyUI -> Hold to reveal|r")
+        ns.Raw("  to any free key and the same channel works without fighting your "
+               .. "keybinds.")
     end,
     claims       = function(arg)
         local Reveal = ns.Reveal
