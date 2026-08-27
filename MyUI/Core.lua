@@ -32,6 +32,9 @@ local function FreshDB()
         -- default is Alt or Shift; players who bind those to abilities need
         -- to change or disable it.
         modifiers   = { alt = true, shift = true },
+        -- How the small type survives a bright backdrop. SPEC's palette is
+        -- light-on-dark and washes out over sand or firelight.
+        textStyle   = "shadow",
         guard  = { mode = "strict" },
     }
 end
@@ -68,6 +71,7 @@ local function Migrate(db)
     db.alpha = db.alpha or {}
     db.guard = db.guard or { mode = "strict" }
     db.modifiers = db.modifiers or { alt = true, shift = true }
+    db.textStyle = db.textStyle or "shadow"
     return db
 end
 

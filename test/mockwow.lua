@@ -140,6 +140,7 @@ function M.frame(spec)
         "StopMovingOrSizing", "SetJustifyH", "SetMinMaxValues", "SetFont",
         "SetTextColor", "SetStatusBarTexture", "SetDrawLayer",
         "SetDuration", "SetFromAlpha", "SetToAlpha", "SetOffset", "SetOrder",
+        "SetShadowColor", "SetShadowOffset",
         "SetSmoothing", "ClearAllPoints",
     }) do
         f[method] = setter(method)

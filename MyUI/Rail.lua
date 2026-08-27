@@ -127,16 +127,10 @@ local function BuildSlot(rail, index)
 
     -- Only the two newest use these, but every slot owns them: creating widgets
     -- when a notification arrives would mean allocating in combat.
-    slot.name = slot:CreateFontString(nil, "OVERLAY")
-    slot.name:SetFont(ns.Frames.FONT, U(11), "")
-    slot.name:SetTextColor(Palette.Get("textPrimary"))
-    slot.name:SetJustifyH("LEFT")
+    slot.name = ns.Frames.Text(slot, 11, "textPrimary", "LEFT")
     slot.name:SetPoint("LEFT", slot.dot, "RIGHT", U(TEXT_GAP), 0)
 
-    slot.age = slot:CreateFontString(nil, "OVERLAY")
-    slot.age:SetFont(ns.Frames.FONT, U(10), "")
-    slot.age:SetTextColor(Palette.Get("textTertiary"))
-    slot.age:SetJustifyH("RIGHT")
+    slot.age = ns.Frames.Text(slot, 10, "textTertiary", "RIGHT")
     slot.age:SetPoint("RIGHT", slot, "RIGHT", 0, 0)
 
     slot:Hide()
@@ -167,10 +161,7 @@ local function BuildOverflow(rail)
         frame.edges[side] = edge
     end
 
-    frame.label = frame:CreateFontString(nil, "OVERLAY")
-    frame.label:SetFont(ns.Frames.FONT, U(10), "")
-    frame.label:SetTextColor(Palette.Get("textTertiary"))
-    frame.label:SetJustifyH("LEFT")
+    frame.label = ns.Frames.Text(frame, 10, "textTertiary", "LEFT")
     frame.label:SetPoint("LEFT", frame, "LEFT", U(Rail.DOT) + U(TEXT_GAP), 0)
 
     frame:Hide()
@@ -190,10 +181,7 @@ local function BuildToast(rail)
     frame.dot:SetSize(U(Rail.DOT), U(Rail.DOT))
     frame.dot:SetPoint("LEFT")
 
-    frame.label = frame:CreateFontString(nil, "OVERLAY")
-    frame.label:SetFont(ns.Frames.FONT, U(11), "")
-    frame.label:SetTextColor(Palette.Get("textPrimary"))
-    frame.label:SetJustifyH("LEFT")
+    frame.label = ns.Frames.Text(frame, 11, "textPrimary", "LEFT")
     frame.label:SetPoint("LEFT", frame.dot, "RIGHT", U(TEXT_GAP), 0)
 
     -- SPEC.md 8: slide + fade, 180ms in; 200ms to collapse.

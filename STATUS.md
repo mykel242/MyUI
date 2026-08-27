@@ -112,6 +112,36 @@ above is one edit to revisit if it turns out wrong.
 
 ---
 
+## Open: SPEC's palette assumes a dark backdrop
+
+Found in game during Phase 3. SPEC § 7 is light-on-dark — near-white text, faint white
+troughs, pale pastel dot hues. Over bright scenery (desert sand, firelight, anything
+golden) the whole HUD washes out and the small type becomes genuinely unreadable. **This
+is not a rail problem**; it will hit the bars and the health number in Phase 4 identically.
+
+**Fixed for text.** Every string now goes through `Frames.Text`, which applies a shadow
+using `tickDark` — already `rgba(0,0,0,0.55)` in the palette, so no fifteenth colour is
+introduced. `/myui text shadow | outline | none`, persisted. Outline is stronger but
+thickens the type, which the design's restraint argues against, so it is offered rather
+than imposed. A structural test fails the build if any module creates a FontString outside
+the helper, because such a string would miss the treatment and the miss would only show up
+on a bright backdrop.
+
+**Not fixed for the dots.** The two named dots are at full alpha but their hues are pale
+pastels, and the six older ones sit at the specified 0.4 — over bright gold they are all
+faint. Options, none of them mine to choose:
+
+| | |
+|---|---|
+| Leave it | 0.4 is what § 6 asks for, and quiet is the design's whole premise |
+| 1px dark edge on each dot | Uses `tickDark`, and the "+N more" square already establishes outlines in the rail's vocabulary. Changes the specified 10 × 10 solid dot |
+| A ≤14% dark backing behind rows with content | Stays inside § 1's "no fill above 14%", but adds a panel, which sits badly with "no frame is permanent" |
+
+**Worth raising with the designer** — the palette is declared complete, and a design that
+is unreadable half the time is a spec problem rather than an implementation one.
+
+---
+
 ## Phase 3: what was decided where SPEC is silent
 
 **Nothing produces a notification.** SPEC § 6 specifies the rail completely — dot size,

@@ -1027,6 +1027,81 @@ check("  and there are five of them", (function()
 end)())
 
 -- ---------------------------------------------------------------------------
+section("Text legibility")
+-- ---------------------------------------------------------------------------
+-- SPEC 7's palette is light-on-dark. Over bright scenery -- sand, firelight --
+-- the small type washes out and becomes unreadable. Found in game.
+
+local Frames = ns.Frames
+check("shadow is the default", Frames.TextStyle() == "shadow")
+check("the shadow reuses an existing palette colour", (function()
+    -- tickDark is rgba(0,0,0,0.55), which is what a shadow wants anyway, so
+    -- the fix introduces no fifteenth colour. SPEC 7 is closed at fourteen.
+    local r, g, b, a = ns.Palette.Get("tickDark")
+    return r == 0 and g == 0 and b == 0 and near(a, 0.55)
+end)())
+
+local sample = Registry.Get("SelfStack").frame.number
+check("a string carries a shadow", (function()
+    for _, c in ipairs(sample.__calls) do
+        if c.method == "SetShadowColor" then return true end
+    end
+    return false
+end)())
+
+run("text outline")
+check("outline switches the font flags", (function()
+    local calls = sample.__calls
+    for i = #calls, 1, -1 do
+        if calls[i].method == "SetFont" then return calls[i][3] == "OUTLINE" end
+    end
+    return false
+end)(), Frames.TextStyle())
+check("  and is persisted", _G.MyUIDB.textStyle == "outline")
+
+run("text none")
+check("none clears the shadow offset", (function()
+    local calls = sample.__calls
+    for i = #calls, 1, -1 do
+        if calls[i].method == "SetShadowOffset" then
+            return calls[i][1] == 0 and calls[i][2] == 0
+        end
+    end
+    return false
+end)())
+
+run("text nonsense")
+check("an unknown style is refused, leaving the old one",
+      Frames.TextStyle() == "none")
+
+run("text shadow")
+check("restyling reaches strings created long before it",
+      Frames.TextStyle() == "shadow")
+check("  and there are strings from more than one module to reach",
+      #Frames.strings > 4, #Frames.strings)
+
+-- Structural: a FontString created outside the helper would silently miss the
+-- treatment, and the miss would only ever show up on a bright backdrop.
+check("no module creates a FontString outside Frames.Text", (function()
+    for _, name in ipairs({ "Frames", "Rail", "Peek" }) do
+        local f = assert(io.open("../MyUI/" .. name .. ".lua"))
+        local src = f:read("*a")
+        f:close()
+        for line in src:gmatch("[^\n]+") do
+            if line:find("CreateFontString", 1, true)
+               and not line:find("^%s*%-%-")
+               and not line:find("function Frames.Text") then
+                -- Frames.Text itself is the one legitimate caller.
+                if not line:find("local fs = parent:CreateFontString") then
+                    return false, name .. ": " .. line
+                end
+            end
+        end
+    end
+    return true
+end)())
+
+-- ---------------------------------------------------------------------------
 section("Rail -- age")
 -- ---------------------------------------------------------------------------
 

@@ -219,6 +219,7 @@ local COMMANDS = {
     { "claims",       "who is claiming each frame, and every recent transition" },
     { "modifier",     "which keys reveal the HUD: alt shift ctrl, or none" },
     { "notify",       "feed the rail: <type> [name] [count] | demo | clear | dismiss" },
+    { "text",         "legibility over bright scenery: shadow | outline | none" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -263,6 +264,23 @@ local HANDLERS = {
     -- notification. Rather than invent a data binding the design did not ask
     -- for, Phase 3 ships this as the source, which is also what the acceptance
     -- test needs: eight at once, on demand.
+    text         = function(arg)
+        local Frames = ns.Frames
+        if arg and Frames.TEXT_STYLES[arg] then
+            if ns.db then
+                ns.db.textStyle = arg
+            end
+            Frames.RestyleText()
+        elseif arg and arg ~= "" then
+            ns.Print(("unknown style %q -- shadow, outline or none"):format(arg))
+            return
+        end
+        ns.Print("text: |cfff0f1f3" .. Frames.TextStyle() .. "|r")
+        ns.Raw("  SPEC's palette is light-on-dark and washes out over bright "
+               .. "scenery. shadow uses the palette's existing")
+        ns.Raw("  tick colour, so no fifteenth colour is introduced. outline is "
+               .. "stronger but thickens the type.")
+    end,
     notify       = function(arg)
         local Rail = ns.Rail
         arg = arg or ""

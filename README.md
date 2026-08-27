@@ -95,6 +95,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui claims          who is claiming each frame, and every recent transition
 /myui modifier        which keys reveal the HUD: alt shift ctrl, or none
 /myui notify          feed the rail: <type> [name] [count] | demo | clear | dismiss
+/myui text            legibility over bright scenery: shadow | outline | none
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset

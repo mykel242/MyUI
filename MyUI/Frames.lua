@@ -37,12 +37,62 @@ local function Fill(parent, colorName, layer)
     return t
 end
 
-local function Text(parent, size, colorName, justify)
+-- SPEC.md 7's palette is light-on-dark: near-white text, faint white troughs.
+-- Over bright scenery -- desert sand, firelight, anything golden -- the whole
+-- HUD washes out and the small type becomes unreadable. Found in game, and it
+-- applies to every string the addon draws, not just the rail's.
+--
+-- A shadow costs nothing and introduces no fifteenth colour: tickDark is
+-- already rgba(0,0,0,0.55), which is what a shadow wants anyway. OUTLINE is
+-- stronger but thickens the type, which the design's restraint argues against,
+-- so it is offered rather than imposed.
+Frames.TEXT_STYLES = { shadow = true, outline = true, none = true }
+
+function Frames.TextStyle()
+    if ns.db and ns.db.textStyle and Frames.TEXT_STYLES[ns.db.textStyle] then
+        return ns.db.textStyle
+    end
+    return "shadow"
+end
+
+--- Apply the current legibility treatment to one string.
+local function Legible(fs, size)
+    local style = Frames.TextStyle()
+    if style == "outline" then
+        fs:SetFont(FONT, U(size), "OUTLINE")
+        fs:SetShadowOffset(0, 0)
+    else
+        fs:SetFont(FONT, U(size), "")
+        if style == "shadow" then
+            local px = Scale.Hairline()
+            fs:SetShadowColor(Palette.Get("tickDark"))
+            fs:SetShadowOffset(px, -px)
+        else
+            fs:SetShadowOffset(0, 0)
+        end
+    end
+end
+
+--- A string in the addon's type. Every FontString goes through here so the
+-- legibility treatment is one decision rather than a dozen.
+function Frames.Text(parent, size, colorName, justify)
     local fs = parent:CreateFontString(nil, "OVERLAY")
-    fs:SetFont(FONT, U(size), "")
+    fs.__size = size
+    Legible(fs, size)
     fs:SetTextColor(Palette.Get(colorName))
     fs:SetJustifyH(justify)
+    Frames.strings = Frames.strings or {}
+    Frames.strings[#Frames.strings + 1] = fs
     return fs
+end
+
+local Text = Frames.Text
+
+--- Re-apply the treatment to every string already created.
+function Frames.RestyleText()
+    for _, fs in ipairs(Frames.strings or {}) do
+        Legible(fs, fs.__size)
+    end
 end
 
 --- An empty bar: a trough with a fill that carries no value yet.
