@@ -47,7 +47,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 12, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 14, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -63,7 +63,8 @@ check("  and the addon agrees with it",
 check("  and reports the TOC version, not a stale one",
       ns.version == toc.Version, ns.version .. " vs " .. tostring(toc.Version))
 for _, mod in ipairs({ "Compat", "Scale", "Palette", "Guard", "Registry",
-                       "Frames", "Outline", "Testing", "Rules", "Copy" }) do
+                       "Frames", "Reveal", "Peek", "Outline", "Testing",
+                       "Rules", "Copy" }) do
     check("  ns." .. mod .. " exists", ns[mod] ~= nil)
 end
 
@@ -440,6 +441,264 @@ check("bare toggle flips state", ns.Outline.Toggle() == true)
 ns.Outline.Toggle(false)
 
 -- ---------------------------------------------------------------------------
+section("Reveal -- the arbiter")
+-- ---------------------------------------------------------------------------
+
+local Reveal = ns.Reveal
+local stackEntry = Registry.Get("SelfStack")
+local stripEntry = Registry.Get("TargetStrip")
+
+local function clearClaims()
+    for channel in pairs(Reveal.CHANNELS) do
+        Reveal.Release(channel)
+    end
+    Reveal.Snap()
+end
+
+clearClaims()
+check("with no claims a frame sits at its resting alpha",
+      stackEntry.target == 0.35, stackEntry.target)
+check("  and a zero-resting frame sits at zero, not hidden",
+      stripEntry.target == 0, stripEntry.target)
+check("  with no channel credited", stackEntry.claim == nil)
+
+Reveal.Claim("combat")
+check("a claim raises the target", stackEntry.target == 1, stackEntry.target)
+check("  and the audit can name who did it", stackEntry.claim == "combat")
+
+Reveal.Release("combat")
+check("releasing returns to RESTING, not to zero", stackEntry.target == 0.35)
+check("  which is the whole point of the resting alpha column",
+      stripEntry.target == 0)
+
+-- Highest wins. Every channel claims 1.0 today, so the rule is exercised with
+-- a deliberately lowered claim -- otherwise the max is trivially satisfied and
+-- the arbitration is untested.
+local realCursor = Reveal.CHANNELS.cursor
+Reveal.CHANNELS.cursor = 0.6
+Reveal.Claim("cursor", "SelfStack")
+check("a partial claim raises only as far as it asks", stackEntry.target == 0.6)
+Reveal.Claim("combat")
+check("the higher of two claims wins", stackEntry.target == 1, stackEntry.target)
+check("  and is the one credited", stackEntry.claim == "combat")
+Reveal.Release("combat")
+check("dropping the winner falls back to the loser, not to resting",
+      stackEntry.target == 0.6, stackEntry.target)
+check("  now credited to the survivor", stackEntry.claim == "cursor")
+Reveal.Release("cursor")
+Reveal.CHANNELS.cursor = realCursor
+clearClaims()
+
+check("an unknown channel is refused, not silently ignored",
+      not pcall(Reveal.Claim, "nosuchchannel"))
+
+-- ---------------------------------------------------------------------------
+section("Reveal -- channel scope")
+-- ---------------------------------------------------------------------------
+-- SPEC 4 tabulates triggers but never says which frames each reveals. These
+-- are the inferences, made explicit so a wrong one is visible.
+
+Reveal.Claim("combat")
+check("combat claims the self stack", stackEntry.target == 1)
+check("  and the cooldown line", Registry.Get("Cooldowns").target == 1)
+check("  but not the target strip", stripEntry.target == 0, stripEntry.target)
+Reveal.Release("combat")
+
+Reveal.Claim("target")
+check("target claims only the target strip", stripEntry.target == 1)
+check("  leaving the self stack at rest", stackEntry.target == 0.35)
+Reveal.Release("target")
+
+Reveal.Claim("peek")
+check("peek claims everything", stackEntry.target == 1 and stripEntry.target == 1
+      and Registry.Get("Rail").target == 1)
+Reveal.Release("peek")
+clearClaims()
+
+check("claiming out of scope reports it rather than pretending",
+      Reveal.Claim("target", "SelfStack") == false)
+check("  and leaves the frame alone", stackEntry.target == 0.35)
+
+-- ---------------------------------------------------------------------------
+section("Reveal -- fades")
+-- ---------------------------------------------------------------------------
+-- SPEC 8: 120ms in, 260ms out. Out is slower so release settles rather than
+-- snaps, so the two directions must not share a duration.
+
+check("in and out differ", Reveal.FADE_IN == 0.120 and Reveal.FADE_OUT == 0.260)
+
+clearClaims()
+Reveal.Claim("combat")
+check("a rising target picks the in duration",
+      near(stackEntry.fadeDuration, Reveal.FADE_IN))
+mock.advance(ns, 0.060, 6)
+check("halfway through the fade-in the alpha is halfway",
+      near(stackEntry.current, 0.35 + (1 - 0.35) * 0.5, 0.02), stackEntry.current)
+mock.advance(ns, 0.060, 6)
+check("  and it arrives at the target", near(stackEntry.current, 1, 0.001),
+      stackEntry.current)
+check("  setting the frame's alpha, not just the registry's number",
+      near(Compat.Get(stackEntry.frame, "GetAlpha"), 1, 0.001))
+
+Reveal.Release("combat")
+check("a falling target picks the out duration",
+      near(stackEntry.fadeDuration, Reveal.FADE_OUT))
+mock.advance(ns, 0.130, 13)
+check("halfway through the fade-out the alpha is halfway",
+      near(stackEntry.current, 1 - (1 - 0.35) * 0.5, 0.02), stackEntry.current)
+mock.advance(ns, 0.130, 13)
+check("  and it settles at resting", near(stackEntry.current, 0.35, 0.001),
+      stackEntry.current)
+check("  never overshooting to zero", stackEntry.current > 0.3)
+
+-- ---------------------------------------------------------------------------
+section("Reveal -- cursor proximity and dwell")
+-- ---------------------------------------------------------------------------
+-- SPEC 4: within 32 units, held 140ms. The dwell is what stops brushing past
+-- while looting from flashing the HUD, so it is the part worth testing hardest.
+
+clearClaims()
+mock.place(stackEntry.frame, 400, 100, 600, 120)
+
+check("the zone is the spec's 32, converted", near(Reveal.PROXIMITY, Scale.U(32)))
+
+check("a point inside the frame is distance zero",
+      Reveal.EdgeDistance(stackEntry, 500, 110) == 0)
+check("a point beside it measures to the edge",
+      near(Reveal.EdgeDistance(stackEntry, 610, 110), 10))
+check("a point off a corner measures diagonally",
+      near(Reveal.EdgeDistance(stackEntry, 603, 96), 5))
+
+-- Far away: no claim, ever.
+mock.cursorX, mock.cursorY = 0, 0
+mock.advance(ns, 1.0, 10)
+check("a distant cursor never claims", not Reveal.HasClaim("cursor", "SelfStack"))
+
+-- Inside the zone but only briefly: this is the brush-past case.
+mock.cursorX, mock.cursorY = 610, 110
+mock.advance(ns, 0.100, 5)
+check("inside the zone but under the dwell does NOT claim",
+      not Reveal.HasClaim("cursor", "SelfStack"))
+mock.cursorX, mock.cursorY = 0, 0
+mock.advance(ns, 0.100, 5)
+check("  and brushing past leaves nothing behind",
+      not Reveal.HasClaim("cursor", "SelfStack"))
+check("  with the dwell clock cleared", stackEntry.dwellSince == nil)
+
+-- Held past the dwell: claims.
+-- Deliberately either side of the dwell with margin. Advancing a float clock
+-- in small steps accumulates error, so a test that lands exactly on 140ms is
+-- testing IEEE 754 rather than the dwell.
+mock.cursorX, mock.cursorY = 610, 110
+mock.advance(ns, 0.100, 2)
+check("still not claimed at 100ms", not Reveal.HasClaim("cursor", "SelfStack"))
+mock.advance(ns, 0.100, 2)
+check("claimed once past 140ms", Reveal.HasClaim("cursor", "SelfStack"))
+check("  and only that frame", not Reveal.HasClaim("cursor", "TargetStrip"))
+
+-- Just outside the zone must not claim, however long you wait.
+mock.cursorX, mock.cursorY = 0, 0
+mock.advance(ns, 0.5, 5)
+mock.cursorX = 600 + Reveal.PROXIMITY + 0.5
+mock.cursorY = 110
+mock.advance(ns, 1.0, 10)
+check("half a unit outside the zone never claims",
+      not Reveal.HasClaim("cursor", "SelfStack"))
+mock.cursorX = 600 + Reveal.PROXIMITY - 0.5
+mock.advance(ns, 1.0, 10)
+check("  half a unit inside it does", Reveal.HasClaim("cursor", "SelfStack"))
+
+mock.cursorX, mock.cursorY = -10000, -10000
+mock.advance(ns, 0.5, 5)
+check("leaving releases the claim", not Reveal.HasClaim("cursor", "SelfStack"))
+
+-- ---------------------------------------------------------------------------
+section("Reveal -- event channels")
+-- ---------------------------------------------------------------------------
+
+clearClaims()
+local driver = Reveal.driver
+check("a reveal driver exists", driver ~= nil)
+
+mock.altDown = true
+driver:Fire("MODIFIER_STATE_CHANGED")
+check("alt claims everything, with no dwell", stackEntry.target == 1
+      and stripEntry.target == 1)
+mock.altDown = false
+driver:Fire("MODIFIER_STATE_CHANGED")
+check("  and releasing it lets go", stackEntry.target == 0.35)
+
+mock.shiftDown = true
+driver:Fire("MODIFIER_STATE_CHANGED")
+check("shift works too", stackEntry.target == 1)
+mock.shiftDown = false
+driver:Fire("MODIFIER_STATE_CHANGED")
+
+mock.units.target = true
+driver:Fire("PLAYER_TARGET_CHANGED")
+check("acquiring a target reveals the strip", stripEntry.target == 1)
+check("  and nothing else", stackEntry.target == 0.35)
+mock.units.target = false
+driver:Fire("PLAYER_TARGET_CHANGED")
+check("losing it hides the strip again", stripEntry.target == 0)
+
+driver:Fire("PLAYER_REGEN_DISABLED")
+check("entering combat claims", stackEntry.target == 1)
+driver:Fire("PLAYER_REGEN_ENABLED")
+check("leaving combat releases", stackEntry.target == 0.35)
+
+-- ---------------------------------------------------------------------------
+section("Peek")
+-- ---------------------------------------------------------------------------
+
+clearClaims()
+check("peek starts inactive", not ns.Peek.IsActive())
+check("the peek duration is the spec's 3s", ns.Peek.DURATION == 3.0)
+
+ns.Peek.Start()
+check("peeking reveals everything", stackEntry.target == 1 and stripEntry.target == 1)
+check("  and is active", ns.Peek.IsActive())
+check("  with a full clock", near(ns.Peek.Remaining(), 3.0))
+
+mock.advance(ns, 1.5, 15)
+check("the clock drains", near(ns.Peek.Remaining(), 1.5, 0.05), ns.Peek.Remaining())
+check("  and the reveal is still held", stackEntry.target == 1)
+
+ns.Peek.Start()
+check("tapping again restarts rather than extending",
+      near(ns.Peek.Remaining(), 3.0), ns.Peek.Remaining())
+
+mock.advance(ns, 3.1, 31)
+check("it expires", not ns.Peek.IsActive())
+check("  and releases its claim", stackEntry.target == 0.35, stackEntry.target)
+check("  fading out rather than snapping",
+      near(stackEntry.fadeDuration, Reveal.FADE_OUT))
+
+check("the binding calls through the global the XML names",
+      type(_G.MyUI_Peek) == "function")
+_G.MyUI_Peek()
+check("  and it peeks", ns.Peek.IsActive())
+ns.Peek.Stop()
+clearClaims()
+
+-- ---------------------------------------------------------------------------
+section("Reveal -- one owner of alpha")
+-- ---------------------------------------------------------------------------
+-- SPEC 4 names this as the mistake the design is most vulnerable to, so the
+-- Phase 1 debug toggle was rerouted through the arbiter rather than left
+-- setting alpha behind its back.
+
+Registry.ForceVisible(true)
+check("the debug toggle claims through the arbiter",
+      Reveal.HasClaim("debug", "SelfStack"))
+check("  reaching full alpha immediately, with no fade",
+      near(Compat.Get(stackEntry.frame, "GetAlpha"), 1))
+check("  and crediting itself in the audit", stackEntry.claim == "debug")
+Registry.ForceVisible(false)
+check("releasing it returns every frame to resting",
+      stackEntry.target == 0.35 and stripEntry.target == 0)
+
+-- ---------------------------------------------------------------------------
 section("Core -- saved variables")
 -- ---------------------------------------------------------------------------
 
@@ -580,6 +839,10 @@ check("the current phase has steps", #Testing.Steps() > 0)
 
 -- Auto-checks must actually track state, not just return true. Force the
 -- frames visible and step 1 passes; release them and it fails.
+-- Pinned to phase 1 for this section: it is the script that has both a
+-- "show on" and a "show off" step, which is what the latching and waiting
+-- behaviour needs to exercise. The phase under development may not.
+Testing.phase = 1
 local SHOW, SHOWOFF = Testing.IndexOf("show"), Testing.IndexOf("showoff")
 check("steps carry stable ids", SHOW ~= nil and SHOWOFF ~= nil)
 
@@ -646,6 +909,9 @@ check("  and forgets what was performed", next(Testing.performed) == nil)
 
 run("show on")
 run("audit")
+-- Leave the registry unclaimed: later sections assert on a frame at rest, and
+-- a stray debug claim from here would show up as theirs.
+run("show off")
 check("auto steps report a detail string",
       type(Testing.results[SHOW].detail) == "string")
 
@@ -663,14 +929,29 @@ check("  prints the expectation for anything not passing",
       report:find("expected:", 1, true) ~= nil)
 check("  and reports the running version", report:find(ns.version, 1, true) ~= nil)
 check("report is persisted for reading off disk",
-      _G.MyUIDB.testRuns and _G.MyUIDB.testRuns[ns.phase] ~= nil)
+      _G.MyUIDB.testRuns and _G.MyUIDB.testRuns[Testing.phase] ~= nil)
 check("  with the counts alongside the text",
-      type(_G.MyUIDB.testRuns[ns.phase].pass) == "number")
+      type(_G.MyUIDB.testRuns[Testing.phase].pass) == "number")
 
 Testing.Show()
 check("the checklist window opens", Testing.IsShown())
 run("test")
 check("  and /myui test opens it too", Testing.IsShown())
+
+-- Back to the phase under development, and check it has a script at all.
+Testing.Show(ns.phase)
+check("the phase under development has its own script",
+      Testing.scripts[ns.phase] ~= nil, ns.phase)
+check("  with a step for every reveal channel", (function()
+    local text = ""
+    for _, step in ipairs(Testing.Steps()) do
+        text = text .. " " .. step.act:lower() .. " " .. step.expect:lower()
+    end
+    for _, word in ipairs({ "cursor", "alt", "target", "combat", "peek" }) do
+        if not text:find(word, 1, true) then return false, word end
+    end
+    return true
+end)())
 
 -- ---------------------------------------------------------------------------
 section("Getting output off the machine")

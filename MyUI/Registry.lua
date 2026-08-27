@@ -98,14 +98,26 @@ function Registry.ForceVisible(on)
     else
         Registry.forced = false
     end
-    Registry.Each(function(entry)
+    -- Routed through the arbiter rather than setting alpha directly, so there
+    -- is exactly one owner of a frame's alpha (SPEC.md 4). Snapped rather than
+    -- faded: the toggle is a diagnostic, not a reveal.
+    if ns.Reveal then
         if Registry.forced then
-            entry.target = 1
+            ns.Reveal.Claim("debug")
         else
-            entry.target = entry.resting
+            ns.Reveal.Release("debug")
         end
-        entry.frame:SetAlpha(entry.target)
-    end)
+        ns.Reveal.Snap()
+    else
+        Registry.Each(function(entry)
+            if Registry.forced then
+                entry.target = 1
+            else
+                entry.target = entry.resting
+            end
+            entry.frame:SetAlpha(entry.target)
+        end)
+    end
     return Registry.forced
 end
 

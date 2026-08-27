@@ -1,0 +1,355 @@
+-- MyUI :: Reveal.lua
+-- SPEC.md 4. Four channels, one arbiter.
+--
+-- "All four resolve through a single arbiter that computes one target alpha per
+-- frame per tick. Do not let frames manage their own visibility; that is the
+-- architectural mistake this design is most vulnerable to."
+--
+-- So nothing outside this file calls SetAlpha on a registered frame. Channels
+-- assert and release claims; the arbiter takes the highest and fades toward it.
+--
+-- THE CONSTRAINT THAT SHAPES EVERYTHING HERE: the arbiter compares claims, and
+-- comparison requires plain numbers. From Phase 4 the low-health alpha comes
+-- out of a step curve and is SECRET -- comparing it would be an inspection.
+-- So the arbiter owns plain-number alpha on the registered container frames,
+-- and anything curve-driven lives on their CHILDREN, where alpha multiplies
+-- down the hierarchy on its own. A secret never enters this file.
+
+local ADDON, ns = ...
+
+local Compat, Registry, Scale = ns.Compat, ns.Registry, ns.Scale
+
+local Reveal = {}
+ns.Reveal = Reveal
+
+-- ---------------------------------------------------------------------------
+-- Constants
+-- ---------------------------------------------------------------------------
+
+-- SPEC.md 4 says "within 32 units". Every other number in the spec is a
+-- mock-canvas pixel, and this one is converted the same way for consistency --
+-- but it is the single place the spec says "units" rather than leaving the
+-- number bare, so it may not be. Flagged in STATUS; one edit if wrong.
+Reveal.PROXIMITY = Scale.U(32)
+
+Reveal.DWELL    = 0.140   -- SPEC 4: held 140ms before the cursor claims
+Reveal.FADE_IN  = 0.120   -- SPEC 8
+Reveal.FADE_OUT = 0.260   -- SPEC 8, slower so release settles rather than snaps
+
+-- SPEC.md 4 says "highest claim wins" but never gives a per-channel alpha. All
+-- of them claim a full reveal until told otherwise, which makes the maximum
+-- trivially 1.0 today -- the arbitration is written for real values so that
+-- changing any one of these is a one-line edit rather than a redesign.
+--
+-- SPEC's "state change" row is two channels here, combat and target, because
+-- they claim different frames and collapsing them would make the audit's CLAIM
+-- column useless. debug is not a SPEC channel; it is the Phase 1 toggle,
+-- routed through the arbiter so there is exactly one owner of alpha.
+Reveal.CHANNELS = {
+    cursor   = 1.0,
+    modifier = 1.0,
+    combat   = 1.0,
+    target   = 1.0,
+    peek     = 1.0,
+    debug    = 1.0,
+}
+
+-- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
+-- which frames each one reveals; cursor proximity is per-frame by definition
+-- and the rest are inferred. Flagged in STATUS.
+-- nil means every registered frame.
+local SCOPE = {
+    combat = { SelfStack = true, Cooldowns = true },
+    target = { TargetStrip = true },
+}
+
+-- ---------------------------------------------------------------------------
+-- Claims
+-- ---------------------------------------------------------------------------
+
+local claims = {}   -- [frameName][channel] = alpha
+
+local function InScope(channel, name)
+    local scope = SCOPE[channel]
+    if scope == nil then
+        return true
+    end
+    return scope[name] == true
+end
+
+--- Assert a claim. name omitted claims every frame the channel may reach.
+function Reveal.Claim(channel, name)
+    local alpha = Reveal.CHANNELS[channel]
+    if alpha == nil then
+        error("no reveal channel " .. tostring(channel), 2)
+    end
+    if name then
+        if not InScope(channel, name) then
+            return false
+        end
+        claims[name] = claims[name] or {}
+        claims[name][channel] = alpha
+    else
+        Registry.Each(function(entry)
+            if InScope(channel, entry.name) then
+                claims[entry.name] = claims[entry.name] or {}
+                claims[entry.name][channel] = alpha
+            end
+        end)
+    end
+    Reveal.Resolve()
+    return true
+end
+
+--- Drop a claim. name omitted releases the channel everywhere.
+function Reveal.Release(channel, name)
+    if name then
+        if claims[name] then
+            claims[name][channel] = nil
+        end
+    else
+        for _, byChannel in pairs(claims) do
+            byChannel[channel] = nil
+        end
+    end
+    Reveal.Resolve()
+end
+
+function Reveal.HasClaim(channel, name)
+    return claims[name] ~= nil and claims[name][channel] ~= nil
+end
+
+-- ---------------------------------------------------------------------------
+-- The arbiter
+-- ---------------------------------------------------------------------------
+
+--- Highest claim wins; with none, the frame returns to its resting alpha --
+-- never to zero unless its resting alpha is zero (SPEC.md 4).
+local function Arbitrate(entry)
+    local best, winner = entry.resting, nil
+    local byChannel = claims[entry.name]
+    if byChannel then
+        for channel, alpha in pairs(byChannel) do
+            if alpha > best then
+                best, winner = alpha, channel
+            end
+        end
+    end
+    return best, winner
+end
+
+--- Recompute every frame's target. Starts a fade where the target moved.
+function Reveal.Resolve()
+    local now = Reveal.Now()
+    Registry.Each(function(entry)
+        local target, winner = Arbitrate(entry)
+        entry.claim = winner
+        if entry.target ~= target then
+            entry.fadeFrom  = entry.current or entry.resting
+            entry.fadeStart = now
+            if target > (entry.current or entry.resting) then
+                entry.fadeDuration = Reveal.FADE_IN
+            else
+                entry.fadeDuration = Reveal.FADE_OUT
+            end
+            entry.target = target
+        end
+    end)
+end
+
+--- Jump every frame to its target with no fade. For the debug toggle, which is
+-- a diagnostic rather than a reveal, and for tests.
+function Reveal.Snap()
+    Registry.Each(function(entry)
+        entry.current = entry.target
+        entry.fadeStart = nil
+        entry.frame:SetAlpha(entry.current)
+    end)
+end
+
+-- ---------------------------------------------------------------------------
+-- Cursor proximity
+-- ---------------------------------------------------------------------------
+
+local function CursorPosition()
+    local get = _G.GetCursorPosition
+    if type(get) ~= "function" then
+        return nil
+    end
+    local ok, x, y = pcall(get)
+    if not ok or type(x) ~= "number" or type(y) ~= "number" then
+        return nil
+    end
+    local scale = Compat.Get(_G.UIParent, "GetEffectiveScale")
+    if type(scale) ~= "number" or scale <= 0 then
+        return nil
+    end
+    return x / scale, y / scale
+end
+
+--- Distance from a point to a frame's rectangle, zero when inside it.
+local function EdgeDistance(entry, x, y)
+    local l = Compat.Get(entry.frame, "GetLeft")
+    local r = Compat.Get(entry.frame, "GetRight")
+    local b = Compat.Get(entry.frame, "GetBottom")
+    local t = Compat.Get(entry.frame, "GetTop")
+    if type(l) ~= "number" or type(r) ~= "number"
+       or type(b) ~= "number" or type(t) ~= "number" then
+        return nil
+    end
+
+    local dx = 0
+    if x < l then
+        dx = l - x
+    elseif x > r then
+        dx = x - r
+    end
+
+    local dy = 0
+    if y < b then
+        dy = b - y
+    elseif y > t then
+        dy = y - t
+    end
+
+    if dx == 0 and dy == 0 then
+        return 0
+    end
+    return math.sqrt(dx * dx + dy * dy)
+end
+
+Reveal.EdgeDistance = EdgeDistance
+
+--- The dwell is the whole point of this channel: it stops brushing past while
+-- looting from flashing the HUD (SPEC.md 4). Entering the zone starts a clock;
+-- only staying in it for DWELL asserts the claim.
+local function UpdateProximity(now)
+    local x, y = CursorPosition()
+    Registry.Each(function(entry)
+        local near = false
+        if x then
+            local d = EdgeDistance(entry, x, y)
+            near = d ~= nil and d <= Reveal.PROXIMITY
+        end
+
+        if near then
+            if entry.dwellSince == nil then
+                entry.dwellSince = now
+            end
+            if now - entry.dwellSince >= Reveal.DWELL then
+                if not Reveal.HasClaim("cursor", entry.name) then
+                    Reveal.Claim("cursor", entry.name)
+                end
+            end
+        else
+            entry.dwellSince = nil
+            if Reveal.HasClaim("cursor", entry.name) then
+                Reveal.Release("cursor", entry.name)
+            end
+        end
+    end)
+end
+
+-- ---------------------------------------------------------------------------
+-- The tick
+-- ---------------------------------------------------------------------------
+-- One OnUpdate for the whole addon. RULES.md permits it solely for the
+-- cursor-proximity check and the peek timer, and neither touches game state.
+
+function Reveal.Now()
+    local get = _G.GetTime
+    if type(get) ~= "function" then
+        return 0
+    end
+    local ok, t = pcall(get)
+    if not ok or type(t) ~= "number" then
+        return 0
+    end
+    return t
+end
+
+local function StepFade(entry, now)
+    if entry.current == nil then
+        entry.current = entry.resting
+    end
+    if entry.current == entry.target then
+        return
+    end
+    if not entry.fadeStart or not entry.fadeDuration or entry.fadeDuration <= 0 then
+        entry.current = entry.target
+    else
+        local progress = (now - entry.fadeStart) / entry.fadeDuration
+        if progress >= 1 then
+            entry.current = entry.target
+            entry.fadeStart = nil
+        else
+            entry.current = entry.fadeFrom + (entry.target - entry.fadeFrom) * progress
+        end
+    end
+    entry.frame:SetAlpha(entry.current)
+end
+
+function Reveal.Tick()
+    local now = Reveal.Now()
+    UpdateProximity(now)
+    if ns.Peek and ns.Peek.Update then
+        ns.Peek.Update(now)
+    end
+    Registry.Each(function(entry)
+        StepFade(entry, now)
+    end)
+end
+
+-- ---------------------------------------------------------------------------
+-- Events
+-- ---------------------------------------------------------------------------
+-- Everything except cursor proximity and the peek clock is event-driven, which
+-- RULES.md requires and which is also simply cheaper.
+
+local function OnModifier()
+    local alt   = _G.IsAltKeyDown   and _G.IsAltKeyDown()
+    local shift = _G.IsShiftKeyDown and _G.IsShiftKeyDown()
+    if alt or shift then
+        Reveal.Claim("modifier")
+    else
+        Reveal.Release("modifier")
+    end
+end
+
+local function OnTargetChanged()
+    local exists = _G.UnitExists and _G.UnitExists("target")
+    if exists then
+        Reveal.Claim("target")
+    else
+        Reveal.Release("target")
+    end
+end
+
+function Reveal.OnLogin()
+    local driver = CreateFrame("Frame", "MyUIRevealDriver", UIParent)
+    Reveal.driver = driver
+
+    driver:RegisterEvent("MODIFIER_STATE_CHANGED")
+    driver:RegisterEvent("PLAYER_TARGET_CHANGED")
+    driver:RegisterEvent("PLAYER_REGEN_DISABLED")
+    driver:RegisterEvent("PLAYER_REGEN_ENABLED")
+
+    driver:SetScript("OnEvent", function(_, event)
+        if event == "MODIFIER_STATE_CHANGED" then
+            OnModifier()
+        elseif event == "PLAYER_TARGET_CHANGED" then
+            OnTargetChanged()
+        elseif event == "PLAYER_REGEN_DISABLED" then
+            Reveal.Claim("combat")
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            Reveal.Release("combat")
+        end
+    end)
+
+    driver:SetScript("OnUpdate", function()
+        Reveal.Tick()
+    end)
+
+    Reveal.Resolve()
+    Reveal.Snap()
+end

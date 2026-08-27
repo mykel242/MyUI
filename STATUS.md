@@ -13,16 +13,22 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | -1 — Ground truth | **Complete.** Three corrections to the handoff, recorded with citations |
 | 0 — Skeleton and compliance harness | **Delivered** — `v0.1.0-phase0`, verified in game |
 | 1 — Anchors and frame registry | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
-| 2 — Reveal engine | Not started |
+| 2 — Reveal engine | **Built**, awaiting in-game acceptance |
 | 3 — Rail | Not started |
 | 4 — Bars and low health | Not started |
 | 5 — Edit mode | Not started |
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### Nothing is blocking
+### The one thing waiting on you
 
-Phase 2 is the next action: the reveal engine, four channels through one arbiter.
+**Phase 2's in-game acceptance.** `/myui test` — sixteen steps. Bind a key to
+**MyUI → Peek** in the game's Key Bindings first; two steps need it.
+
+Most of Phase 2 can only be judged by eye: a dwell either feels like a pause or it
+doesn't, and a fade either settles or snaps. Two steps are auto-checked, including
+one that verifies all five timing constants against the spec so a mistyped number
+does not have to be caught by squinting.
 
 Running a phase acceptance test: `/myui test` in game, work down the checklist,
 hit **report**, `/reload`. The report lands in `MyUIDB.testRuns` and can be read
@@ -103,6 +109,43 @@ Full detail with citations in `API-NOTES-12.1.md`.
 
 The scale factor lives in one constant, added in Phase 1 as `Scale.lua`, so the reading
 above is one edit to revisit if it turns out wrong.
+
+---
+
+## Phase 2: what was decided where SPEC is silent
+
+Four gaps, all named in code next to what acts on them.
+
+**Per-channel claim alpha.** SPEC says "highest claim wins" but never gives a channel
+an alpha, so all of them claim 1.0 and the maximum is trivially satisfied. The
+arbitration is written for real values anyway — changing any one is a one-line edit —
+and the tests lower a claim deliberately so highest-wins is actually exercised rather
+than accidentally true.
+
+**Which frames each channel claims.** SPEC tabulates triggers, not targets. Cursor
+proximity is per-frame by definition; the rest are inferences: combat claims SelfStack
+and Cooldowns, target claims TargetStrip, modifier and peek claim everything.
+
+**The drain clock has no geometry.** The only visual in Phase 2 the spec names and
+then leaves undescribed. Built as the least invented thing that satisfies "visible
+drain clock" inside § 1's flat geometry: a 1px hairline the width of the SelfStack,
+draining right to left, in `fillDim` which is already in the palette. **Wants your
+eye.**
+
+**"Within 32 units."** Converted like every other spec number (× 0.8 → 25.6 UI units),
+but this is the one place the spec says "units" rather than leaving the number bare, so
+it may not be a mock-canvas pixel. One constant if wrong.
+
+### And one thing SPEC asks for that cannot be built
+
+§ 4 lists the low-health driver state as a state-change channel. There is no driver
+state, and § 3's replacement is a step curve whose output is **secret** — so it can
+never enter an arbiter that compares claims. The arbiter deals only in plain numbers;
+anything curve-driven lives on child frames where alpha multiplies on its own.
+
+That is fine if § 3's continuous escalation was the whole intent. If the design also
+wanted *"when I get low, the HUD comes up"*, that needs a discrete event and the only
+source is hooking `LowHealthFrame`. **Still open, still blocking nothing.**
 
 ---
 

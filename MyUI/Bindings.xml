@@ -1,0 +1,9 @@
+<Bindings>
+    <!-- Loaded by the client by filename. Deliberately NOT listed in MyUI.toc:
+         listing it sends the same file through the ordinary UI XML parser too,
+         which does not know the <Binding> element and reports every attribute
+         on it as unrecognised, so the bindings never register at all. -->
+    <Binding name="MYUI_PEEK" header="MYUI" category="MyUI">
+        MyUI_Peek()
+    </Binding>
+</Bindings>

@@ -5,8 +5,8 @@ local ADDON, ns = ...
 
 ns.name    = ADDON
 ns.version = C_AddOns and C_AddOns.GetAddOnMetadata
-             and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "0.2.0-phase1"
-ns.phase   = 1
+             and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "0.3.0-phase2"
+ns.phase   = 2
 
 -- Bump on any change to the stored shape, and add the matching migration.
 local SCHEMA_VERSION = 1
@@ -154,6 +154,7 @@ loader:SetScript("OnEvent", function(self, event, addon)
         for label, module in pairs({
             registry = ns.Registry,
             frames   = ns.Frames,
+            reveal   = ns.Reveal,
         }) do
             if module and module.OnLogin then
                 local ok, err = pcall(module.OnLogin)

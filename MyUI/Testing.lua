@@ -181,6 +181,89 @@ Testing.scripts = {
               expect = "Nothing shifts by a pixel. Position is fixed forever." },
         },
     },
+
+    [2] = {
+        title = "Phase 2 — the reveal engine",
+        accept = "Each channel drives a frame in isolation; overlapping claims "
+              .. "resolve highest-wins; releasing all claims returns a frame to "
+              .. "its resting alpha, not to zero; the 32-unit zone and 140ms "
+              .. "dwell both verified by brushing past.",
+        steps = {
+            { id = "showoff", awaits = "show off",
+              act = "Type /myui show off to start from rest.",
+              expect = "Everything back to its resting alpha.",
+              check = function()
+                  if Registry.forced then
+                      return false, "still forced -- run /myui show off"
+                  end
+                  return everyFrameResting()
+              end },
+
+            { act = "Are the engine's timings the ones the spec gives?",
+              expect = "Checked automatically: 32-unit zone, 140ms dwell, "
+                    .. "120ms in, 260ms out, 3s peek.",
+              check = function()
+                  local R, P = ns.Reveal, ns.Peek
+                  local want = {
+                      { "zone",  R.PROXIMITY, ns.Scale.U(32) },
+                      { "dwell", R.DWELL,     0.140 },
+                      { "in",    R.FADE_IN,   0.120 },
+                      { "out",   R.FADE_OUT,  0.260 },
+                      { "peek",  P.DURATION,  3.0 },
+                  }
+                  for _, w in ipairs(want) do
+                      if math.abs(w[2] - w[3]) > 0.0001 then
+                          return false, ("%s is %s, spec says %s")
+                                        :format(w[1], tostring(w[2]), tostring(w[3]))
+                      end
+                  end
+                  return true, "all five match"
+              end },
+
+            { act = "Rest the cursor on the bottom-centre bars and hold still.",
+              expect = "After a short pause they brighten to full. Not instantly "
+                    .. "-- the pause is the 140ms dwell." },
+            { act = "Now sweep the cursor quickly across them without stopping.",
+              expect = "They stay faint. This is the whole reason the dwell "
+                    .. "exists: brushing past while looting must not flash the HUD." },
+            { act = "Rest on them again, then move the cursor away.",
+              expect = "They fade back to faint over about a quarter second — "
+                    .. "and stop there. They must NOT vanish." },
+
+            { act = "Hold Alt.",
+              expect = "Everything appears at once, with no pause. The modifier "
+                    .. "channel has no dwell." },
+            { act = "Release Alt.",
+              expect = "Everything settles back to resting. The top-centre strip "
+                    .. "disappears completely; the others stay faint." },
+
+            { act = "Target something.",
+              expect = "The top-centre strip appears on its own. The bottom "
+                    .. "group stays faint." },
+            { act = "Clear your target.",
+              expect = "The strip goes completely invisible again." },
+
+            { act = "Enter combat.",
+              expect = "The bottom group brightens and stays up. The target strip "
+                    .. "is unaffected by combat alone." },
+            { act = "Leave combat.",
+              expect = "The bottom group settles back to faint." },
+
+            { act = "Bind a key to MyUI -> Peek in the game's Key Bindings, then press it.",
+              expect = "Everything appears, with a thin line draining right to "
+                    .. "left under the bottom group." },
+            { act = "Watch the drain line run out.",
+              expect = "It empties over about three seconds, then everything "
+                    .. "fades back to resting." },
+
+            { act = "Hold Alt, and with it held type /myui audit.",
+              expect = "The CLAIM column reads modifier for every frame. That "
+                    .. "column is the arbiter showing its work." },
+            { act = "With Alt still held, rest the cursor on the bottom bars too.",
+              expect = "Nothing visibly changes -- both claim full alpha, so the "
+                    .. "highest wins and there is nothing higher to go to." },
+        },
+    },
 }
 
 -- ---------------------------------------------------------------------------

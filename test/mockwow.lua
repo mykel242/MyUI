@@ -176,6 +176,10 @@ function M.frame(spec)
     end
 
     f.GetStatusBarTexture = function() return f.__texture end
+    f.GetLeft   = function() return f.__rect and f.__rect[1] end
+    f.GetBottom = function() return f.__rect and f.__rect[2] end
+    f.GetRight  = function() return f.__rect and f.__rect[3] end
+    f.GetTop    = function() return f.__rect and f.__rect[4] end
     f.GetFrameStrata = function() return f.__strata or "MEDIUM" end
     f.GetFrameLevel  = function() return f.__level or 1 end
     f.GetObjectType = function() return spec.objectType or "Frame" end
@@ -198,6 +202,23 @@ function M.frame(spec)
     end
 
     return f
+end
+
+--- Advance the clock and run one reveal tick, the way the client's OnUpdate
+-- would. Tests call this instead of sleeping.
+function M.advance(ns, seconds, steps)
+    steps = steps or 1
+    for _ = 1, steps do
+        M.time = M.time + (seconds / steps)
+        ns.Reveal.Tick()
+    end
+end
+
+--- Put a frame at an explicit rectangle, in UI units.
+-- The mock does not implement WoW's layout engine and should not pretend to:
+-- proximity tests need exact rects, so they state them.
+function M.place(frame, l, b, r, t)
+    frame.__rect = { l, b, r, t }
 end
 
 --- Count how many times a setter landed on a frame.
@@ -236,7 +257,26 @@ function M.install()
     }
     _G.SlashCmdList = {}
     _G.C_Timer = { After = function(_, fn) fn() end }
-    _G.GetCursorPosition = function() return M.cursorX or 100, M.cursorY or 100 end
+    -- A controllable clock. Nothing in Phase 2 -- the 140ms dwell, the 120/260ms
+    -- fades, the 3s peek -- can be tested against a real one.
+    M.time = 1000
+    _G.GetTime = function() return M.time end
+
+    -- Cursor is stored in UI units; GetCursorPosition reports the scaled value
+    -- the client would, so the addon's division by effective scale is exercised
+    -- rather than bypassed.
+    M.cursorX, M.cursorY = -10000, -10000
+    _G.GetCursorPosition = function()
+        local scale = M.uiScale or 0.8
+        return M.cursorX * scale, M.cursorY * scale
+    end
+
+    M.altDown, M.shiftDown = false, false
+    _G.IsAltKeyDown   = function() return M.altDown end
+    _G.IsShiftKeyDown = function() return M.shiftDown end
+
+    M.units = {}
+    _G.UnitExists = function(unit) return M.units[unit] == true end
 
     M.chat = {}
     _G.DEFAULT_CHAT_FRAME = {

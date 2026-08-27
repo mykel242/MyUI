@@ -20,7 +20,7 @@ deliberately rejected explorations and must not be treated as a reference.
 | **-1 — Ground truth** | **Complete.** Four mechanisms verified against Blizzard's 12.1 source; three corrections recorded |
 | **0 — Skeleton and compliance harness** | **Delivered** — `v0.1.0-phase0`, verified in game |
 | **1 — Anchors and frame registry** | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
-| 2 — Reveal engine | Not started |
+| **2 — Reveal engine** | **Built.** 297 addon + 15 lint checks green. In-game acceptance not yet run |
 | 3 — Rail | Not started |
 | 4 — Bars and low health | Not started |
 | 5 — Edit mode | Not started |
@@ -64,6 +64,9 @@ MyUI/                 the addon
   Palette.lua         SPEC.md 7, fourteen colours, closed
   Registry.lua        every frame and the resting alpha SPEC.md gives it
   Frames.lua          SPEC.md 2, built once at its permanent anchor
+  Reveal.lua          SPEC.md 4: four channels, one arbiter, the only OnUpdate
+  Peek.lua            tap-to-peek and its drain clock
+  Bindings.xml        the peek key -- loaded by filename, NOT in the TOC
   Outline.lua         diagnostic boxes: placed wrong, or hidden?
   Testing.lua         the in-game acceptance checklist, per phase
   Rules.lua           the forbidden list, printable in game
