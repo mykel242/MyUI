@@ -61,10 +61,11 @@ What it costs:
 | CVar dependency | Off if the player disables `doNotFlashLowHealthWarning`. Detectable at load, so it can warn |
 | Shared frame | Also used for the in-combat fullscreen flash, which we cannot distinguish — but that only fires behind a fullscreen panel, where the HUD is hidden anyway |
 
-**If you reject it**, two of the three tells still work with no event: `SetAlpha` takes a
-forwarded secret, so a curve drives both the breathe and the screen hairline. Only the
-12pt → 14pt change needs the substitute — two stacked FontStrings cross-faded by
-curve-driven alpha.
+**If you reject it**, only the screen-edge hairline ships as specified — it is a static
+appearance, which is what a curve does. The font-size change needs an extra FontString
+cross-faded by curve alpha. **The breathe cannot ship at all**: a curve maps health to a
+value, not time to a value, and nothing alpha-only can dim a group to 0.55 without also
+tinting it. See API-NOTES § 4.
 
 **Either way SPEC § 3 changes**, so this is a decision, not an implementation detail.
 Phases 1-3 are unblocked regardless; the answer is only needed by Phase 4.

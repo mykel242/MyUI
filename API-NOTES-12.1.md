@@ -177,12 +177,30 @@ value can never drive (see § 2).
   in-combat fullscreen flash. We cannot tell the two apart, but the fullscreen case only
   fires when a fullscreen panel is up, where the HUD is hidden anyway.
 
-### If that is rejected
+### What actually needs the event — two of the three tells, not one
 
-Two of the state's three tells need no event at all: `SetAlpha` is `AllowedWhenTainted`,
-so a scalar curve drives both the 1.60s breathe and the screen-edge hairline directly.
-Only the health number's 12pt → 14pt change needs one, and the alpha-only substitute is
-two stacked FontStrings at 12pt and 14pt cross-faded by curve-driven alpha.
+An earlier reading of this claimed a curve could drive the breathe. It cannot. A curve maps
+**health to a value**; a breathe maps **time to a value**. Nothing in the curve APIs
+oscillates.
+
+| SPEC § 3 tell | Needs an event? |
+|---|---|
+| Screen-edge hairline appears at alpha 0.35 | **No.** Static appearance, alpha as a function of health — exactly what a curve does. The v1 hairline does not breathe; SPEC defers that to a second driver state that v1 does not ship |
+| Health number 12pt → 14pt | **Yes.** `SetScale` is `AllowedWhenUntainted`, and font size is not alpha |
+| Health group breathes 1.0 ↔ 0.55 at 1.60s | **Yes.** An `AnimationGroup` has to be started, and only an event can start one |
+
+Substitutes exist for both, and both are visibly worse:
+
+- **Font size** — two stacked FontStrings at 12pt and 14pt, cross-faded by curve-driven
+  alpha. Faithful; costs one extra FontString.
+- **Breathe** — a permanently animating overlay whose base alpha comes from a curve, so it
+  is invisible at full health. But alpha composites *additively*: the overlay can pulse the
+  group brighter, never dim it to 0.55 as specified. Dimming would need a backdrop-coloured
+  wash over the group, which tints as well as dims because the game background behind it is
+  not a fixed colour. There is no faithful alpha-only breathe.
+
+So without an event, one tell ships as specified, one ships with an extra frame, and one
+cannot ship at all.
 
 ## 5. Cooldown Manager
 
