@@ -50,11 +50,18 @@ scalar curve drives both the 1.60s breathe and the screen-edge danger hairline d
 **One genuinely does.** The health number's 12pt → 14pt change. `SetScale` is
 `AllowedWhenUntainted` and will refuse a forwarded secret, and font size is not alpha.
 
-Run `/myui conditionals` in game. It probes candidate conditionals against the live
-parser, with `[combat]` as a control so a broken probe is distinguishable from a missing
-conditional.
+Run `/myui conditionals` in game. **No combat needed, and no need to be hurt** — it can be
+run standing in a city.
 
-- **If a health conditional exists** — SPEC § 3 ships as written.
+It tests each candidate in both plain and negated form against two controls: `[combat]` /
+`[nocombat]`, which proves the probe works, and a deliberate nonsense conditional, which
+establishes what "the parser does not know this" looks like on the live client rather than
+assuming it. A candidate whose signature differs from that unknown baseline is real. Both
+halves matter — at full health a conditional that exists and evaluates false looks exactly
+like one that does not exist, unless you have measured the difference.
+
+- **If a row reads RECOGNISED** — SPEC § 3 ships as written. Confirm by running it again
+  below the threshold; it should flip to a hit.
 - **If none does** — the proposed amendment is two stacked FontStrings at 12pt and 14pt,
   cross-faded by curve-driven alpha. Same visual, alpha only, no event, no inspection.
   This is a spec change and wants sign-off, not a silent substitution.

@@ -52,24 +52,44 @@ end
 -- ---------------------------------------------------------------------------
 -- conditionals
 -- ---------------------------------------------------------------------------
--- Resolves the one question API-NOTES-12.1.md § 4 could not answer offline:
+-- Resolves the one question API-NOTES-12.1.md 4 could not answer offline:
 -- SecureCmdOptionParse is engine-side, so the conditional vocabulary cannot be
 -- read from Blizzard's Lua source. It can be asked directly.
 --
--- Read the output yourself; this prints evidence, it does not draw a verdict.
--- "[combat]" is the control -- if that does not behave, the probe is broken
--- rather than the conditional missing.
+-- The naive probe does not work. At full health a conditional that exists and
+-- evaluates false is indistinguishable from one the parser never heard of --
+-- both miss. So each candidate is tested in both its plain and negated forms,
+-- and measured against two controls:
+--
+--   known    [combat] / [nocombat]   -- one hits, one misses. Proves the probe.
+--   unknown  a deliberate nonsense conditional. Establishes what "the parser
+--            does not know this" looks like on THIS client, rather than
+--            assuming it.
+--
+-- A candidate whose signature differs from the unknown control is real. That
+-- holds at any health, so this can be run standing in a city.
 
 local CANDIDATES = {
-    "[combat] hit; miss",
-    "[nocombat] hit; miss",
-    "[@player,hp<20] hit; miss",
-    "[hp<20] hit; miss",
-    "[health<20] hit; miss",
-    "[@player,health<20] hit; miss",
-    "[@player,hurt] hit; miss",
-    "[lowhealth] hit; miss",
+    { label = "control: known",   yes = "[combat]",              no = "[nocombat]" },
+    { label = "control: unknown", yes = "[zzznotaconditional]",  no = "[nozzznotaconditional]" },
+    { label = "hp",               yes = "[hp<20]",               no = "[nohp<20]" },
+    { label = "hp, unit-scoped",  yes = "[@player,hp<20]",       no = "[@player,nohp<20]" },
+    { label = "health",           yes = "[health<20]",           no = "[nohealth<20]" },
+    { label = "health, scoped",   yes = "[@player,health<20]",   no = "[@player,nohealth<20]" },
+    { label = "hurt",             yes = "[@player,hurt]",        no = "[@player,nohurt]" },
+    { label = "lowhealth",        yes = "[lowhealth]",           no = "[nolowhealth]" },
 }
+
+local function Evaluate(parse, clause)
+    local ok, result = pcall(parse, clause .. " hit; miss")
+    if not ok then
+        return "error"
+    end
+    if result == nil then
+        return "nil"
+    end
+    return tostring(result)
+end
 
 local function Conditionals()
     local parse = _G.SecureCmdOptionParse
@@ -78,24 +98,40 @@ local function Conditionals()
         return
     end
 
-    ns.Print("macro conditional probe -- first line is the control")
-    for _, macro in ipairs(CANDIDATES) do
-        local ok, result = pcall(parse, macro)
-        local shown
-        if not ok then
-            shown = "|cfff26b61error|r " .. tostring(result)
-        elseif result == nil then
-            shown = "|cffadb1b8nil|r"
-        else
-            shown = "|cfff0f1f3" .. tostring(result) .. "|r"
+    local rows, unknown = {}, nil
+    for i, c in ipairs(CANDIDATES) do
+        local row = { label = c.label, yes = c.yes,
+                      a = Evaluate(parse, c.yes), b = Evaluate(parse, c.no) }
+        rows[i] = row
+        if c.label == "control: unknown" then
+            unknown = row.a .. "/" .. row.b
         end
-        ns.Raw(("  %-30s -> %s"):format(macro, shown))
     end
+
+    ns.Print("macro conditional probe")
+    ns.Raw(("  %-17s %-24s %-6s %-6s  %s"):format("", "CLAUSE", "PLAIN", "NEG", "VERDICT"))
+    for _, row in ipairs(rows) do
+        local verdict
+        if row.label:find("control", 1, true) then
+            verdict = "|cffadb1b8--|r"
+        elseif (row.a .. "/" .. row.b) == unknown then
+            verdict = "|cfff26b61not recognised|r"
+        else
+            verdict = "|cffa6d98cRECOGNISED|r"
+        end
+        ns.Raw(("  %-17s %-24s %-6s %-6s  %s"):format(row.label, row.yes, row.a, row.b, verdict))
+    end
+
     ns.Raw(" ")
-    ns.Raw("  A conditional the parser does not know cannot return 'hit'. If every")
-    ns.Raw("  health candidate misses while [combat] hits, SPEC.md 3's driver state")
-    ns.Raw("  has no event source and the 12pt->14pt change needs the two-FontString")
-    ns.Raw("  cross-fade instead. See API-NOTES-12.1.md 4.")
+    ns.Raw("  The known control must show one hit and one miss. If it does not, the")
+    ns.Raw("  probe is broken rather than the conditionals missing.")
+    ns.Raw(" ")
+    ns.Raw("  Every candidate 'not recognised': SPEC.md 3's driver state has no event")
+    ns.Raw("  source. The breathe and the screen hairline still work on curve-driven")
+    ns.Raw("  alpha; only the 12pt->14pt change needs the two-FontString cross-fade.")
+    ns.Raw("  Any candidate RECOGNISED: SPEC.md 3 ships as written. Confirm it by")
+    ns.Raw("  running this again below the threshold -- it should flip to a hit.")
+    ns.Raw("  See API-NOTES-12.1.md 4.")
 end
 
 -- ---------------------------------------------------------------------------

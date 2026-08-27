@@ -81,7 +81,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset
-/myui conditionals    probe which macro conditionals the client's parser knows
+/myui conditionals    which macro conditionals the client's parser knows
 /myui version         build and schema
 ```
 

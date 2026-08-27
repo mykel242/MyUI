@@ -249,14 +249,46 @@ run("guard strict")
 section("Conditionals probe")
 -- ---------------------------------------------------------------------------
 
+-- Count verdicts on table rows only. The explanatory footer quotes both
+-- verdict words, and a naive substring count picks those up too.
+local function verdictRows(text, verdict)
+    local n = 0
+    for line in text:gmatch("[^\n]+") do
+        if line:find("[", 1, true) and line:find(verdict, 1, true) then
+            n = n + 1
+        end
+    end
+    return n
+end
+
 local probe = output("conditionals")
-check("probe runs the control first", probe:find("%[combat%]") ~= nil)
-check("  reports the health candidates", probe:find("hp<20", 1, true) ~= nil)
-check("  and explains what a miss means", probe:find("cross%-fade") ~= nil)
+check("probe runs a known control", probe:find("control: known", 1, true) ~= nil)
+check("  and an unknown control", probe:find("control: unknown", 1, true) ~= nil)
+check("  known control misses plain, hits negated out of combat",
+      probe:find("%[combat%]%s+miss%s+hit") ~= nil)
+check("  unknown control misses both ways",
+      probe:find("%[zzznotaconditional%]%s+miss%s+miss") ~= nil)
+check("  every health candidate is unrecognised on this mock",
+      verdictRows(probe, "not recognised") == 6, verdictRows(probe, "not recognised"))
+check("  and no row is claimed recognised", verdictRows(probe, "RECOGNISED") == 0)
+check("  the reading is explained", probe:find("cross%-fade") ~= nil)
+
+-- The discriminator is the whole point: a probe hardwired to say "no" would
+-- pass every check above. Teach the mock a conditional that exists and is
+-- false at full health, and the probe must tell it apart from an unknown one.
+mock.known = { ["hp<20"] = false, ["nohp<20"] = true }
+probe = output("conditionals")
+check("a real-but-false conditional reads as RECOGNISED",
+      verdictRows(probe, "RECOGNISED") == 1, verdictRows(probe, "RECOGNISED"))
+check("  on the hp row specifically",
+      probe:find("%[hp<20%]%s+miss%s+hit%s+RECOGNISED") ~= nil)
+check("  while the others stay unrecognised",
+      verdictRows(probe, "not recognised") == 5, verdictRows(probe, "not recognised"))
+mock.known = {}
 
 mock.inCombat = true
 probe = output("conditionals")
-check("control tracks combat state", probe:find("%[combat%] hit; miss%s*%->%s*hit") ~= nil)
+check("control tracks combat state", probe:find("%[combat%]%s+hit%s+miss") ~= nil)
 mock.inCombat = false
 
 -- ---------------------------------------------------------------------------

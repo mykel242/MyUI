@@ -218,11 +218,30 @@ function M.install()
     -- SecureCmdOptionParse is engine-side. The mock knows only the conditionals
     -- confirmed to exist; every candidate health conditional misses, which is
     -- the hypothesis /myui conditionals exists to test against a real client.
+    --
+    -- M.known lets a test teach it one, so the probe's discriminator is proven
+    -- to report RECOGNISED when a conditional really does exist -- otherwise
+    -- the probe could be hardwired to say "no" and every test would pass.
+    M.known = {}
     _G.SecureCmdOptionParse = function(macro)
         local cond, hit, miss = macro:match("^%[(.-)%]%s*(%S+);%s*(%S+)$")
         if not cond then return macro end
-        if cond == "combat" then return M.inCombat and hit or miss end
-        if cond == "nocombat" then return M.inCombat and miss or hit end
+        local taught = M.known[cond]
+        if taught ~= nil then
+            if taught then return hit end
+            return miss
+        end
+        if cond == "combat" then
+            if M.inCombat then return hit end
+            return miss
+        end
+        if cond == "nocombat" then
+            if M.inCombat then return miss end
+            return hit
+        end
+        -- Everything else is a conditional this mock does not know. Both the
+        -- plain and negated forms miss, which is the signature the probe's
+        -- unknown control exists to measure on a real client.
         return miss
     end
 
