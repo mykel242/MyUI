@@ -146,6 +146,10 @@ Two rules the first live run taught, both enforced by tests:
   explicit `on` / `off` forms.
 - **An auto-check must verify the screen, not the intent.** Comparing only what the addon
   asked for lets a check pass over a UI that never changed.
+- **Test what is painted, not what is behind it.** The window once kept showing "waiting"
+  for a step that had already passed, and no test caught it, because every test read the
+  results table directly. `Testing.MarkFor` decides and `Testing.RowMark` reports what is
+  actually on screen, so both can be asserted.
 - **Only ask for what the phase draws.** Phase 1 has no data, so its FontStrings are empty
   and its bars sit at zero — asking whether the health number is visible is asking to see
   something the phase is correct not to draw. The debug toggle now supplies placeholder

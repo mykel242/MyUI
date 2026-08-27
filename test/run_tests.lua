@@ -938,6 +938,25 @@ check("the checklist window opens", Testing.IsShown())
 run("test")
 check("  and /myui test opens it too", Testing.IsShown())
 
+-- Regression: the window kept painting "waiting" for a step that had already
+-- passed. Every test read Testing.results directly, so none of them looked at
+-- what was actually on screen -- which is the only thing the user sees.
+Testing.Show(1)
+check("opening a script forgets the previous run's commands",
+      next(Testing.performed) == nil)
+check("a waiting step paints as waiting", Testing.RowMark(SHOW) == "waiting",
+      Testing.RowMark(SHOW))
+run("show on")
+check("running the command settles the verdict", Testing.MarkFor(SHOW) == "pass",
+      Testing.MarkFor(SHOW))
+check("  and the window repaints to match",
+      (Testing.RowMark(SHOW) or ""):find("pass", 1, true) ~= nil,
+      Testing.RowMark(SHOW))
+run("show off")
+check("  and repaints again on the way back",
+      (Testing.RowMark(Testing.IndexOf("showoff")) or ""):find("pass", 1, true) ~= nil,
+      Testing.RowMark(Testing.IndexOf("showoff")))
+
 -- Back to the phase under development, and check it has a script at all.
 Testing.Show(ns.phase)
 check("the phase under development has its own script",

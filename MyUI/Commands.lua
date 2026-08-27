@@ -352,7 +352,7 @@ SlashCmdList["MYUI"] = function(input)
     -- auto-checks are only evaluated when the report is run, by which point the
     -- sequence has moved on and they describe the wrong moment.
     if name ~= "test" then
-        pcall(ns.Testing.Recheck)
+        pcall(ns.Testing.Sync)
     end
 
     -- Persist for the off-disk route. SavedVariables are only flushed on

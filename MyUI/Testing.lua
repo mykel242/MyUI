@@ -400,6 +400,43 @@ local function Build()
     rows = {}
 end
 
+--- What a row should read: "waiting", "pending", "pass" or "fail".
+--
+-- Separate from the drawing on purpose. The window painted a stale "waiting"
+-- for a step that had already passed, and no test caught it because every test
+-- read Testing.results directly and never looked at what was on screen.
+function Testing.MarkFor(index)
+    local steps = Testing.Steps()
+    local step = steps and steps[index]
+    if not step then
+        return nil
+    end
+    if step.check and not Testing.Ready(step) then
+        return "waiting"
+    end
+    local r = Testing.results[index]
+    if r == nil then
+        return "pending"
+    end
+    if r.verdict == "pass" then
+        return "pass"
+    end
+    return "fail"
+end
+
+--- What a row is actually painted with right now. Lets a test assert on the
+-- window rather than on the state behind it.
+function Testing.RowMark(index)
+    if not rows or not rows[index] then
+        return nil
+    end
+    local text = rows[index].mark:GetText()
+    if not text then
+        return nil
+    end
+    return (text:gsub("|c%x%x%x%x%x%x%x%x", ""):gsub("|r", ""):gsub("%s+", " "))
+end
+
 --- Repaint every row from the current results.
 function Testing.Refresh()
     if not window then return end
@@ -424,17 +461,17 @@ function Testing.Refresh()
         row.expect:SetText(step.expect)
 
         local r = Testing.results[i]
-        local waiting = step.check ~= nil and not Testing.Ready(step)
+        local mark = Testing.MarkFor(i)
 
-        if waiting then
+        if mark == "waiting" then
             -- Not done is not a failure. The row is asking you to do something;
             -- marking it FAIL before you have is both wrong and discouraging.
             row.mark:SetText("|cff73777ewaiting|r")
             row.detail:SetText("|cff73777echecks itself once you run it|r")
-        elseif r == nil then
+        elseif mark == "pending" then
             row.mark:SetText("|cffadb1b8...|r")
             row.detail:SetText("")
-        elseif r.verdict == "pass" then
+        elseif mark == "pass" then
             row.mark:SetText("|cffa6d98cpass|r")
             row.detail:SetText("")
         else
@@ -466,8 +503,12 @@ end
 --- Open the checklist, optionally for a phase other than the current one.
 function Testing.Show(phase)
     if phase ~= nil then
+        -- Switching scripts starts a fresh run: commands performed for the
+        -- previous phase must not count as having been done for this one.
+        -- Reopening the current phase (no argument) keeps your progress.
         Testing.phase = phase
         Testing.results = {}
+        Testing.performed = {}
     end
     if not Testing.scripts[Testing.phase] then
         ns.Print("no acceptance script for phase " .. tostring(Testing.phase))
@@ -568,6 +609,13 @@ function Testing.Recheck(force)
             end
         end
     end
+end
+
+--- Re-evaluate, then repaint. Anything that changes state calls this; calling
+-- only Recheck updates the verdicts and leaves the window showing the old ones.
+function Testing.Sync()
+    Testing.Recheck()
+    Testing.Refresh()
 end
 
 function Testing.Set(index, verdict)
