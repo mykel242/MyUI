@@ -323,6 +323,59 @@ it unprotected, with no pcall and no version guard, which suggests it is permitt
 practice — but that is inference from someone else's shipping code, not something read off
 the API. **Test it before building on it.**
 
+## 8. Two things Plater turned up that Phase 4 should use
+
+Plater replaces nameplates, not unit frames, so it never touches `PlayerFrame` and has
+nothing to say about § 0. But it carries 452 `IS_WOW_PROJECT_MIDNIGHT` branches and a
+2,865-line `unitframe_midnight.lua` gated on `IsMidnightWowAPI()` — the closest thing to a
+reference implementation of a 12.1 health bar in the audited set. Two findings.
+
+### 8a. The engine animates the bar for you
+
+```lua
+StatusBar:SetValue(value, interpolation)
+StatusBar:SetMinMaxValues(min, max, interpolation)
+```
+
+`SimpleStatusBarAPIDocumentation.lua` declares the second argument
+`{ Name = "interpolation", Type = "StatusBarInterpolation", NeverSecret = true,
+Default = "Immediate" }`, and the enum has two values: `Immediate` and
+`ExponentialEaseOut`.
+
+**A smooth health bar therefore needs no OnUpdate, no manual lerp, and no arithmetic on the
+value.** You forward the secret to `SetValue` and name an easing; the engine does the rest.
+That matters twice over here — RULES.md permits exactly one `OnUpdate` and it is already
+spent on cursor proximity and the peek clock.
+
+### 8b. `UnitHealPredictionCalculator` does the arithmetic inside the engine
+
+```lua
+UnitGetDetailedHealPrediction(unit, healerUnit, calculator)
+calculator:SetMaximumHealthMode(Enum.UnitMaximumHealthMode.Default)
+calculator:SetDamageAbsorbClampMode(Enum.UnitDamageAbsorbClampMode.MaximumHealth)
+
+calculator:EvaluateCurrentHealthPercent(curve)   -- curve in, evaluated result out
+calculator:EvaluateMissingHealthPercent(curve)
+calculator:GetCurrentHealth()  GetMissingHealth()  GetMaximumDamageAbsorbs()
+calculator:GetDamageAbsorbs()  GetHealAbsorbs()   GetIncomingHeals()
+```
+
+Every clamp, absorb and percentage is computed engine-side against configured modes, and
+handed back. Plater has **migrated to it**: the direct `UnitHealth` / `UnitHealthPercent`
+reads in `SetUnit` are commented out and the calculator replaced them.
+
+`EvaluateMissingHealthPercent(curve)` is worth flagging specifically. SPEC § 3's wash
+occupies "only the empty part of the trough", and this is a first-class API for exactly
+that quantity, with a curve evaluator on it. The reverse-fill substitute in § 3 above still
+works and needs no extra call; this is the alternative if the wash ever needs to account
+for absorbs.
+
+**Do not assume the returns are non-secret.** The accessors carry no `SecretReturns` flag,
+but the calculator is populated from unit data that is secret, and Plater only ever
+forwards what it gets — it never compares. Treat every value as secret and route it through
+`Guard.Send`, which is what `Compat`'s fail-closed policy would do anyway. Confirm with
+`issecretvalue` in game before relying on anything looser.
+
 ## 5. Cooldown Manager
 
 `Interface/AddOns/Blizzard_CooldownViewer` (and `Blizzard_CooldownBroadcaster`) exist.
