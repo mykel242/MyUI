@@ -22,7 +22,7 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 
 ### The one thing waiting on you
 
-**Phase 2's in-game acceptance.** `/myui test` — sixteen steps. Bind a key to
+**Phase 2's in-game acceptance.** `/myui test` — seventeen steps. Bind a key to
 **MyUI → Peek** in the game's Key Bindings first; two steps need it.
 
 Most of Phase 2 can only be judged by eye: a dwell either feels like a pause or it

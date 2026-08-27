@@ -216,6 +216,7 @@ local COMMANDS = {
     { "show",         "force every frame to alpha 1, or release back to resting" },
     { "test",         "the acceptance checklist; test report | reset | <phase>" },
     { "outline",      "diagnostic boxes around every frame, above everything" },
+    { "claims",       "who is claiming each frame, and every recent transition" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -254,6 +255,43 @@ local HANDLERS = {
                      .. "|cffadb1b8/myui show off|r to release.")
         else
             ns.Print("frames released to their resting alphas, placeholders cleared.")
+        end
+    end,
+    claims       = function(arg)
+        local Reveal = ns.Reveal
+        if arg == "clear" then
+            Reveal.ClearLog()
+            ns.Print("transition log cleared")
+            return
+        end
+
+        ns.Print("claims now")
+        Registry.Each(function(entry)
+            local holding = Reveal.ClaimsOn(entry.name)
+            local who = "|cffadb1b8none|r"
+            if #holding > 0 then
+                who = table.concat(holding, ", ")
+            end
+            ns.Raw(("  %-14s %6s  %s"):format(
+                entry.name, fmtAlpha(entry.target), who))
+        end)
+
+        local log = Reveal.log
+        ns.Raw(" ")
+        if #log == 0 then
+            ns.Raw("  no transitions recorded. |cffadb1b8/myui claims clear|r resets this.")
+            return
+        end
+
+        -- Relative times, because the absolute ones mean nothing to a reader
+        -- and the whole question is how long ago something happened.
+        local now = Reveal.Now()
+        ns.Print(("recent transitions (%d)"):format(#log))
+        for _, e in ipairs(log) do
+            ns.Raw(("  %7s  %-14s %s -> %s   %s"):format(
+                ("-%.1fs"):format(now - e.at),
+                e.frame, fmtAlpha(e.from), fmtAlpha(e.to),
+                e.winner or "|cffadb1b8released|r"))
         end
     end,
     outline      = function(arg)

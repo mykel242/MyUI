@@ -69,6 +69,47 @@ local SCOPE = {
 
 local claims = {}   -- [frameName][channel] = alpha
 
+-- ---------------------------------------------------------------------------
+-- Transition log
+-- ---------------------------------------------------------------------------
+-- Every reveal channel is transient by nature, and the two that are hardest to
+-- observe -- a held modifier and a cursor dwell -- cannot be inspected by
+-- typing a command, because typing while holding a modifier produces something
+-- other than the command. On macOS Option-key combinations insert accented
+-- characters and Shift turns "/" into "?", so the command never runs at all.
+--
+-- So the engine records its own transitions and you read them afterwards. This
+-- is also simply a better test than watching: it shows which channel won, on
+-- which frame, and when, rather than asking whether a fade felt right.
+
+local MAX_LOG = 40
+Reveal.log = {}
+
+local function Record(name, from, to, winner)
+    local log = Reveal.log
+    log[#log + 1] = {
+        at = Reveal.Now(), frame = name,
+        from = from, to = to, winner = winner,
+    }
+    if #log > MAX_LOG then
+        table.remove(log, 1)
+    end
+end
+
+function Reveal.ClearLog()
+    Reveal.log = {}
+end
+
+--- The channels currently claiming a frame, as a sorted list of names.
+function Reveal.ClaimsOn(name)
+    local out = {}
+    for channel in pairs(claims[name] or {}) do
+        out[#out + 1] = channel
+    end
+    table.sort(out)
+    return out
+end
+
 local function InScope(channel, name)
     local scope = SCOPE[channel]
     if scope == nil then
@@ -143,7 +184,17 @@ function Reveal.Resolve()
     local now = Reveal.Now()
     Registry.Each(function(entry)
         local target, winner = Arbitrate(entry)
+        local previous = entry.claim
         entry.claim = winner
+
+        -- A handover records even though the alpha does not move. When two
+        -- channels overlap, the moment one releases and the other keeps the
+        -- frame up is precisely what "highest claim wins" looks like, and
+        -- logging only alpha changes would hide the one case worth seeing.
+        if entry.target ~= target or previous ~= winner then
+            Record(entry.name, entry.target, target, winner)
+        end
+
         if entry.target ~= target then
             entry.fadeFrom  = entry.current or entry.resting
             entry.fadeStart = now

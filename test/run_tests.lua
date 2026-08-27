@@ -648,6 +648,59 @@ driver:Fire("PLAYER_REGEN_ENABLED")
 check("leaving combat releases", stackEntry.target == 0.35)
 
 -- ---------------------------------------------------------------------------
+section("Reveal -- transition log")
+-- ---------------------------------------------------------------------------
+-- A held modifier and a cursor dwell cannot be inspected by typing a command,
+-- because typing while holding a modifier produces something other than the
+-- command -- on macOS an accented character, or "?" instead of "/". So the
+-- engine records its transitions and they are read afterwards.
+
+clearClaims()
+Reveal.ClearLog()
+check("the log starts empty", #Reveal.log == 0)
+
+Reveal.Claim("combat")
+check("a claim is recorded", #Reveal.log > 0)
+local first = Reveal.log[1]
+check("  naming the frame, both alphas and the winner",
+      first.frame ~= nil and first.from == 0.35 and first.to == 1
+      and first.winner == "combat")
+Reveal.Release("combat")
+check("a release is recorded with no winner", (function()
+    local last = Reveal.log[#Reveal.log]
+    return last.to == last.from and false or last.winner == nil
+end)())
+
+-- The case worth logging: two channels overlap, the higher releases, and the
+-- frame does not move. Logging only alpha changes would hide it entirely.
+Reveal.ClearLog()
+Reveal.Claim("combat")
+Reveal.Claim("cursor", "SelfStack")
+Reveal.Release("combat")
+check("a handover is recorded even with no alpha change", (function()
+    for _, e in ipairs(Reveal.log) do
+        if e.frame == "SelfStack" and e.winner == "cursor" and e.from == e.to then
+            return true
+        end
+    end
+    return false
+end)())
+check("  and the frame never dimmed", stackEntry.target == 1)
+Reveal.Release("cursor")
+
+check("the log is bounded", (function()
+    Reveal.ClearLog()
+    for _ = 1, 60 do
+        Reveal.Claim("combat")
+        Reveal.Release("combat")
+    end
+    return #Reveal.log <= 40
+end)(), #Reveal.log)
+
+Reveal.ClearLog()
+clearClaims()
+
+-- ---------------------------------------------------------------------------
 section("Peek")
 -- ---------------------------------------------------------------------------
 
@@ -961,6 +1014,22 @@ check("  and repaints again on the way back",
 Testing.Show(ns.phase)
 check("the phase under development has its own script",
       Testing.scripts[ns.phase] ~= nil, ns.phase)
+check("  no step asks you to type while holding a modifier", (function()
+    -- Impossible on macOS: Option inserts accented characters and Shift turns
+    -- "/" into "?", so the command never runs. Transient state gets recorded
+    -- and read afterwards instead.
+    for _, step in ipairs(Testing.Steps()) do
+        local act = step.act:lower()
+        if act:find("hold") and act:find("/myui") then
+            local held = act:match("hold[^,.]*")
+            if held and not act:find("release") and not act:find("then") then
+                return false, step.act
+            end
+        end
+    end
+    return true
+end)())
+
 check("  with a step for every reveal channel", (function()
     local text = ""
     for _, step in ipairs(Testing.Steps()) do

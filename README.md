@@ -91,6 +91,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui show            force every frame to alpha 1, or release back to resting
 /myui test            the acceptance checklist; test report | reset | <phase>
 /myui outline         diagnostic boxes around every frame, above everything
+/myui claims          who is claiming each frame, and every recent transition
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset
@@ -141,6 +142,10 @@ Two rules the first live run taught, both enforced by tests:
 
 - **One assertion per step.** A step that bundles four things into one question cannot be
   answered: a fail says something was wrong without saying what.
+- **Never ask the user to type while holding a modifier.** It cannot be done — on macOS
+  Option inserts accented characters and Shift turns `/` into `?`, so the command never
+  runs. Transient state has to be recorded by the addon and read afterwards, which is a
+  better test anyway: `/myui claims` shows which channel won on which frame and when.
 - **Never depend on a toggle.** A step saying "type /myui show" is unanswerable if the
   command flips state — run when it was already on, it turns everything off. Steps use the
   explicit `on` / `off` forms.

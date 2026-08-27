@@ -256,12 +256,66 @@ Testing.scripts = {
               expect = "It empties over about three seconds, then everything "
                     .. "fades back to resting." },
 
-            { act = "Hold Alt, and with it held type /myui audit.",
-              expect = "The CLAIM column reads modifier for every frame. That "
-                    .. "column is the arbiter showing its work." },
-            { act = "With Alt still held, rest the cursor on the bottom bars too.",
-              expect = "Nothing visibly changes -- both claim full alpha, so the "
-                    .. "highest wins and there is nothing higher to go to." },
+            -- These used to ask you to type a command while holding Alt, which
+            -- cannot be done: on macOS Option-combinations insert accented
+            -- characters, and Shift turns "/" into "?", so the command never
+            -- runs at all. A transient channel has to be recorded and read
+            -- afterwards, not caught in the act.
+            { awaits = "claims",
+              act = "Hold Alt for a second, release it, then type /myui claims.",
+              expect = "The log shows modifier claiming three frames, then "
+                    .. "releasing them.",
+              check = function()
+                  local claimed, released = false, false
+                  for _, e in ipairs(ns.Reveal.log) do
+                      if e.winner == "modifier" then claimed = true end
+                      if claimed and e.winner == nil then released = true end
+                  end
+                  if not claimed then
+                      return false, "no modifier claim recorded yet"
+                  end
+                  if not released then
+                      return false, "modifier claimed but never released"
+                  end
+                  return true, "claim and release both recorded"
+              end },
+
+            { awaits = "claims",
+              act = "Rest the cursor on the bottom bars for a second, move away, "
+                 .. "then run /myui claims again.",
+              expect = "A cursor claim on SelfStack, and none on the target strip.",
+              check = function()
+                  local onStack, onStrip = false, false
+                  for _, e in ipairs(ns.Reveal.log) do
+                      if e.winner == "cursor" then
+                          if e.frame == "SelfStack" then onStack = true end
+                          if e.frame == "TargetStrip" then onStrip = true end
+                      end
+                  end
+                  if onStrip then
+                      return false, "cursor claimed the target strip too"
+                  end
+                  if not onStack then
+                      return false, "no cursor claim on SelfStack yet"
+                  end
+                  return true, "cursor claimed SelfStack only"
+              end },
+
+            { awaits = "claims",
+              act = "Hold Alt, rest the cursor on the bottom bars, then release "
+                 .. "Alt while leaving the cursor there. Then /myui claims.",
+              expect = "A line reading SelfStack 1.00 -> 1.00 with the winner "
+                    .. "becoming cursor: two claims overlapped, the higher held, "
+                    .. "and dropping one did not dim the frame." ,
+              check = function()
+                  for _, e in ipairs(ns.Reveal.log) do
+                      if e.frame == "SelfStack" and e.winner == "cursor"
+                         and e.from == e.to then
+                          return true, "handover recorded with no alpha change"
+                      end
+                  end
+                  return false, "no overlapping-claim handover recorded yet"
+              end },
         },
     },
 }
