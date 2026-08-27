@@ -31,6 +31,10 @@ local loader = mock.created[#mock.created]
 loader:Fire("ADDON_LOADED", "MyUI")
 loader:Fire("PLAYER_LOGIN")
 
+-- The slash dispatcher, hoisted: several sections drive the addon through it
+-- rather than calling internals, because that is how it is actually used.
+local run = _G.SlashCmdList["MYUI"]
+
 -- Guard errors by default; tests that expect a refusal use warn mode and read
 -- the log, so a refusal is observed rather than merely not crashing.
 local function inWarnMode(fn)
@@ -699,21 +703,62 @@ section("Reveal -- transition log")
 -- command -- on macOS an accented character, or "?" instead of "/". So the
 -- engine records its transitions and they are read afterwards.
 
+local function logOf(kind, field, value)
+    local hits = {}
+    for _, e in ipairs(Reveal.log) do
+        if e.kind == kind and (field == nil or e[field] == value) then
+            hits[#hits + 1] = e
+        end
+    end
+    return hits
+end
+
 clearClaims()
 Reveal.ClearLog()
 check("the log starts empty", #Reveal.log == 0)
 
 Reveal.Claim("combat")
-check("a claim is recorded", #Reveal.log > 0)
-local first = Reveal.log[1]
+-- Inputs and outcomes are logged separately. Recording only outcomes made two
+-- very different things produce identical lines: pressing a key three times,
+-- and pressing it once while the winner got re-attributed twice.
+check("the claim itself is recorded as an input", #logOf("claim", "channel", "combat") == 1)
+check("  with no frame, because it claimed everything in scope",
+      logOf("claim", "channel", "combat")[1].frame == nil)
+local changes = logOf("change")
+check("and the resulting target moves are recorded as outcomes", #changes > 0)
 check("  naming the frame, both alphas and the winner",
-      first.frame ~= nil and first.from == 0.35 and first.to == 1
-      and first.winner == "combat")
+      changes[1].frame ~= nil and changes[1].from == 0.35 and changes[1].to == 1
+      and changes[1].winner == "combat")
+
 Reveal.Release("combat")
-check("a release is recorded with no winner", (function()
+check("a release is recorded as its own input", #logOf("release", "channel", "combat") == 1)
+check("  and its outcomes credit nobody", (function()
     local last = Reveal.log[#Reveal.log]
-    return last.to == last.from and false or last.winner == nil
+    return last.kind == "change" and last.winner == nil
 end)())
+
+-- The distinction that motivated all of this: three presses look like three
+-- presses, not like one press with the winner wobbling.
+Reveal.ClearLog()
+for _ = 1, 3 do
+    Reveal.Claim("modifier")
+    Reveal.Release("modifier")
+end
+check("three presses log three claims", #logOf("claim", "channel", "modifier") == 3)
+check("  and three releases", #logOf("release", "channel", "modifier") == 3)
+
+-- A modifier event can repeat while the key is held. Logging every repeat
+-- would be exactly the noise this exists to remove.
+Reveal.ClearLog()
+Reveal.Claim("modifier")
+Reveal.Claim("modifier")
+Reveal.Claim("modifier")
+check("holding a key does not log a claim per event",
+      #logOf("claim", "channel", "modifier") == 1)
+Reveal.Release("modifier")
+Reveal.Release("modifier")
+check("  and releasing twice logs one release",
+      #logOf("release", "channel", "modifier") == 1)
 
 -- The case worth logging: two channels overlap, the higher releases, and the
 -- frame does not move. Logging only alpha changes would hide it entirely.
@@ -722,7 +767,7 @@ Reveal.Claim("combat")
 Reveal.Claim("cursor", "SelfStack")
 Reveal.Release("combat")
 check("a handover is recorded even with no alpha change", (function()
-    for _, e in ipairs(Reveal.log) do
+    for _, e in ipairs(logOf("change")) do
         if e.frame == "SelfStack" and e.winner == "cursor" and e.from == e.to then
             return true
         end
@@ -742,6 +787,50 @@ check("the log is bounded", (function()
 end)(), #Reveal.log)
 
 Reveal.ClearLog()
+clearClaims()
+
+-- ---------------------------------------------------------------------------
+section("Reveal -- which keys reveal")
+-- ---------------------------------------------------------------------------
+-- SPEC 4 names Alt and Shift, which are also what most players bind their
+-- ability modifiers to. A HUD that flashes on every modified cast during a
+-- fight is the opposite of a design premised on the screen being the game.
+
+check("the spec's default is alt and shift",
+      Reveal.DEFAULT_MODIFIERS.alt and Reveal.DEFAULT_MODIFIERS.shift)
+
+local driver2 = Reveal.driver
+mock.altDown, mock.shiftDown = false, false
+run("modifier shift")
+mock.altDown = true
+driver2:Fire("MODIFIER_STATE_CHANGED")
+check("alt no longer reveals once it is deselected", stackEntry.target == 0.35,
+      stackEntry.target)
+mock.altDown, mock.shiftDown = false, true
+driver2:Fire("MODIFIER_STATE_CHANGED")
+check("  while the chosen key still does", stackEntry.target == 1)
+mock.shiftDown = false
+driver2:Fire("MODIFIER_STATE_CHANGED")
+
+run("modifier none")
+mock.altDown, mock.shiftDown = true, true
+driver2:Fire("MODIFIER_STATE_CHANGED")
+check("none disables the channel entirely", stackEntry.target == 0.35,
+      stackEntry.target)
+mock.altDown, mock.shiftDown = false, false
+driver2:Fire("MODIFIER_STATE_CHANGED")
+
+check("an unknown key is refused rather than silently dropped",
+      select(1, Reveal.SetModifiers({ "meta" })) == nil)
+
+run("modifier alt shift")
+check("the setting persists to saved variables",
+      _G.MyUIDB.modifiers.alt and _G.MyUIDB.modifiers.shift)
+mock.altDown = true
+driver2:Fire("MODIFIER_STATE_CHANGED")
+check("  and the default works again", stackEntry.target == 1)
+mock.altDown = false
+driver2:Fire("MODIFIER_STATE_CHANGED")
 clearClaims()
 
 -- ---------------------------------------------------------------------------
@@ -814,7 +903,6 @@ check("  with colour codes stripped", ns.GetOutput():find("|cff", 1, true) == ni
 section("Commands")
 -- ---------------------------------------------------------------------------
 
-local run = _G.SlashCmdList["MYUI"]
 check("slash command is registered", type(run) == "function")
 check("both aliases exist", _G.SLASH_MYUI1 == "/myui" and _G.SLASH_MYUI2 == "/mui")
 

@@ -217,6 +217,7 @@ local COMMANDS = {
     { "test",         "the acceptance checklist; test report | reset | <phase>" },
     { "outline",      "diagnostic boxes around every frame, above everything" },
     { "claims",       "who is claiming each frame, and every recent transition" },
+    { "modifier",     "which keys reveal the HUD: alt shift ctrl, or none" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -257,6 +258,35 @@ local HANDLERS = {
             ns.Print("frames released to their resting alphas, placeholders cleared.")
         end
     end,
+    modifier     = function(arg)
+        local Reveal = ns.Reveal
+        if arg and arg ~= "" then
+            local names = {}
+            for word in arg:gmatch("%a+") do
+                names[#names + 1] = word
+            end
+            local set, bad = Reveal.SetModifiers(names)
+            if not set then
+                ns.Print(("unknown modifier %q -- alt, shift, ctrl or none"):format(bad))
+                return
+            end
+        end
+
+        local active = {}
+        for name in pairs(Reveal.Modifiers()) do
+            active[#active + 1] = name
+        end
+        table.sort(active)
+        if #active == 0 then
+            ns.Print("modifier reveal is |cfff26b61off|r. "
+                     .. "|cffadb1b8/myui modifier alt shift|r to re-enable.")
+        else
+            ns.Print("modifier reveal: |cfff0f1f3" .. table.concat(active, " + ") .. "|r")
+        end
+        ns.Raw("  Alt and Shift are SPEC's default, but they are also what most "
+               .. "players bind abilities to.")
+        ns.Raw("  |cffadb1b8/myui modifier none|r turns the channel off entirely.")
+    end,
     claims       = function(arg)
         local Reveal = ns.Reveal
         if arg == "clear" then
@@ -288,10 +318,21 @@ local HANDLERS = {
         local now = Reveal.Now()
         ns.Print(("recent transitions (%d)"):format(#log))
         for _, e in ipairs(log) do
-            ns.Raw(("  %7s  %-14s %s -> %s   %s"):format(
-                ("-%.1fs"):format(now - e.at),
-                e.frame, fmtAlpha(e.from), fmtAlpha(e.to),
-                e.winner or "|cffadb1b8released|r"))
+            local when = ("-%.1fs"):format(now - e.at)
+            if e.kind == "change" then
+                ns.Raw(("  %7s     %-14s %s -> %s   %s"):format(
+                    when, e.frame, fmtAlpha(e.from), fmtAlpha(e.to),
+                    e.winner or "|cffadb1b8released|r"))
+            else
+                -- Inputs are indented left of outcomes, so a glance separates
+                -- what you did from what the arbiter decided about it.
+                local mark = "|cffa6d98c+|r"
+                if e.kind == "release" then
+                    mark = "|cfff26b61-|r"
+                end
+                ns.Raw(("  %7s  %s %s %s"):format(
+                    when, mark, e.channel, e.frame or "|cffadb1b8(all)|r"))
+            end
         end
     end,
     outline      = function(arg)

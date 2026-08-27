@@ -135,6 +135,25 @@ breaks ties only — a genuinely higher claim still wins outright.
 Also observed and correct: hovering the health bars reveals the cooldown line too. They sit
 18 apart and the proximity zone is 25.6, so one cursor is legitimately near both.
 
+### Two corrections from reviewing that diagnosis
+
+**The log could not actually prove what I said it proved.** It recorded outcomes — a
+frame's target or winner moved — and never inputs. So "Alt pressed three times" and "one
+press with the winner re-attributed twice" produced identical lines. It now logs both, as
+`+ modifier` / `- modifier` input entries alongside the outcome entries, and only when the
+claim state really changes so a held key does not spam. (Re-reading the original log, no
+`TargetStrip 1.00 -> 0.00` appears in that window and TargetStrip is claimed only by the
+modifier, so Alt was held throughout — which does point back to re-attribution. But that is
+inference, and the point is that it no longer has to be.)
+
+**SPEC § 4's default modifier is unusable for many players.** Alt and Shift are what most
+people bind ability modifiers to, so a HUD keyed to them flashes on every modified cast in
+a fight — the same incidental-reveal problem the 140ms dwell exists to prevent, arriving
+through a different door. Which keys arm the channel is now configurable and can be turned
+off entirely: `/myui modifier alt shift ctrl` or `/myui modifier none`, persisted. The
+default remains SPEC's Alt or Shift. **Worth raising with the designer** — a channel whose
+default conflicts with common keybinds may want a different default.
+
 ---
 
 ## Phase 2: what was decided where SPEC is silent

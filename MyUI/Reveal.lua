@@ -99,12 +99,20 @@ local claims = {}   -- [frameName][channel] = alpha
 local MAX_LOG = 40
 Reveal.log = {}
 
-local function Record(name, from, to, winner)
+-- Two kinds of entry, and the distinction matters more than it looks.
+--
+--   "claim" / "release"  an INPUT: a channel was asserted or dropped
+--   "change"             an OUTCOME: a frame's target or winner moved
+--
+-- The first version logged outcomes only, which made two very different things
+-- produce identical lines: pressing Alt three times, and pressing it once while
+-- the winner got re-attributed twice. A log that cannot tell an input from an
+-- outcome cannot answer "did I do that, or did you?" -- which is the first
+-- question anyone asks of it.
+local function Record(entry)
     local log = Reveal.log
-    log[#log + 1] = {
-        at = Reveal.Now(), frame = name,
-        from = from, to = to, winner = winner,
-    }
+    entry.at = Reveal.Now()
+    log[#log + 1] = entry
     if #log > MAX_LOG then
         table.remove(log, 1)
     end
@@ -138,19 +146,30 @@ function Reveal.Claim(channel, name)
     if alpha == nil then
         error("no reveal channel " .. tostring(channel), 2)
     end
+    local changed = false
     if name then
         if not InScope(channel, name) then
             return false
         end
         claims[name] = claims[name] or {}
+        changed = claims[name][channel] ~= alpha
         claims[name][channel] = alpha
     else
         Registry.Each(function(entry)
             if InScope(channel, entry.name) then
                 claims[entry.name] = claims[entry.name] or {}
+                if claims[entry.name][channel] ~= alpha then
+                    changed = true
+                end
                 claims[entry.name][channel] = alpha
             end
         end)
+    end
+    -- Only a real change is logged. A modifier event can repeat while the key
+    -- is held, and a log full of "claimed" for a key you pressed once would be
+    -- exactly the noise this is meant to remove.
+    if changed then
+        Record({ kind = "claim", channel = channel, frame = name })
     end
     Reveal.Resolve()
     return true
@@ -158,14 +177,22 @@ end
 
 --- Drop a claim. name omitted releases the channel everywhere.
 function Reveal.Release(channel, name)
+    local changed = false
     if name then
-        if claims[name] then
+        if claims[name] and claims[name][channel] ~= nil then
             claims[name][channel] = nil
+            changed = true
         end
     else
         for _, byChannel in pairs(claims) do
-            byChannel[channel] = nil
+            if byChannel[channel] ~= nil then
+                byChannel[channel] = nil
+                changed = true
+            end
         end
+    end
+    if changed then
+        Record({ kind = "release", channel = channel, frame = name })
     end
     Reveal.Resolve()
 end
@@ -210,7 +237,8 @@ function Reveal.Resolve()
         -- frame up is precisely what "highest claim wins" looks like, and
         -- logging only alpha changes would hide the one case worth seeing.
         if entry.target ~= target or previous ~= winner then
-            Record(entry.name, entry.target, target, winner)
+            Record({ kind = "change", frame = entry.name,
+                     from = entry.target, to = target, winner = winner })
         end
 
         if entry.target ~= target then
@@ -375,15 +403,72 @@ end
 -- Everything except cursor proximity and the peek clock is event-driven, which
 -- RULES.md requires and which is also simply cheaper.
 
+-- SPEC.md 4 names "Alt (primary) or Shift" and that is the default. But Alt
+-- and Shift are what most players bind their ability modifiers to, and a HUD
+-- that flashes on every modified cast during a fight is the opposite of a
+-- design whose premise is that at rest the screen is the game. The dwell exists
+-- to stop incidental reveals; this is the same problem arriving through a
+-- different door.
+--
+-- So which keys arm the channel is configurable, and turning it off entirely is
+-- a supported answer. Slash commands only, per the handoff's scoping decision.
+local MODIFIER_KEYS = {
+    alt   = "IsAltKeyDown",
+    shift = "IsShiftKeyDown",
+    ctrl  = "IsControlKeyDown",
+}
+
+Reveal.DEFAULT_MODIFIERS = { alt = true, shift = true }
+
+function Reveal.Modifiers()
+    if ns.db and ns.db.modifiers then
+        return ns.db.modifiers
+    end
+    return Reveal.DEFAULT_MODIFIERS
+end
+
+--- Set which keys arm the modifier channel. An empty list disables it.
+-- Returns the accepted set, or nil plus the unknown name.
+function Reveal.SetModifiers(names)
+    local set = {}
+    for _, name in ipairs(names) do
+        name = name:lower()
+        if name ~= "none" then
+            if not MODIFIER_KEYS[name] then
+                return nil, name
+            end
+            set[name] = true
+        end
+    end
+    if ns.db then
+        ns.db.modifiers = set
+    end
+    Reveal.Release("modifier")
+    return set
+end
+
+local function AnyModifierDown()
+    for name in pairs(Reveal.Modifiers()) do
+        local fn = _G[MODIFIER_KEYS[name]]
+        if type(fn) == "function" then
+            local ok, down = pcall(fn)
+            if ok and down then
+                return true
+            end
+        end
+    end
+    return false
+end
+
 local function OnModifier()
-    local alt   = _G.IsAltKeyDown   and _G.IsAltKeyDown()
-    local shift = _G.IsShiftKeyDown and _G.IsShiftKeyDown()
-    if alt or shift then
+    if AnyModifierDown() then
         Reveal.Claim("modifier")
     else
         Reveal.Release("modifier")
     end
 end
+
+Reveal.AnyModifierDown = AnyModifierDown
 
 local function OnTargetChanged()
     local exists = _G.UnitExists and _G.UnitExists("target")

@@ -266,18 +266,24 @@ Testing.scripts = {
               expect = "The log shows modifier claiming three frames, then "
                     .. "releasing them.",
               check = function()
-                  local claimed, released = false, false
+                  -- Reads the input entries, not the outcomes: whether you
+                  -- pressed the key is a different question from what the
+                  -- arbiter did about it.
+                  local claimed, released = 0, 0
                   for _, e in ipairs(ns.Reveal.log) do
-                      if e.winner == "modifier" then claimed = true end
-                      if claimed and e.winner == nil then released = true end
+                      if e.channel == "modifier" then
+                          if e.kind == "claim" then claimed = claimed + 1 end
+                          if e.kind == "release" then released = released + 1 end
+                      end
                   end
-                  if not claimed then
-                      return false, "no modifier claim recorded yet"
+                  if claimed == 0 then
+                      return false, "no modifier press recorded yet"
                   end
-                  if not released then
-                      return false, "modifier claimed but never released"
+                  if released == 0 then
+                      return false, "pressed but never released"
                   end
-                  return true, "claim and release both recorded"
+                  return true, ("%d press%s recorded"):format(
+                      claimed, claimed == 1 and "" or "es")
               end },
 
             { awaits = "claims",
@@ -287,7 +293,7 @@ Testing.scripts = {
               check = function()
                   local onStack, onStrip = false, false
                   for _, e in ipairs(ns.Reveal.log) do
-                      if e.winner == "cursor" then
+                      if e.kind == "change" and e.winner == "cursor" then
                           if e.frame == "SelfStack" then onStack = true end
                           if e.frame == "TargetStrip" then onStrip = true end
                       end
@@ -309,8 +315,8 @@ Testing.scripts = {
                     .. "and dropping one did not dim the frame." ,
               check = function()
                   for _, e in ipairs(ns.Reveal.log) do
-                      if e.frame == "SelfStack" and e.winner == "cursor"
-                         and e.from == e.to then
+                      if e.kind == "change" and e.frame == "SelfStack"
+                         and e.winner == "cursor" and e.from == e.to then
                           return true, "handover recorded with no alpha change"
                       end
                   end

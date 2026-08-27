@@ -28,6 +28,10 @@ local function FreshDB()
         -- /reload rather than copied out of the chat frame by hand.
         lastCommand = nil,
         lastOutput  = nil,
+        -- Which keys arm the reveal engine's modifier channel. SPEC 4's
+        -- default is Alt or Shift; players who bind those to abilities need
+        -- to change or disable it.
+        modifiers   = { alt = true, shift = true },
         guard  = { mode = "strict" },
     }
 end
@@ -63,6 +67,7 @@ local function Migrate(db)
     db.addon.phase   = ns.phase
     db.alpha = db.alpha or {}
     db.guard = db.guard or { mode = "strict" }
+    db.modifiers = db.modifiers or { alt = true, shift = true }
     return db
 end
 

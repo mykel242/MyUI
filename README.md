@@ -92,6 +92,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui test            the acceptance checklist; test report | reset | <phase>
 /myui outline         diagnostic boxes around every frame, above everything
 /myui claims          who is claiming each frame, and every recent transition
+/myui modifier        which keys reveal the HUD: alt shift ctrl, or none
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset
