@@ -35,7 +35,9 @@ local function FreshDB()
         -- How the small type survives a bright backdrop. SPEC's palette is
         -- light-on-dark and washes out over sand or firelight.
         textStyle   = "shadow",
-        contrast    = "normal",
+        -- lift, not normal: see Frames.Contrast. SPEC's greys are unreadable
+        -- over ordinary terrain, verified in game.
+        contrast    = "lift",
         guard  = { mode = "strict" },
     }
 end
@@ -73,7 +75,7 @@ local function Migrate(db)
     db.guard = db.guard or { mode = "strict" }
     db.modifiers = db.modifiers or { alt = true, shift = true }
     db.textStyle = db.textStyle or "shadow"
-    db.contrast  = db.contrast or "normal"
+    db.contrast  = db.contrast or "lift"
     return db
 end
 

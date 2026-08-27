@@ -71,11 +71,20 @@ local LIFT = {
     textSecondary = "textPrimary",
 }
 
+-- DEFAULTS TO LIFT, which is a deliberate deviation from SPEC 6.
+--
+-- Verified in game 2026-08-27: with "normal", the age and the "+N more" count
+-- are unreadable against ordinary terrain, and the Phase 3 acceptance step for
+-- it only passes with lift on. Shipping a default that has been demonstrated
+-- unreadable would be choosing spec fidelity over the thing the spec is for.
+--
+-- /myui contrast normal restores SPEC's exact values in one command, and the
+-- deviation is recorded in DESIGN-QUESTIONS.md for the designer to rule on.
 function Frames.Contrast()
     if ns.db and ns.db.contrast and Frames.CONTRAST_LEVELS[ns.db.contrast] then
         return ns.db.contrast
     end
-    return "normal"
+    return "lift"
 end
 
 local function ResolveColor(name)

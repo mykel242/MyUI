@@ -281,8 +281,10 @@ local HANDLERS = {
                .. "for the dim greys.")
         ns.Raw("  |cffadb1b8lift|r moves tertiary to secondary and secondary to "
                .. "primary -- still SPEC 7, no fifteenth colour.")
-        ns.Raw("  SPEC 6 names rgba(115,119,126,1) for the age specifically, so "
-               .. "this is a spec conflict, not a bug.")
+        ns.Raw("  |cffadb1b8lift is the default|r -- a deliberate deviation. SPEC 6 "
+               .. "names rgba(115,119,126,1) for the age,")
+        ns.Raw("  and it is unreadable over ordinary terrain. "
+               .. "|cffadb1b8/myui contrast normal|r restores the spec exactly.")
     end,
     text         = function(arg)
         local Frames = ns.Frames

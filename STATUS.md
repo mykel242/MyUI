@@ -14,21 +14,23 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | 0 — Skeleton and compliance harness | **Delivered** — `v0.1.0-phase0`, verified in game |
 | 1 — Anchors and frame registry | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
 | 2 — Reveal engine | **Delivered** — `v0.3.0-phase2`, 16/16 in game |
-| 3 — Rail | **Built**, awaiting in-game acceptance |
+| 3 — Rail | **Delivered** — `v0.4.0-phase3`, 17/17 in game |
 | 4 — Bars and low health | Not started |
 | 5 — Edit mode | Not started |
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### The one thing waiting on you
+### Nothing is blocking
 
-**Phase 3's in-game acceptance.** `/myui test` — sixteen steps, three auto-checked.
-`/myui notify demo` sends ten at once, which is what the cap and the "+N more"
-square exist for.
+Phase 4 is the next action: bars and low health. SPEC § 2's internals and § 3.
+The riskiest compliance surface in v1 — audit after each sub-step, not just at
+phase end.
 
-One step is folded in from Phase 2: the **Hold to reveal** binding shipped after
-that phase was accepted, so it has never been verified in game. Bind it to a free
-key first.
+**`DESIGN-QUESTIONS.md` has accumulated enough to be worth sending to the
+designer.** Three verified in-game failures, three specified mechanisms that do
+not exist on 12.1, and eleven decisions made where the spec is silent. One
+deviation has shipped: contrast defaults to lift, because the specified grey is
+unreadable.
 
 Running a phase acceptance test: `/myui test` in game, work down the checklist,
 hit **report**, `/reload`. The report lands in `MyUIDB.testRuns` and can be read

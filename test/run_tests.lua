@@ -1038,6 +1038,14 @@ section("Text legibility")
 
 local Frames = ns.Frames
 check("shadow is the default", Frames.TextStyle() == "shadow")
+
+-- The one deliberate deviation from SPEC in the addon. Verified in game: with
+-- "normal" the age and the "+N more" count are unreadable against ordinary
+-- terrain, and Phase 3's acceptance step for it passes only with lift on.
+check("contrast defaults to LIFT, deviating from SPEC 6",
+      Frames.Contrast() == "lift", Frames.Contrast())
+check("  and the spec's exact values are one command away",
+      Frames.CONTRAST_LEVELS.normal == true)
 check("the shadow reuses an existing palette colour", (function()
     -- tickDark is rgba(0,0,0,0.55), which is what a shadow wants anyway, so
     -- the fix introduces no fifteenth colour. SPEC 7 is closed at fourteen.

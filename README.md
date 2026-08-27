@@ -21,7 +21,7 @@ deliberately rejected explorations and must not be treated as a reference.
 | **0 — Skeleton and compliance harness** | **Delivered** — `v0.1.0-phase0`, verified in game |
 | **1 — Anchors and frame registry** | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
 | **2 — Reveal engine** | **Delivered** — `v0.3.0-phase2`, 16/16 in game |
-| **3 — Rail** | **Built.** 389 addon + 15 lint checks green. In-game acceptance not yet run |
+| **3 — Rail** | **Delivered** — `v0.4.0-phase3`, 17/17 in game |
 | 4 — Bars and low health | Not started |
 | 5 — Edit mode | Not started |
 | 6 — Polish and persistence | Not started |
@@ -81,6 +81,7 @@ test/
   test_lint.py        15 checks proving the lint catches what it claims
   fixtures/           one deliberate violation per rule
 API-NOTES-12.1.md     verified 12.1 ground truth, with citations
+DESIGN-QUESTIONS.md   what building it found, for the designer
 STATUS.md             where things stand; read this first when resuming
 ```
 
