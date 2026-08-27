@@ -89,7 +89,7 @@ Testing.scripts = {
               expect = "Nothing from MyUI is visible. Phase 0 draws nothing." },
             { act = "Type /myui rules",
               expect = "The principle, six prohibitions, four mechanisms." },
-            { act = "Type /myui audit",
+            { awaits = "audit", act = "Type /myui audit",
               expect = "A clean guard: 0 violations.",
               check = function()
                   local n = #ns.Guard.violations
@@ -106,7 +106,7 @@ Testing.scripts = {
         accept = "Debug toggle shows every frame; positions and sizes match the "
               .. "mock; audit lists each frame with its spec resting alpha.",
         steps = {
-            { id = "show", act = "Type /myui show on",
+            { id = "show", awaits = "show on", act = "Type /myui show on",
               expect = "Frames go opaque, with placeholder text and a nominal fill.",
               check = function()
                   if not Registry.forced then
@@ -134,7 +134,7 @@ Testing.scripts = {
             { act = "Far left, vertically centred: a vertical hairline?",
               expect = "One crisp pixel-wide line. Not a soft grey smear." },
 
-            { act = "Type /myui audit",
+            { awaits = "audit", act = "Type /myui audit",
               expect = "Four frames with resting alphas 0.35, 0.25, 0.00, 1.00.",
               check = function()
                   for name, want in pairs(SPEC_RESTING) do
@@ -147,7 +147,8 @@ Testing.scripts = {
                   end
                   return true, "all four match SPEC 2"
               end },
-            { act = "Read the px-per-unit line at the bottom of the audit.",
+            { awaits = "audit",
+              act = "Read the px-per-unit line at the bottom of the audit.",
               expect = "Reports pixel-perfect.",
               check = function()
                   local perfect, perUnit = Scale.IsPixelPerfect()
@@ -166,7 +167,7 @@ Testing.scripts = {
             { act = "Type /myui outline off",
               expect = "Boxes gone, frames unchanged." },
 
-            { id = "showoff", act = "Type /myui show off",
+            { id = "showoff", awaits = "show off", act = "Type /myui show off",
               expect = "Placeholders clear and the bars empty.",
               check = function()
                   if Registry.forced then
@@ -191,7 +192,7 @@ Testing.scripts = {
 
 local window, rows, tallyText
 
-local ROW_H, TEXT_W = 52, 520
+local ROW_H, TEXT_W = 68, 520
 
 local function BuildRow(parent, index)
     local row = CreateFrame("Frame", nil, parent)
@@ -215,6 +216,13 @@ local function BuildRow(parent, index)
     row.expect:SetPoint("TOPLEFT", row.act, "BOTTOMLEFT", 0, -2)
     row.expect:SetWidth(TEXT_W)
     row.expect:SetJustifyH("LEFT")
+
+    -- What the auto-check actually measured. Without this a FAIL is a verdict
+    -- with no evidence, and the only way to find out why is the report.
+    row.detail = row:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+    row.detail:SetPoint("TOPLEFT", row.expect, "BOTTOMLEFT", 0, -2)
+    row.detail:SetWidth(TEXT_W)
+    row.detail:SetJustifyH("LEFT")
 
     row.pass = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     row.pass:SetSize(52, 20)
@@ -333,12 +341,27 @@ function Testing.Refresh()
         row.expect:SetText(step.expect)
 
         local r = Testing.results[i]
-        if r == nil then
+        local waiting = step.check ~= nil and not Testing.Ready(step)
+
+        if waiting then
+            -- Not done is not a failure. The row is asking you to do something;
+            -- marking it FAIL before you have is both wrong and discouraging.
+            row.mark:SetText("|cff73777ewaiting|r")
+            row.detail:SetText("|cff73777echecks itself once you run it|r")
+        elseif r == nil then
             row.mark:SetText("|cffadb1b8...|r")
+            row.detail:SetText("")
         elseif r.verdict == "pass" then
             row.mark:SetText("|cffa6d98cpass|r")
+            row.detail:SetText("")
         else
             row.mark:SetText("|cfff26b61FAIL|r")
+            row.detail:SetText("")
+        end
+
+        if r and r.auto and r.detail then
+            row.mark:SetText(row.mark:GetText() .. "\n|cff73777eauto|r")
+            row.detail:SetText("|cff73777e" .. tostring(r.detail) .. "|r")
         end
 
         -- A step MyUI can decide for itself does not get buttons. Offering one
@@ -346,9 +369,6 @@ function Testing.Refresh()
         if step.check then
             row.pass:Hide()
             row.fail:Hide()
-            if r and r.detail then
-                row.mark:SetText(row.mark:GetText() .. "\n|cff73777e auto|r")
-            end
         else
             row.pass:Show()
             row.fail:Show()
@@ -357,8 +377,7 @@ function Testing.Refresh()
     window.child:SetHeight(math.max(y, 10))
 
     local pass, fail, pending = Testing.Tally()
-    tallyText:SetText(("%d passed   %d failed   %d not run")
-                      :format(pass, fail, pending))
+    tallyText:SetText(("%d passed   %d failed   %d to go"):format(pass, fail, pending))
 end
 
 --- Open the checklist, optionally for a phase other than the current one.
@@ -387,6 +406,24 @@ end
 
 Testing.phase = ns.phase
 Testing.results = {}
+
+-- Commands run so far in this acceptance run, as "name arg" -- "show on",
+-- "outline off", "audit". A step that awaits one stays pending until it fires.
+--
+-- Without this an auto step reads FAIL before you have had a chance to do it,
+-- which is both wrong and demoralising: the row is telling you to type
+-- something and marking you down for not having typed it yet. "Not done" and
+-- "done and broken" are different states and only the second is a failure.
+Testing.performed = {}
+
+--- Record that a command ran. Called from the slash dispatcher for every
+-- command, so steps do not need individual wiring.
+function Testing.Note(name, rest)
+    if rest and rest ~= "" then
+        Testing.performed[name .. " " .. rest] = true
+    end
+    Testing.performed[name] = true
+end
 
 --- Index of a step by its stable id, so tests and tools do not depend on the
 -- position of a step in a list that gets reordered as scripts are refined.
@@ -417,13 +454,24 @@ end
 --
 -- force re-evaluates everything, for when you want to start the sequence over
 -- without losing the manual verdicts.
+--- True when a step's prerequisite command has been run this session.
+function Testing.Ready(step)
+    if not step.awaits then
+        return true
+    end
+    return Testing.performed[step.awaits] == true
+end
+
 function Testing.Recheck(force)
     local steps = Testing.Steps()
     if not steps then return end
     for i, step in ipairs(steps) do
         local existing = Testing.results[i]
         local settled = existing ~= nil and existing.verdict == "pass"
-        if step.check and (force or not settled) then
+        if step.check and not Testing.Ready(step) then
+            -- Waiting on you, not failing. Leave it unset.
+            Testing.results[i] = nil
+        elseif step.check and (force or not settled) then
             -- One protected call. Running the check twice would both waste the
             -- work and leave the second call unguarded.
             local ok, passed, why = pcall(step.check)
@@ -446,6 +494,7 @@ end
 --- Start the run over. Manual verdicts go too -- a fresh run means fresh eyes.
 function Testing.Reset()
     Testing.results = {}
+    Testing.performed = {}
     Testing.Recheck(true)
 end
 

@@ -597,64 +597,57 @@ check("every step asks exactly one question", (function()
     return true
 end)())
 
-Registry.ForceVisible(true)
-Testing.results = {}
-Testing.Recheck()
--- Regression: the check used to compare only the registry's intent, so it
--- reported success while the screen was unchanged. It must now notice when a
--- frame's real alpha disagrees with what we asked for.
-Registry.Get("SelfStack").frame:SetAlpha(0.35)
-Testing.results = {}
-Testing.Recheck()
-check("a frame whose real alpha disagrees is caught",
-      Testing.results[Testing.IndexOf("show")].verdict == "fail",
-      Testing.results[Testing.IndexOf("show")].detail)
-Registry.ForceVisible(true)
-Testing.Recheck()
+-- These drive the real slash command rather than the registry directly, so the
+-- dispatcher, Note and Recheck are all exercised together -- which is how the
+-- addon is actually used, and where the waiting state lives.
+Testing.Reset()
+check("an unperformed step is waiting, not failing", Testing.results[SHOW] == nil)
+check("  and Ready says so", not Testing.Ready(Testing.Steps()[SHOW]))
+check("  while a step awaiting nothing is always ready",
+      Testing.Ready({ act = "x", expect = "y" }))
 
-check("auto-check passes when the frames are forced visible",
-      Testing.results[SHOW] and Testing.results[SHOW].verdict == "pass",
+run("show on")
+check("running the command marks it performed", Testing.performed["show on"] == true)
+check("  and the step is now ready", Testing.Ready(Testing.Steps()[SHOW]))
+check("  and passes", Testing.results[SHOW] and Testing.results[SHOW].verdict == "pass",
       Testing.results[SHOW] and Testing.results[SHOW].detail)
-check("  and is marked as decided automatically", Testing.results[SHOW].auto == true)
 check("  saying it verified the screen, not just the intent",
       Testing.results[SHOW].detail:find("verified on screen", 1, true) ~= nil,
       Testing.results[SHOW].detail)
-check("  while the show-off step correctly fails",
-      Testing.results[SHOWOFF] and Testing.results[SHOWOFF].verdict == "fail")
+check("  and is marked as decided automatically", Testing.results[SHOW].auto == true)
+check("the show-off step is still waiting", Testing.results[SHOWOFF] == nil)
 
-Registry.ForceVisible(false)
-Testing.results = {}
-Testing.Recheck()
-check("releasing flips both verdicts",
-      Testing.results[SHOW].verdict == "fail" and Testing.results[SHOWOFF].verdict == "pass",
+-- Regression: the check used to compare only the registry's intent, so it
+-- reported success while the screen was unchanged.
+Registry.Get("SelfStack").frame:SetAlpha(0.35)
+Testing.Recheck(true)
+check("a frame whose real alpha disagrees is caught",
+      Testing.results[SHOW].verdict == "fail", Testing.results[SHOW].detail)
+run("show on")
+
+-- Steps 1 and 13 test mutually exclusive states on purpose. A pass has to
+-- latch, or finishing the sequence always fails whichever step you did first.
+run("show off")
+check("the show-off step passes once performed",
+      Testing.results[SHOWOFF] and Testing.results[SHOWOFF].verdict == "pass",
       Testing.results[SHOWOFF] and Testing.results[SHOWOFF].detail)
-
--- Steps 1 and 8 test mutually exclusive states on purpose. A pass has to latch,
--- or finishing the sequence always fails whichever step you did first.
-Registry.ForceVisible(true)
-Testing.Reset()
-check("the show step passes with the frames forced",
-      Testing.results[SHOW].verdict == "pass")
-Registry.ForceVisible(false)
-Testing.Recheck()
-check("the show-off step now passes too", Testing.results[SHOWOFF].verdict == "pass")
 check("  and the show step keeps its pass", Testing.results[SHOW].verdict == "pass",
       Testing.results[SHOW].verdict)
 Testing.Recheck(true)
 check("forcing a re-check re-evaluates it", Testing.results[SHOW].verdict == "fail")
-Registry.ForceVisible(true)
-Testing.Reset()
-check("reset clears manual verdicts too", Testing.results[2] == nil)
-Registry.ForceVisible(false)
-Testing.Recheck()
-
--- A step MyUI can measure must not be overridable by a click.
-check("auto steps report a detail string",
-      type(Testing.results[SHOWOFF].detail) == "string")
 
 Testing.Set(2, "pass")
 check("manual verdicts are recorded", Testing.results[2].verdict == "pass")
 check("  and marked as not automatic", Testing.results[2].auto == false)
+
+Testing.Reset()
+check("reset clears manual verdicts", Testing.results[2] == nil)
+check("  and forgets what was performed", next(Testing.performed) == nil)
+
+run("show on")
+run("audit")
+check("auto steps report a detail string",
+      type(Testing.results[SHOW].detail) == "string")
 
 local pass, fail, pending = Testing.Tally()
 check("tally adds up to the step count",

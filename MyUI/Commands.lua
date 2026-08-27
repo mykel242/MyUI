@@ -248,10 +248,6 @@ local HANDLERS = {
         end
         Registry.ForceVisible(on)
         ns.Frames.Placeholders(on)
-        -- Latch the checklist against the state as it is NOW. Without this the
-        -- auto-checks are only evaluated when the report is run, by which point
-        -- the sequence has moved on and they describe the wrong moment.
-        ns.Testing.Recheck()
         if on then
             ns.Print("all frames at alpha 1, with placeholder text and a nominal "
                      .. "bar fill so geometry can be judged. "
@@ -270,7 +266,6 @@ local HANDLERS = {
             on = nil
         end
         local shown = ns.Outline.Toggle(on)
-        ns.Testing.Recheck()
         if shown then
             ns.Print("outlines on. A box with nothing visible inside it means the "
                      .. "frame is placed correctly but hidden behind something.")
@@ -347,6 +342,17 @@ SlashCmdList["MYUI"] = function(input)
     local ok, err = pcall(HANDLERS[name], rest ~= "" and rest or nil)
     if not ok then
         ns.Print("|cfff26b61" .. tostring(err) .. "|r")
+    end
+
+    -- Every command is noted, so acceptance steps can wait on the one that
+    -- performs them rather than reading FAIL before you have run it.
+    ns.Testing.Note(name, rest)
+
+    -- Latch the checklist against the state as it is NOW. Without this the
+    -- auto-checks are only evaluated when the report is run, by which point the
+    -- sequence has moved on and they describe the wrong moment.
+    if name ~= "test" then
+        pcall(ns.Testing.Recheck)
     end
 
     -- Persist for the off-disk route. SavedVariables are only flushed on
