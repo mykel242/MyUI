@@ -31,45 +31,45 @@ python3 ~/Development/cc-addon/wowaddons.py --dev MyUI ~/Development/MyUI
 python3 ~/Development/cc-addon/wowaddons.py --update MyUI
 ```
 
-**2. `/myui conditionals` answers the one open design question.** See below.
+**2. SPEC § 3 needs a decision.** The probe has run and the answer is below.
 
 ---
 
-## Open: the low-health driver state has no verified event source
+## Answered: no health conditional exists. Decision needed on the alternative.
 
-SPEC.md § 3 gives the low-health moment three tells, all hanging on one
-`RegisterStateDriver` state. `RegisterStateDriver` resolves through
-`SecureCmdOptionParse`, which is engine-side and absent from Blizzard's Lua source, so the
-conditional vocabulary cannot be read offline. Nothing resembling `[hp<20]` appears
-anywhere, and `C_Secrets` turns out to be pure introspection about *whether* a value is
-secret — no comparison, no health predicate.
+Probed on a live client 2026-08-27. **`RegisterStateDriver` cannot deliver SPEC § 3's
+state** — there is no health macro conditional. The probe also found that an unrecognised
+conditional is *ignored* by the parser, so the clause matches; it now tests numeric
+candidates as an always-false / always-true pair, which discriminates at any health.
 
-**Two of the three tells need no event at all.** `SetAlpha` is `AllowedWhenTainted`, so a
-scalar curve drives both the 1.60s breathe and the screen-edge danger hairline directly.
+### The alternative: hook Blizzard's `LowHealthFrame`
 
-**One genuinely does.** The health number's 12pt → 14pt change. `SetScale` is
-`AllowedWhenUntainted` and will refuse a forwarded secret, and font size is not alpha.
+`LowHealthFrame` is a named global that Blizzard shows when player health crosses 0.35. It
+computes that with `UnitHealth() / UnitHealthMax()` — which its untainted code may do and
+ours may not. `HookScript("OnShow", ...)` gives us the moment without reading anything.
 
-**To get the result back out:** run the command, then `/reload`. Every command's output is
-persisted to `MyUIDB.lastOutput` with colour codes stripped, so it can be read straight off
-disk from `WTF/Account/*/SavedVariables/MyUI.lua` with no copying. `/myui copy` gives an
-in-game selectable window if a reload is inconvenient.
+It satisfies the one principle, but it is **a fifth mechanism, not one of RULES.md's
+four.** That is a rules amendment, so it wants your sign-off rather than quiet adoption.
 
-Run `/myui conditionals` in game. **No combat needed, and no need to be hurt** — it can be
-run standing in a city.
+Because it is a genuine event rather than a forwarded secret, everything a driver state
+could carry is legal inside it — including the 12pt → 14pt change that no forwarded value
+can drive.
 
-It tests each candidate in both plain and negated form against two controls: `[combat]` /
-`[nocombat]`, which proves the probe works, and a deliberate nonsense conditional, which
-establishes what "the parser does not know this" looks like on the live client rather than
-assuming it. A candidate whose signature differs from that unknown baseline is real. Both
-halves matter — at full health a conditional that exists and evaluates false looks exactly
-like one that does not exist, unless you have measured the difference.
+What it costs:
 
-- **If a row reads RECOGNISED** — SPEC § 3 ships as written. Confirm by running it again
-  below the threshold; it should flip to a hit.
-- **If none does** — the proposed amendment is two stacked FontStrings at 12pt and 14pt,
-  cross-faded by curve-driven alpha. Same visual, alpha only, no event, no inspection.
-  This is a spec change and wants sign-off, not a silent substitution.
+| | |
+|---|---|
+| Threshold | Fixed at **0.35**, not the ~20% SPEC's ticks imply. Blizzard's number, not ours |
+| CVar dependency | Off if the player disables `doNotFlashLowHealthWarning`. Detectable at load, so it can warn |
+| Shared frame | Also used for the in-combat fullscreen flash, which we cannot distinguish — but that only fires behind a fullscreen panel, where the HUD is hidden anyway |
+
+**If you reject it**, two of the three tells still work with no event: `SetAlpha` takes a
+forwarded secret, so a curve drives both the breathe and the screen hairline. Only the
+12pt → 14pt change needs the substitute — two stacked FontStrings cross-faded by
+curve-driven alpha.
+
+**Either way SPEC § 3 changes**, so this is a decision, not an implementation detail.
+Phases 1-3 are unblocked regardless; the answer is only needed by Phase 4.
 
 ---
 

@@ -244,34 +244,51 @@ function M.install()
     _G.UnitHealth    = function() return M.secret() end
     _G.UnitHealthMax = function() return M.secret() end
 
-    -- SecureCmdOptionParse is engine-side. The mock knows only the conditionals
-    -- confirmed to exist; every candidate health conditional misses, which is
-    -- the hypothesis /myui conditionals exists to test against a real client.
+    -- SecureCmdOptionParse is engine-side. This models what a live 12.1 client
+    -- was measured to do, which is NOT what this mock first assumed:
     --
-    -- M.known lets a test teach it one, so the probe's discriminator is proven
-    -- to report RECOGNISED when a conditional really does exist -- otherwise
-    -- the probe could be hardwired to say "no" and every test would pass.
+    --   A conditional the parser does not know is IGNORED, so the clause
+    --   matches. [zzznope] hits; [nozzznope] misses.
+    --
+    -- The first version had that backwards and every test still passed, which
+    -- is the standing lesson from the Rebar project: a mock's defaults are
+    -- assertions about the real system, and a wrong one buys false confidence.
+    --
+    -- M.known teaches it a term, so the probe's discriminator can be proven to
+    -- report RECOGNISED when a conditional really does exist. Without that a
+    -- probe hardwired to answer "no" would pass everything.
     M.known = {}
+    M.inCombat = false
+
+    local function term(name)
+        -- @unit selectors are not conditionals; the parser accepts them.
+        if name:sub(1, 1) == "@" then return true end
+
+        local negated = false
+        if name:sub(1, 2) == "no" then
+            negated, name = true, name:sub(3)
+        end
+
+        local value = M.known[name]
+        if value == nil then
+            if name == "combat" then
+                value = M.inCombat
+            else
+                value = true   -- unrecognised: ignored, so the clause matches
+            end
+        end
+
+        if negated then return not value end
+        return value
+    end
+
     _G.SecureCmdOptionParse = function(macro)
         local cond, hit, miss = macro:match("^%[(.-)%]%s*(%S+);%s*(%S+)$")
         if not cond then return macro end
-        local taught = M.known[cond]
-        if taught ~= nil then
-            if taught then return hit end
-            return miss
+        for part in cond:gmatch("[^,]+") do
+            if not term(part) then return miss end
         end
-        if cond == "combat" then
-            if M.inCombat then return hit end
-            return miss
-        end
-        if cond == "nocombat" then
-            if M.inCombat then return miss end
-            return hit
-        end
-        -- Everything else is a conditional this mock does not know. Both the
-        -- plain and negated forms miss, which is the signature the probe's
-        -- unknown control exists to measure on a real client.
-        return miss
+        return hit
     end
 
     M.created = {}

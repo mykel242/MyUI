@@ -272,32 +272,46 @@ end
 
 local probe = output("conditionals")
 check("probe runs a known control", probe:find("control: known", 1, true) ~= nil)
-check("  and an unknown control", probe:find("control: unknown", 1, true) ~= nil)
-check("  known control misses plain, hits negated out of combat",
-      probe:find("%[combat%]%s+miss%s+hit") ~= nil)
-check("  unknown control misses both ways",
-      probe:find("%[zzznotaconditional%]%s+miss%s+miss") ~= nil)
-check("  every health candidate is unrecognised on this mock",
+check("  and both unknown baselines",
+      probe:find("control: unknown ", 1, true) ~= nil and
+      probe:find("control: unknown n", 1, true) ~= nil)
+check("  known control differs from unknown",
+      probe:find("%[combat%] / %[nocombat%]%s+miss/hit") ~= nil)
+
+-- The measured client behaviour: an unrecognised conditional is ignored, so
+-- the clause matches. Both baselines encode that, and neither is assumed.
+check("unknown negated baseline is hit/miss",
+      probe:find("%[zzznope%] / %[nozzznope%]%s+hit/miss") ~= nil)
+check("unknown numeric baseline is hit/hit",
+      probe:find("%[zzznope<0%] / %[zzznope<101%]%s+hit/hit") ~= nil)
+
+check("  every candidate is unrecognised on this mock",
       verdictRows(probe, "not recognised") == 6, verdictRows(probe, "not recognised"))
-check("  and no row is claimed recognised", verdictRows(probe, "RECOGNISED") == 0)
-check("  the reading is explained", probe:find("cross%-fade") ~= nil)
+check("  no row is claimed recognised", verdictRows(probe, "RECOGNISED") == 0)
+check("  the two health-dependent rows are flagged as such",
+      verdictRows(probe, "needs full health") == 2,
+      verdictRows(probe, "needs full health"))
+check("  and the fallback is named", probe:find("LowHealthFrame", 1, true) ~= nil)
 
 -- The discriminator is the whole point: a probe hardwired to say "no" would
--- pass every check above. Teach the mock a conditional that exists and is
--- false at full health, and the probe must tell it apart from an unknown one.
-mock.known = { ["hp<20"] = false, ["nohp<20"] = true }
+-- pass every check above. Teach the mock a conditional that really exists and
+-- it must be told apart from an unknown one -- at any health, which is why the
+-- numeric candidates use a complementary always-false / always-true pair.
+mock.known = { ["hp<0"] = false, ["hp<101"] = true }
 probe = output("conditionals")
-check("a real-but-false conditional reads as RECOGNISED",
-      verdictRows(probe, "RECOGNISED") == 1, verdictRows(probe, "RECOGNISED"))
-check("  on the hp row specifically",
-      probe:find("%[hp<20%]%s+miss%s+hit%s+RECOGNISED") ~= nil)
+check("a real conditional reads as RECOGNISED",
+      verdictRows(probe, "RECOGNISED") == 2, verdictRows(probe, "RECOGNISED"))
+check("  on the hp rows specifically",
+      probe:find("%[hp<0%] / %[hp<101%]%s+miss/hit%s+RECOGNISED") ~= nil)
 check("  while the others stay unrecognised",
-      verdictRows(probe, "not recognised") == 5, verdictRows(probe, "not recognised"))
+      verdictRows(probe, "not recognised") == 4, verdictRows(probe, "not recognised"))
+check("  and the summary flips", probe:find("2 recognised", 1, true) ~= nil)
 mock.known = {}
 
 mock.inCombat = true
 probe = output("conditionals")
-check("control tracks combat state", probe:find("%[combat%]%s+hit%s+miss") ~= nil)
+check("control tracks combat state",
+      probe:find("%[combat%] / %[nocombat%]%s+hit/miss") ~= nil)
 mock.inCombat = false
 
 -- ---------------------------------------------------------------------------
@@ -323,7 +337,7 @@ run("conditionals")
 check("a later command replaces the persisted output",
       _G.MyUIDB.lastOutput ~= persisted and _G.MyUIDB.lastCommand == "conditionals")
 check("  and the probe table survives the round trip",
-      _G.MyUIDB.lastOutput:find("zzznotaconditional", 1, true) ~= nil)
+      _G.MyUIDB.lastOutput:find("zzznope", 1, true) ~= nil)
 
 -- ---------------------------------------------------------------------------
 section("Rules")

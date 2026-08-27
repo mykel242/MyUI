@@ -18,7 +18,7 @@ deliberately rejected explorations and must not be treated as a reference.
 | Phase | State |
 |---|---|
 | **-1 — Ground truth** | **Complete.** Four mechanisms verified against Blizzard's 12.1 source; three corrections recorded |
-| **0 — Skeleton and compliance harness** | **Complete offline.** 81 addon checks + 15 lint checks green. In-game reload not yet run |
+| **0 — Skeleton and compliance harness** | **Complete.** Loaded in game; 116 addon + 15 lint checks green |
 | 1 — Anchors and frame registry | Not started |
 | 2 — Reveal engine | Not started |
 | 3 — Rail | Not started |

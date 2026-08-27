@@ -18,7 +18,7 @@ Two make the design simpler; one is unresolved and blocks part of SPEC § 3.
 |---|---|
 | `ColorCurveObject` drives continuous colour | **Confirmed, and better than assumed** — see 1 |
 | Inverted `MaskTexture` for the depleted wash | **Wrong mechanism** — no inversion flag exists; use reverse fill — see 3 |
-| `RegisterStateDriver` for the low-health state | **Unresolved** — no health conditional found — see 4 |
+| `RegisterStateDriver` for the low-health state | **Refuted** — no health conditional exists; hook `LowHealthFrame` instead — see 4 |
 | CDM at alpha 0 + mirror frames | Present as `Blizzard_CooldownViewer`; not yet examined (v2 / Phase 7) |
 
 ---
@@ -96,35 +96,93 @@ and the "empty part of the trough" is defined by the same secret value that fill
 
 ---
 
-## 4. UNRESOLVED — the low-health discrete state has no verified event source
+## 4. No health macro conditional exists. Blizzard's own frame is the event.
 
-SPEC § 3's discrete layer hangs on `RegisterStateDriver`. Verified:
+SPEC.md § 3's discrete layer hangs on `RegisterStateDriver`. Verified:
 
-- `RegisterStateDriver` exists and is a thin wrapper over `RegisterAttributeDriver`
-  (`Blizzard_RestrictedAddOnEnvironment/SecureStateDriver.lua:26`).
-- It resolves values through `SecureCmdOptionParse`, which is **engine-side** — it is not
-  defined anywhere in the Lua source, so the conditional vocabulary cannot be enumerated
-  from this checkout.
+- `RegisterStateDriver` is a thin wrapper over `RegisterAttributeDriver`
+  (`Blizzard_RestrictedAddOnEnvironment/SecureStateDriver.lua:26`) and resolves values
+  through `SecureCmdOptionParse`, which is engine-side and absent from the Lua source.
 - `C_Secrets` (`SecretPredicateAPIDocumentation.lua`) is entirely introspection about
-  *whether* a value is secret. It offers no comparison and no health predicate.
-- Nothing resembling `[hp<20]` appears in the source.
+  *whether* a value is secret. No comparison, no health predicate.
 
-**What still works without it.** Of the driver state's three tells, two need no event:
+### Measured on a live client, 2026-08-27
 
-- Breathe 1.0 ↔ 0.55 — `SetAlpha` accepts secrets, so a scalar curve drives it directly.
-- Screen-edge danger hairline — same, alpha 0 → 0.35 by curve.
+**An unrecognised conditional is ignored, so the clause matches.** `[zzznope]` returns
+`hit`; `[nozzznope]` returns `miss`. This is the opposite of what the probe first assumed,
+and it matters: "unknown" then produces the same signature as "known and true", so a bare
+`[hp<20]` reading `hit` proves nothing at unknown health.
 
-**What genuinely needs it.** The health number's 12pt → 14pt change. `SetScale` refuses
-secrets, and font size is not alpha.
+The probe therefore tests numeric candidates as a **complementary pair** — one clause that
+must always be false and one that must always be true if the conditional is real:
 
-**Proposed resolution if no conditional exists:** two stacked FontStrings, 12pt and 14pt,
-cross-faded by curve-driven alpha. Same visual, alpha-only, no event, no inspection. This
-is a SPEC § 3 amendment and needs sign-off, not a silent substitution.
+| Clauses | Unknown | Real |
+|---|---|---|
+| `[hp<0]` / `[hp<101]` | `hit/hit` | `miss/hit` |
 
-**Still to check in game:** `/dump SecureCmdOptionParse("[...]")` against candidate
-conditionals. The docs cannot answer this; the client can.
+That discriminates at any health. Both baselines are measured with a nonsense conditional
+rather than assumed. Result on this client:
 
----
+```
+control: known     [combat] / [nocombat]        miss/hit    --
+control: unknown   [zzznope] / [nozzznope]      hit/miss    --
+control: unknown n [zzznope<0] / [zzznope<101]  hit/hit     --
+hp                 [hp<0] / [hp<101]            hit/hit     not recognised
+health             [health<0] / [health<101]    hit/hit     not recognised
+hurt, lowhealth                                 hit/miss    not recognised
+```
+
+**No health conditional exists.** `RegisterStateDriver` cannot deliver SPEC § 3's state.
+
+### The event source that does exist: `LowHealthFrame`
+
+`Blizzard_FrameXML/Shared/LowHealthFrame.lua`, frame declared in
+`Blizzard_FrameXML/Mainline/LowHealthFrame.xml:3` as a named global. It is Blizzard's own
+low-health screen flash, and it does exactly what RULES.md forbids us:
+
+```lua
+function LowHealthFrameMixin:GetHealthPercent()
+    local maxHealth = UnitHealthMax("player")
+    if maxHealth <= 0.0 then return 1.0 end
+    return UnitHealth("player") / maxHealth
+end
+
+function LowHealthFrameMixin:IsAtLowHealth()
+    return self:GetHealthPercent() <= self.lowHealthPercentStart   -- .35
+end
+```
+
+Blizzard's code is untainted and may do that. **We may not copy it — but we may watch the
+result.** `HookScript("OnShow", ...)` on `LowHealthFrame` delivers a discrete event at the
+moment health crosses the threshold, computed entirely inside Blizzard's own access. We
+read no health, compute no percentage, and compare nothing. The threshold is Blizzard's,
+never ours.
+
+This satisfies the one principle, but it is **not one of RULES.md's four sanctioned
+mechanisms** — it is a fifth. That is a rules amendment and wants sign-off rather than
+quiet adoption.
+
+Because it is a real event and not a forwarded secret, everything a driver state could
+carry is legal inside it, including the `SetScale` and font-size changes that a forwarded
+value can never drive (see § 2).
+
+**What it costs:**
+
+- **Threshold is fixed at 0.35**, not the ~20% SPEC's ticks imply. `lowHealthPercentStart`
+  is a frame field, so it is readable but not ours to set.
+- **Gated by the `doNotFlashLowHealthWarning` CVar.** If the player has turned the flash
+  off, the frame never shows and the event never arrives. `GetCVarBool` is not secret, so
+  this is detectable and worth warning about at load.
+- **Suppressed while a fullscreen panel is open**, and the same frame is reused for the
+  in-combat fullscreen flash. We cannot tell the two apart, but the fullscreen case only
+  fires when a fullscreen panel is up, where the HUD is hidden anyway.
+
+### If that is rejected
+
+Two of the state's three tells need no event at all: `SetAlpha` is `AllowedWhenTainted`,
+so a scalar curve drives both the 1.60s breathe and the screen-edge hairline directly.
+Only the health number's 12pt → 14pt change needs one, and the alpha-only substitute is
+two stacked FontStrings at 12pt and 14pt cross-faded by curve-driven alpha.
 
 ## 5. Cooldown Manager
 

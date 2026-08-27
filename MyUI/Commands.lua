@@ -56,28 +56,34 @@ end
 -- SecureCmdOptionParse is engine-side, so the conditional vocabulary cannot be
 -- read from Blizzard's Lua source. It can be asked directly.
 --
--- The naive probe does not work. At full health a conditional that exists and
--- evaluates false is indistinguishable from one the parser never heard of --
--- both miss. So each candidate is tested in both its plain and negated forms,
--- and measured against two controls:
+-- Measured on a live client: a conditional the parser does not know is
+-- IGNORED, so the clause matches. [zzznope] hits. That is the opposite of what
+-- this probe first assumed, and it matters, because "unknown" then produces
+-- the same signature as "known and true".
 --
---   known    [combat] / [nocombat]   -- one hits, one misses. Proves the probe.
---   unknown  a deliberate nonsense conditional. Establishes what "the parser
---            does not know this" looks like on THIS client, rather than
---            assuming it.
+-- So candidates with a numeric argument are tested as a complementary pair --
+-- one clause that must always be false and one that must always be true if the
+-- conditional is real. Unknown makes both match; real makes them differ. That
+-- holds at any health, which is what makes the answer trustworthy without
+-- having to nearly die to get it.
 --
--- A candidate whose signature differs from the unknown control is real. That
--- holds at any health, so this can be run standing in a city.
+-- Baselines are measured, not assumed: a nonsense conditional is run through
+-- both shapes so the "parser does not know this" signature comes from this
+-- client rather than from a guess.
+
+local CONTROLS = {
+    { key = "known",   label = "control: known",     a = "[combat]",     b = "[nocombat]" },
+    { key = "negbase", label = "control: unknown",   a = "[zzznope]",    b = "[nozzznope]" },
+    { key = "numbase", label = "control: unknown n", a = "[zzznope<0]",  b = "[zzznope<101]" },
+}
 
 local CANDIDATES = {
-    { label = "control: known",   yes = "[combat]",              no = "[nocombat]" },
-    { label = "control: unknown", yes = "[zzznotaconditional]",  no = "[nozzznotaconditional]" },
-    { label = "hp",               yes = "[hp<20]",               no = "[nohp<20]" },
-    { label = "hp, unit-scoped",  yes = "[@player,hp<20]",       no = "[@player,nohp<20]" },
-    { label = "health",           yes = "[health<20]",           no = "[nohealth<20]" },
-    { label = "health, scoped",   yes = "[@player,health<20]",   no = "[@player,nohealth<20]" },
-    { label = "hurt",             yes = "[@player,hurt]",        no = "[@player,nohurt]" },
-    { label = "lowhealth",        yes = "[lowhealth]",           no = "[nolowhealth]" },
+    { label = "hp",             a = "[hp<0]",             b = "[hp<101]",             base = "numbase", certain = true },
+    { label = "hp, scoped",     a = "[@player,hp<0]",     b = "[@player,hp<101]",     base = "numbase", certain = true },
+    { label = "health",         a = "[health<0]",         b = "[health<101]",         base = "numbase", certain = true },
+    { label = "health, scoped", a = "[@player,health<0]", b = "[@player,health<101]", base = "numbase", certain = true },
+    { label = "hurt",           a = "[@player,hurt]",     b = "[@player,nohurt]",     base = "negbase", certain = false },
+    { label = "lowhealth",      a = "[lowhealth]",        b = "[nolowhealth]",        base = "negbase", certain = false },
 }
 
 local function Evaluate(parse, clause)
@@ -91,6 +97,14 @@ local function Evaluate(parse, clause)
     return tostring(result)
 end
 
+local function Signature(parse, row)
+    return Evaluate(parse, row.a) .. "/" .. Evaluate(parse, row.b)
+end
+
+local function Row(label, clauses, sig, verdict)
+    ns.Raw(("  %-18s %-42s %-10s %s"):format(label, clauses, sig, verdict))
+end
+
 local function Conditionals()
     local parse = _G.SecureCmdOptionParse
     if type(parse) ~= "function" then
@@ -98,40 +112,45 @@ local function Conditionals()
         return
     end
 
-    local rows, unknown = {}, nil
-    for i, c in ipairs(CANDIDATES) do
-        local row = { label = c.label, yes = c.yes,
-                      a = Evaluate(parse, c.yes), b = Evaluate(parse, c.no) }
-        rows[i] = row
-        if c.label == "control: unknown" then
-            unknown = row.a .. "/" .. row.b
-        end
+    local baseline = {}
+    ns.Print("macro conditional probe")
+    Row("", "CLAUSES", "RESULT", "VERDICT")
+
+    for _, c in ipairs(CONTROLS) do
+        local sig = Signature(parse, c)
+        baseline[c.key] = sig
+        Row(c.label, c.a .. " / " .. c.b, sig, "|cffadb1b8--|r")
     end
 
-    ns.Print("macro conditional probe")
-    ns.Raw(("  %-17s %-24s %-6s %-6s  %s"):format("", "CLAUSE", "PLAIN", "NEG", "VERDICT"))
-    for _, row in ipairs(rows) do
+    local recognised = 0
+    for _, c in ipairs(CANDIDATES) do
+        local sig = Signature(parse, c)
         local verdict
-        if row.label:find("control", 1, true) then
-            verdict = "|cffadb1b8--|r"
-        elseif (row.a .. "/" .. row.b) == unknown then
+        if sig == baseline[c.base] then
             verdict = "|cfff26b61not recognised|r"
         else
+            recognised = recognised + 1
             verdict = "|cffa6d98cRECOGNISED|r"
         end
-        ns.Raw(("  %-17s %-24s %-6s %-6s  %s"):format(row.label, row.yes, row.a, row.b, verdict))
+        if not c.certain then
+            verdict = verdict .. " |cffadb1b8(needs full health)|r"
+        end
+        Row(c.label, c.a .. " / " .. c.b, sig, verdict)
     end
 
     ns.Raw(" ")
-    ns.Raw("  The known control must show one hit and one miss. If it does not, the")
+    ns.Raw("  The known control must differ from the unknown one. If it does not, the")
     ns.Raw("  probe is broken rather than the conditionals missing.")
     ns.Raw(" ")
-    ns.Raw("  Every candidate 'not recognised': SPEC.md 3's driver state has no event")
-    ns.Raw("  source. The breathe and the screen hairline still work on curve-driven")
-    ns.Raw("  alpha; only the 12pt->14pt change needs the two-FontString cross-fade.")
-    ns.Raw("  Any candidate RECOGNISED: SPEC.md 3 ships as written. Confirm it by")
-    ns.Raw("  running this again below the threshold -- it should flip to a hit.")
-    ns.Raw("  See API-NOTES-12.1.md 4.")
+    if recognised == 0 then
+        ns.Raw("  Nothing recognised. SPEC.md 3's driver state has no macro conditional")
+        ns.Raw("  behind it. The rows marked certain hold at any health; the two marked")
+        ns.Raw("  'needs full health' are only conclusive above the threshold.")
+        ns.Raw("  Fallback: hook Blizzard's own LowHealthFrame. See API-NOTES-12.1.md 4.")
+    else
+        ns.Raw(("  %d recognised. SPEC.md 3 ships as written -- use that conditional.")
+               :format(recognised))
+    end
 end
 
 -- ---------------------------------------------------------------------------
