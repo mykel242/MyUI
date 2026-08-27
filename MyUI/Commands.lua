@@ -35,20 +35,25 @@ local function Audit()
         if Registry.forced then
             ns.Raw("  |cffffd159debug: all frames forced to alpha 1|r")
         end
-        ns.Raw(("  %-14s %6s %6s %6s %-7s %-16s %s")
-               :format("FRAME", "REST", "TARG", "LIVE", "CLAIM", "SIZE", "ANCHOR"))
+        ns.Raw(("  %-14s %6s %6s %6s %-7s %-14s %-18s %s")
+               :format("FRAME", "REST", "TARG", "LIVE", "CLAIM", "SIZE",
+                       "ANCHOR", "STRATA:LVL"))
         Registry.Each(function(entry)
             local w, h, p = Registry.Geometry(entry)
             local anchor = "-"
             if p then
                 anchor = ("%s %+.1f %+.1f"):format(p.point or "?", p.x or 0, p.y or 0)
             end
-            ns.Raw(("  %-14s %6s %6s %6s %-7s %-16s %s"):format(
+            -- Strata and level are here because "the frame is missing" and "the
+            -- frame is behind your action bars" look identical on screen.
+            local strata = ns.Compat.Get(entry.frame, "GetFrameStrata")
+            local level  = ns.Compat.Get(entry.frame, "GetFrameLevel")
+            ns.Raw(("  %-14s %6s %6s %6s %-7s %-14s %-18s %s:%s"):format(
                 entry.name, fmtAlpha(entry.resting), fmtAlpha(entry.target),
                 fmtAlpha(ns.Compat.Get(entry.frame, "GetAlpha")),
                 entry.claim or "-",
                 ("%s x %s"):format(fmtSize(w), fmtSize(h)),
-                anchor))
+                anchor, tostring(strata), tostring(level)))
         end)
 
         local perfect, perUnit = ns.Scale.IsPixelPerfect()
@@ -210,6 +215,7 @@ local COMMANDS = {
     { "copy",         "the last output in a selectable window" },
     { "show",         "force every frame to alpha 1, or release back to resting" },
     { "test",         "the acceptance checklist; test report | reset | <phase>" },
+    { "outline",      "diagnostic boxes around every frame, above everything" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -241,10 +247,29 @@ local HANDLERS = {
             on = not Registry.forced
         end
         Registry.ForceVisible(on)
+        ns.Frames.Placeholders(on)
         if on then
-            ns.Print("all frames forced to alpha 1. |cffadb1b8/myui show off|r to release.")
+            ns.Print("all frames at alpha 1, with placeholder text and a nominal "
+                     .. "bar fill so geometry can be judged. "
+                     .. "|cffadb1b8/myui show off|r to release.")
         else
-            ns.Print("frames released to their resting alphas.")
+            ns.Print("frames released to their resting alphas, placeholders cleared.")
+        end
+    end,
+    outline      = function(arg)
+        local on
+        if arg == "off" then
+            on = false
+        elseif arg == "on" then
+            on = true
+        else
+            on = nil
+        end
+        if ns.Outline.Toggle(on) then
+            ns.Print("outlines on. A box with nothing visible inside it means the "
+                     .. "frame is placed correctly but hidden behind something.")
+        else
+            ns.Print("outlines off.")
         end
     end,
     test         = function(arg)

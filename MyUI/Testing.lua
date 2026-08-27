@@ -92,25 +92,33 @@ Testing.scripts = {
         accept = "Debug toggle shows every frame; positions and sizes match the "
               .. "mock; audit lists each frame with its spec resting alpha.",
         steps = {
-            { act = "Type /myui show",
-              expect = "Four frames appear at full opacity.",
+            { id = "show", act = "Type /myui show",
+              expect = "Frames go opaque, with placeholder text and a nominal fill.",
               check = function()
                   if not Registry.forced then
                       return false, "not forced -- run /myui show first"
                   end
                   return everyFrameAt(1)
               end },
-            { act = "Look at the bottom centre of the screen.",
-              expect = "A narrow horizontal bar group sitting well above the "
-                    .. "bottom edge: a wide bar, a thinner one under it, a "
-                    .. "third below that, and a number to their left." },
-            { act = "Look along the health bar for two vertical ticks.",
-              expect = "One dark tick a fifth of the way across, one pale tick "
-                    .. "two fifths across. Both exactly one pixel wide." },
-            { act = "Look at the top centre of the screen.",
-              expect = "A wide thin bar with empty name and level rows above it." },
-            { act = "Look at the far left edge, vertically centred.",
-              expect = "A single vertical hairline, crisp, not a grey smear." },
+
+            { act = "Bottom centre: are there three stacked horizontal bars?",
+              expect = "A wide one, a thinner one below it, a third below that." },
+            { act = "Bottom centre: is there a number to the LEFT of the bars?",
+              expect = "The placeholder 100, right-aligned, clear of the bar group." },
+            { act = "On the widest bar: a PALE tick about two fifths across?",
+              expect = "The 40% mark. One pixel wide, against the empty trough." },
+            { act = "On the widest bar: a DARK tick about one fifth across?",
+              expect = "The 20% mark. It reads against the fill, so it is only "
+                    .. "visible because debug mode fills the bar." },
+
+            { act = "Top centre: is there a wide thin bar?",
+              expect = "The target health bar, wider than the bottom group." },
+            { act = "Top centre: text above that bar, left AND right?",
+              expect = "Target Name on the left, 73 on the right, same row." },
+
+            { act = "Far left, vertically centred: a vertical hairline?",
+              expect = "One crisp pixel-wide line. Not a soft grey smear." },
+
             { act = "Type /myui audit",
               expect = "Four frames with resting alphas 0.35, 0.25, 0.00, 1.00.",
               check = function()
@@ -135,18 +143,26 @@ Testing.scripts = {
                   return false, ("%.4f px per unit -- hairlines will smear")
                                 :format(perUnit)
               end },
-            { act = "Type /myui show off",
-              expect = "The target strip vanishes completely. The others dim "
-                    .. "but stay visible. Nothing moves.",
+
+            { act = "Type /myui outline -- is there a green box around each group?",
+              expect = "Four boxes, each snug around its frame with the name above "
+                    .. "it. A box with nothing inside means the frame is placed "
+                    .. "right but hidden." },
+            { act = "Type /myui outline off",
+              expect = "Boxes gone, frames unchanged." },
+
+            { id = "showoff", act = "Type /myui show off",
+              expect = "Placeholders clear and the bars empty.",
               check = function()
                   if Registry.forced then
                       return false, "still forced -- run /myui show off"
                   end
                   return everyFrameResting()
               end },
-            { act = "Type /myui show again, and watch closely.",
-              expect = "Frames return in exactly the same positions. Nothing "
-                    .. "shifts by a pixel." },
+            { act = "After /myui show off: has the top-centre strip vanished entirely?",
+              expect = "TargetStrip rests at alpha 0. The others dim but remain." },
+            { act = "Type /myui show again. Did anything move?",
+              expect = "Nothing shifts by a pixel. Position is fixed forever." },
         },
     },
 }
@@ -356,6 +372,17 @@ end
 
 Testing.phase = ns.phase
 Testing.results = {}
+
+--- Index of a step by its stable id, so tests and tools do not depend on the
+-- position of a step in a list that gets reordered as scripts are refined.
+function Testing.IndexOf(id)
+    local steps = Testing.Steps()
+    if not steps then return nil end
+    for i, step in ipairs(steps) do
+        if step.id == id then return i end
+    end
+    return nil
+end
 
 function Testing.Steps()
     local script = Testing.scripts[Testing.phase]

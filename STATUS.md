@@ -28,7 +28,7 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 /myui test
 ```
 
-That opens the checklist in game — nine steps, four of which MyUI checks itself.
+That opens the checklist in game — fifteen steps, four of which MyUI checks itself.
 Work down it, click pass/fail on the ones that need your eyes, then hit **report**
 and `/reload`. The report lands in `MyUIDB.testRuns` and `MyUIDB.lastOutput`, so
 it can be read off disk with nothing transcribed.
@@ -108,6 +108,31 @@ Full detail with citations in `API-NOTES-12.1.md`.
 
 The scale factor lives in one constant, added in Phase 1 as `Scale.lua`, so the reading
 above is one edit to revisit if it turns out wrong.
+
+---
+
+## Phase 1: first acceptance run, 2026-08-27
+
+**6 passed, 3 failed — and all three failures were the test script's fault, not the
+addon's.** The bars, the target bar and the rail hairline all rendered where SPEC puts
+them. What was missing was the health number, the target name and level, and the dark 20%
+tick — none of which Phase 1 draws, because it has no data and the dark tick is specified
+to read against a fill that does not exist at value 0.
+
+Two fixes, both structural rather than one-off:
+
+- **The debug toggle now supplies placeholder text and a nominal 0.65 fill.** Plain
+  constants, cleared on release. Phase 4 replaces them with forwarded values. Without this
+  a whole class of geometry is unjudgeable until Phase 4.
+- **Every step now asks exactly one question**, and a test enforces it. The failing step
+  bundled four assertions, so the report could not say which part was wrong.
+
+Also added `/myui outline` — a green box at TOOLTIP strata around each registered frame.
+"The frame is missing" and "the frame is behind your action bars" look identical on screen,
+and this separates them. A box with nothing inside it means the geometry is right.
+
+Frame strata is now explicit (`MEDIUM`, which is what was already working). SPEC never
+mentions strata, and inheriting whatever the default happens to be is not a decision.
 
 ---
 

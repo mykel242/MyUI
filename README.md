@@ -64,6 +64,7 @@ MyUI/                 the addon
   Palette.lua         SPEC.md 7, fourteen colours, closed
   Registry.lua        every frame and the resting alpha SPEC.md gives it
   Frames.lua          SPEC.md 2, built once at its permanent anchor
+  Outline.lua         diagnostic boxes: placed wrong, or hidden?
   Testing.lua         the in-game acceptance checklist, per phase
   Rules.lua           the forbidden list, printable in game
   Copy.lua            selectable output window
@@ -86,6 +87,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui copy            the last output in a selectable window
 /myui show            force every frame to alpha 1, or release back to resting
 /myui test            the acceptance checklist; test report | reset | <phase>
+/myui outline         diagnostic boxes around every frame, above everything
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset
@@ -131,6 +133,15 @@ Steps MyUI can verify itself carry a check and answer on their own, marked `auto
 are the ones that genuinely need your eyes, and those get pass/fail buttons. An auto pass
 **latches** — several steps test states that are mutually exclusive by design, so
 re-evaluating everything at the end would fail whichever you did first.
+
+Two rules the first live run taught, both enforced by tests:
+
+- **One assertion per step.** A step that bundles four things into one question cannot be
+  answered: a fail says something was wrong without saying what.
+- **Only ask for what the phase draws.** Phase 1 has no data, so its FontStrings are empty
+  and its bars sit at zero — asking whether the health number is visible is asking to see
+  something the phase is correct not to draw. The debug toggle now supplies placeholder
+  text and a nominal fill so that geometry is judgeable without shipping data.
 
 `report` prints the run and writes it to `MyUIDB.testRuns`, so after a `/reload` the whole
 thing can be read off disk. `reset` starts over.

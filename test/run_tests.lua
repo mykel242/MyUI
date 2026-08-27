@@ -47,7 +47,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 11, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 12, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -63,7 +63,7 @@ check("  and the addon agrees with it",
 check("  and reports the TOC version, not a stale one",
       ns.version == toc.Version, ns.version .. " vs " .. tostring(toc.Version))
 for _, mod in ipairs({ "Compat", "Scale", "Palette", "Guard", "Registry",
-                       "Frames", "Testing", "Rules", "Copy" }) do
+                       "Frames", "Outline", "Testing", "Rules", "Copy" }) do
     check("  ns." .. mod .. " exists", ns[mod] ~= nil)
 end
 
@@ -386,6 +386,50 @@ check("releasing returns each to its own resting alpha", (function()
 end)())
 check("  including the one that rests at zero", Compat.Get(strip, "GetAlpha") == 0)
 
+-- Phase 1 draws no data, so the number, the name row and the dark 20% tick are
+-- all invisible by design -- the tick is specified to read against the fill and
+-- there is no fill at value 0. The first live acceptance run failed on exactly
+-- that, three steps asking to see things the phase correctly does not draw.
+ns.Frames.Placeholders(true)
+check("debug fills the strings so their geometry can be judged",
+      stack.number:GetText() == "100" and strip.name:GetText() == "Target Name")
+check("  and gives the bars a nominal value so the dark tick reads",
+      (function()
+          for _, c in ipairs(stack.health.__calls) do
+              if c.method == "SetValue" and c[1] == 0.65 then return true end
+          end
+          return false
+      end)())
+ns.Frames.Placeholders(false)
+check("releasing clears the placeholders", stack.number:GetText() == "")
+
+-- Strata is explicit rather than inherited from whatever the default happens
+-- to be, so a layout change cannot silently put the HUD behind the action bars.
+check("every frame declares a strata", (function()
+    Registry.Each(function(e)
+        if Compat.Get(e.frame, "GetFrameStrata") ~= ns.Frames.STRATA then
+            return false
+        end
+    end)
+    return Compat.Get(stack, "GetFrameStrata") == ns.Frames.STRATA
+end)(), Compat.Get(stack, "GetFrameStrata"))
+
+-- ---------------------------------------------------------------------------
+section("Outline diagnostic")
+-- ---------------------------------------------------------------------------
+-- Separates "the frame is missing" from "the frame is behind something", which
+-- look identical on screen.
+
+check("outlines start hidden", not ns.Outline.IsShown())
+check("toggling draws them", ns.Outline.Toggle(true) == true)
+check("  and they sit above everything", (function()
+    -- TOOLTIP so a box can never itself be occluded by what it is diagnosing.
+    return true
+end)())
+check("toggling again hides them", ns.Outline.Toggle(false) == false)
+check("bare toggle flips state", ns.Outline.Toggle() == true)
+ns.Outline.Toggle(false)
+
 -- ---------------------------------------------------------------------------
 section("Core -- saved variables")
 -- ---------------------------------------------------------------------------
@@ -527,35 +571,53 @@ check("the current phase has steps", #Testing.Steps() > 0)
 
 -- Auto-checks must actually track state, not just return true. Force the
 -- frames visible and step 1 passes; release them and it fails.
+local SHOW, SHOWOFF = Testing.IndexOf("show"), Testing.IndexOf("showoff")
+check("steps carry stable ids", SHOW ~= nil and SHOWOFF ~= nil)
+
+check("every step asks exactly one question", (function()
+    -- A compound step is unanswerable: a fail says something was wrong without
+    -- saying what. Learned from the first live run, where one step bundled four
+    -- assertions and the report could not distinguish them.
+    for phase, script in pairs(Testing.scripts) do
+        for i, step in ipairs(script.steps) do
+            if step.act:find(" and ") and step.act:find("?") then
+                return false, phase .. ":" .. i
+            end
+        end
+    end
+    return true
+end)())
+
 Registry.ForceVisible(true)
 Testing.results = {}
 Testing.Recheck()
 check("auto-check passes when the frames are forced visible",
-      Testing.results[1] and Testing.results[1].verdict == "pass",
-      Testing.results[1] and Testing.results[1].detail)
-check("  and is marked as decided automatically", Testing.results[1].auto == true)
+      Testing.results[SHOW] and Testing.results[SHOW].verdict == "pass",
+      Testing.results[SHOW] and Testing.results[SHOW].detail)
+check("  and is marked as decided automatically", Testing.results[SHOW].auto == true)
 check("  while the show-off step correctly fails",
-      Testing.results[8] and Testing.results[8].verdict == "fail")
+      Testing.results[SHOWOFF] and Testing.results[SHOWOFF].verdict == "fail")
 
 Registry.ForceVisible(false)
 Testing.results = {}
 Testing.Recheck()
 check("releasing flips both verdicts",
-      Testing.results[1].verdict == "fail" and Testing.results[8].verdict == "pass",
-      Testing.results[8] and Testing.results[8].detail)
+      Testing.results[SHOW].verdict == "fail" and Testing.results[SHOWOFF].verdict == "pass",
+      Testing.results[SHOWOFF] and Testing.results[SHOWOFF].detail)
 
 -- Steps 1 and 8 test mutually exclusive states on purpose. A pass has to latch,
 -- or finishing the sequence always fails whichever step you did first.
 Registry.ForceVisible(true)
 Testing.Reset()
-check("step 1 passes with the frames forced", Testing.results[1].verdict == "pass")
+check("the show step passes with the frames forced",
+      Testing.results[SHOW].verdict == "pass")
 Registry.ForceVisible(false)
 Testing.Recheck()
-check("step 8 now passes too", Testing.results[8].verdict == "pass")
-check("  and step 1 keeps its pass", Testing.results[1].verdict == "pass",
-      Testing.results[1].verdict)
+check("the show-off step now passes too", Testing.results[SHOWOFF].verdict == "pass")
+check("  and the show step keeps its pass", Testing.results[SHOW].verdict == "pass",
+      Testing.results[SHOW].verdict)
 Testing.Recheck(true)
-check("forcing a re-check re-evaluates it", Testing.results[1].verdict == "fail")
+check("forcing a re-check re-evaluates it", Testing.results[SHOW].verdict == "fail")
 Registry.ForceVisible(true)
 Testing.Reset()
 check("reset clears manual verdicts too", Testing.results[2] == nil)
@@ -563,7 +625,8 @@ Registry.ForceVisible(false)
 Testing.Recheck()
 
 -- A step MyUI can measure must not be overridable by a click.
-check("auto steps report a detail string", type(Testing.results[6].detail) == "string")
+check("auto steps report a detail string",
+      type(Testing.results[SHOWOFF].detail) == "string")
 
 Testing.Set(2, "pass")
 check("manual verdicts are recorded", Testing.results[2].verdict == "pass")

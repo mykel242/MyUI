@@ -93,6 +93,8 @@ function M.frame(spec)
                 f.__h = ...
             elseif method == "SetPoint" then
                 f.__point = { ... }
+            elseif method == "SetFrameStrata" then
+                f.__strata = ...
             end
             if anySecret(...) then
                 if REFUSES_SECRET[method] then
@@ -174,6 +176,8 @@ function M.frame(spec)
     end
 
     f.GetStatusBarTexture = function() return f.__texture end
+    f.GetFrameStrata = function() return f.__strata or "MEDIUM" end
+    f.GetFrameLevel  = function() return f.__level or 1 end
     f.GetObjectType = function() return spec.objectType or "Frame" end
     f.GetName = function() return spec.name end
 

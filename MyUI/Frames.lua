@@ -18,6 +18,14 @@ ns.Frames = Frames
 
 local U = function(v) return Scale.U(v) end
 
+-- SPEC.md specifies anchors, sizes, alphas and colours in detail and never
+-- mentions frame strata. MEDIUM is the default and it works on this machine's
+-- layout -- the bars are visible where the spec puts them. It is set explicitly
+-- anyway, because "whatever the default happens to be" is not a decision, and a
+-- HUD that shares a layer with the action bars is one Edit Mode change away
+-- from disappearing behind them. Raise to HIGH if that ever happens.
+Frames.STRATA = "MEDIUM"
+
 -- SPEC.md gives type sizes in mock pixels like every other measurement, so they
 -- go through the same conversion. 12pt reads as 9.6 units.
 local FONT = _G.STANDARD_TEXT_FONT or "Fonts\\FRIZQT__.TTF"
@@ -55,6 +63,11 @@ local function Bar(parent, w, h)
     bar:SetStatusBarTexture(fill)
     bar.fill = fill
 
+    -- Phase 1 has no data, so the value stays at the minimum and the fill draws
+    -- nothing. Only the trough is visible, at 14% white -- which is what SPEC 2
+    -- asks for and is meant to be quiet.
+    bar:SetValue(0)
+
     return bar
 end
 
@@ -66,6 +79,7 @@ end
 
 local function BuildSelfStack()
     local group = CreateFrame("Frame", "MyUISelfStack", UIParent)
+    group:SetFrameStrata(Frames.STRATA)
     group:SetSize(U(240), U(20))
     group:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(214))
 
@@ -110,6 +124,7 @@ end
 
 local function BuildCooldowns(selfStack)
     local line = CreateFrame("Frame", "MyUICooldowns", UIParent)
+    line:SetFrameStrata(Frames.STRATA)
     line:SetSize(U(240), U(4))
     line:SetPoint("TOP", selfStack.resource, "BOTTOM", 0, -U(18))
     return line
@@ -123,6 +138,7 @@ end
 
 local function BuildTargetStrip()
     local group = CreateFrame("Frame", "MyUITargetStrip", UIParent)
+    group:SetFrameStrata(Frames.STRATA)
     group:SetSize(U(400), U(49))
     group:SetPoint("TOP", UIParent, "TOP", 0, -U(20))
 
@@ -159,6 +175,7 @@ end
 
 local function BuildRail()
     local rail = CreateFrame("Frame", "MyUIRail", UIParent)
+    rail:SetFrameStrata(Frames.STRATA)
     rail:SetSize(U(10), U(440))
     rail:SetPoint("LEFT", UIParent, "LEFT", U(20), 0)
 
@@ -173,6 +190,49 @@ end
 -- ---------------------------------------------------------------------------
 -- Build
 -- ---------------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------------
+-- Debug
+-- ---------------------------------------------------------------------------
+-- Phase 1 has no data, so every FontString is empty and every bar sits at zero.
+-- That is correct, and it also means the number, the name row and the 20% tick
+-- cannot be judged by looking -- the dark tick is specified to read against the
+-- fill, and at value 0 there is no fill for it to read against.
+--
+-- So the debug toggle does more than raise alpha: it puts placeholder text in
+-- the strings and a nominal value in the bars, purely so their geometry can be
+-- checked. Plain constants, no unit data, cleared the moment the toggle
+-- releases. Phase 4 replaces the placeholders with forwarded values.
+
+local PLACEHOLDER = { number = "100", name = "Target Name", level = "73" }
+local DEBUG_FILL = 0.65   -- past the 40% tick, short of full
+
+function Frames.Placeholders(on)
+    if not Frames.built then
+        return
+    end
+    local stack = Registry.Get("SelfStack").frame
+    local strip = Registry.Get("TargetStrip").frame
+
+    if on then
+        stack.number:SetText(PLACEHOLDER.number)
+        strip.name:SetText(PLACEHOLDER.name)
+        strip.level:SetText(PLACEHOLDER.level)
+        stack.health:SetValue(DEBUG_FILL)
+        stack.resource:SetValue(DEBUG_FILL)
+        stack.cast:SetValue(DEBUG_FILL)
+        strip.health:SetValue(DEBUG_FILL)
+    else
+        stack.number:SetText("")
+        strip.name:SetText("")
+        strip.level:SetText("")
+        stack.health:SetValue(0)
+        stack.resource:SetValue(0)
+        stack.cast:SetValue(0)
+        strip.health:SetValue(0)
+    end
+    Frames.placeholders = on and true or false
+end
 
 function Frames.OnLogin()
     if Frames.built then
