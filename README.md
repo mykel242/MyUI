@@ -82,6 +82,7 @@ test/
   fixtures/           one deliberate violation per rule
 API-NOTES-12.1.md     verified 12.1 ground truth, with citations
 DESIGN-QUESTIONS.md   what building it found, for the designer
+CONTINUATION.md       everything a context needs to pick this up cold
 STATUS.md             where things stand; read this first when resuming
 ```
 
