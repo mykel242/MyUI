@@ -85,6 +85,15 @@ function M.frame(spec)
 
     local function setter(method)
         return function(_, ...)
+            if method == "SetSize" then
+                f.__w, f.__h = ...
+            elseif method == "SetWidth" then
+                f.__w = ...
+            elseif method == "SetHeight" then
+                f.__h = ...
+            elseif method == "SetPoint" then
+                f.__point = { ... }
+            end
             if anySecret(...) then
                 if REFUSES_SECRET[method] then
                     error(("blocked action: %s does not accept a secret from an addon"):format(method), 2)
@@ -126,7 +135,8 @@ function M.frame(spec)
         "SetClampedToScreen", "SetMultiLine", "SetAutoFocus", "SetFontObject",
         "SetCursorPosition", "SetFocus", "HighlightText", "SetScrollChild",
         "SetAllPoints", "SetColorTexture", "SetText", "StartMoving",
-        "StopMovingOrSizing", "SetJustifyH",
+        "StopMovingOrSizing", "SetJustifyH", "SetMinMaxValues", "SetFont",
+        "SetTextColor", "SetStatusBarTexture", "SetDrawLayer",
     }) do
         f[method] = setter(method)
     end
@@ -146,6 +156,22 @@ function M.frame(spec)
 
     f.CreateTexture    = function() return M.frame({ objectType = "Texture" }) end
     f.CreateFontString = function() return M.frame({ objectType = "FontString" }) end
+
+    -- Geometry. SetSize/SetPoint are recorded like any other setter; these read
+    -- the last one back so tests can assert against SPEC.md rather than against
+    -- the order the calls happened to be made in.
+    f.GetWidth  = function() return f.__w or 0 end
+    f.GetHeight = function() return f.__h or 0 end
+    f.GetSize   = function() return f.__w or 0, f.__h or 0 end
+    f.GetNumPoints = function()
+        if f.__point then return 1 end
+        return 0
+    end
+    f.GetPoint = function(_, i)
+        local p = f.__point
+        if not p or (i and i > 1) then return end
+        return p[1], p[2], p[3], p[4], p[5]
+    end
 
     f.GetStatusBarTexture = function() return f.__texture end
     f.GetObjectType = function() return spec.objectType or "Frame" end
@@ -327,6 +353,12 @@ function M.install()
     end
 
     _G.UIParent = M.frame({ name = "UIParent" })
+    _G.UIParent.GetEffectiveScale = function() return M.uiScale or 0.8 end
+
+    -- 5120x2880 at uiScale 0.8 gives exactly 3 physical pixels per UI unit,
+    -- which is this machine's measured configuration (Rebar API-NOTES).
+    _G.GetPhysicalScreenSize = function() return M.physW or 5120, M.physH or 2880 end
+    _G.STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
 end
 
 --- Load the addon exactly as the client would, in the order the TOC lists.

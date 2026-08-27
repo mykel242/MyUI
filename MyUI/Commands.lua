@@ -12,6 +12,13 @@ local function fmtAlpha(v)
     return ("%.2f"):format(v)
 end
 
+local function fmtSize(v)
+    if type(v) ~= "number" then
+        return "?"
+    end
+    return ("%.1f"):format(v)
+end
+
 -- ---------------------------------------------------------------------------
 -- audit
 -- ---------------------------------------------------------------------------
@@ -23,13 +30,34 @@ local function Audit()
 
     local count = Registry.Count()
     if count == 0 then
-        ns.Raw("  no frames registered (phase 0 draws nothing)")
+        ns.Raw("  no frames registered")
     else
-        ns.Raw(("  %-16s %7s %7s %7s  %s"):format("FRAME", "REST", "TARGET", "LIVE", "CLAIM"))
-        for _, e in ipairs(Registry.Snapshot()) do
-            ns.Raw(("  %-16s %7s %7s %7s  %s"):format(
-                e.name, fmtAlpha(e.resting), fmtAlpha(e.target),
-                fmtAlpha(e.current), e.claim))
+        if Registry.forced then
+            ns.Raw("  |cffffd159debug: all frames forced to alpha 1|r")
+        end
+        ns.Raw(("  %-14s %6s %6s %6s %-7s %-16s %s")
+               :format("FRAME", "REST", "TARG", "LIVE", "CLAIM", "SIZE", "ANCHOR"))
+        Registry.Each(function(entry)
+            local w, h, p = Registry.Geometry(entry)
+            local anchor = "-"
+            if p then
+                anchor = ("%s %+.1f %+.1f"):format(p.point or "?", p.x or 0, p.y or 0)
+            end
+            ns.Raw(("  %-14s %6s %6s %6s %-7s %-16s %s"):format(
+                entry.name, fmtAlpha(entry.resting), fmtAlpha(entry.target),
+                fmtAlpha(ns.Compat.Get(entry.frame, "GetAlpha")),
+                entry.claim or "-",
+                ("%s x %s"):format(fmtSize(w), fmtSize(h)),
+                anchor))
+        end)
+
+        local perfect, perUnit = ns.Scale.IsPixelPerfect()
+        if perUnit then
+            local note = "|cffa6d98cpixel-perfect|r"
+            if not perfect then
+                note = "|cffffd159not pixel-perfect -- hairlines will not render crisply|r"
+            end
+            ns.Raw(("  %.4f physical px per unit, %s"):format(perUnit, note))
         end
     end
 
@@ -180,6 +208,7 @@ end
 local COMMANDS = {
     { "help",         "this list" },
     { "copy",         "the last output in a selectable window" },
+    { "show",         "force every frame to alpha 1, or release back to resting" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -201,6 +230,22 @@ end
 
 local HANDLERS = {
     help         = Help,
+    show         = function(arg)
+        local on
+        if arg == "off" then
+            on = false
+        elseif arg == "on" then
+            on = true
+        else
+            on = not Registry.forced
+        end
+        Registry.ForceVisible(on)
+        if on then
+            ns.Print("all frames forced to alpha 1. |cffadb1b8/myui show off|r to release.")
+        else
+            ns.Print("frames released to their resting alphas.")
+        end
+    end,
     copy         = function()
         -- Deliberately shows what was captured BEFORE this command ran --
         -- otherwise /myui copy would only ever show itself.

@@ -70,6 +70,51 @@ function Registry.Snapshot()
     return out
 end
 
+--- Debug toggle: force every registered frame to full alpha, or release it
+-- back to the resting alpha SPEC.md 2 gives it.
+--
+-- PLAN.md Phase 1 asks for this, and the reason is worth stating: a design
+-- where the correct state is invisible cannot be checked by looking at it. The
+-- toggle is the only way to see whether a frame is where the spec says before
+-- the reveal engine exists to summon it.
+function Registry.ForceVisible(on)
+    if on then
+        Registry.forced = true
+    else
+        Registry.forced = false
+    end
+    Registry.Each(function(entry)
+        if Registry.forced then
+            entry.frame:SetAlpha(1)
+        else
+            entry.frame:SetAlpha(entry.resting)
+        end
+    end)
+    return Registry.forced
+end
+
+--- Size and anchor of a registered frame, sanitised for printing.
+-- Read through Compat: geometry getters carry SecretWhenAnchoringSecret in the
+-- 12.1 docs, so a number is not guaranteed and the audit says so rather than
+-- inventing one.
+function Registry.Geometry(entry)
+    local w = ns.Compat.Get(entry.frame, "GetWidth")
+    local h = ns.Compat.Get(entry.frame, "GetHeight")
+    -- GetPoint is MayReturnNothing and returns five values. Read through CallN
+    -- with its explicit count rather than trusting the arity of an assignment.
+    local res = { ns.Compat.CallN(entry.frame, "GetPoint", 1) }
+    local ok, count = res[1], res[2]
+    if not ok or count < 5 then
+        return w, h, nil
+    end
+    return w, h, {
+        point    = ns.Compat.Plain(res[3]),
+        relPoint = ns.Compat.Plain(res[5]),
+        x        = ns.Compat.Plain(res[6]),
+        y        = ns.Compat.Plain(res[7]),
+    }
+end
+
 function Registry.OnLogin()
-    -- Phase 1 creates frames here.
+    -- Frames.OnLogin does the building; this runs first and has nothing to do.
 end

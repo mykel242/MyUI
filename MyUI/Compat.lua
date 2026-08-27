@@ -100,9 +100,12 @@ function Compat.CallN(obj, method, ...)
 end
 
 --- As CallN, but without the count, for single-value reads.
+-- Forwards five results because GetPoint returns five and dropping the fifth
+-- loses the y offset silently -- which it did, until an audit printed every
+-- anchor as +0.0. Prefer CallN when the arity matters.
 function Compat.Call(obj, method, ...)
-    local ok, _, first, second, third, fourth = Compat.CallN(obj, method, ...)
-    return ok, first, second, third, fourth
+    local ok, _, a, b, c, d, e = Compat.CallN(obj, method, ...)
+    return ok, a, b, c, d, e
 end
 
 --- Single sanitized return. Always safe to store or print.

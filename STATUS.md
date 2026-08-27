@@ -12,7 +12,7 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 |---|---|
 | -1 — Ground truth | **Complete.** Three corrections to the handoff, recorded with citations |
 | 0 — Skeleton and compliance harness | **Delivered** — `v0.1.0-phase0`, verified in game |
-| 1 — Anchors and frame registry | Not started |
+| 1 — Anchors and frame registry | **Built**, awaiting in-game acceptance |
 | 2 — Reveal engine | Not started |
 | 3 — Rail | Not started |
 | 4 — Bars and low health | Not started |
@@ -20,9 +20,21 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### Nothing is blocking
+### The one thing waiting on you
 
-SPEC § 3 is settled — see below. Phase 1 is the next action.
+**Phase 1's in-game acceptance.** Deploy, then:
+
+```
+/myui show          every frame to alpha 1
+/myui audit         sizes, anchors and px-per-unit
+/myui show off      back to resting
+/reload             flushes the audit to MyUIDB.lastOutput
+```
+
+PLAN.md's acceptance: the toggle shows every frame, positions and sizes match the
+mock, and the audit lists each frame with the resting alpha from the spec table.
+The audit also reports physical pixels per unit, so a blurry hairline has an
+explanation rather than a mystery.
 
 Deploying a build:
 
@@ -92,13 +104,30 @@ Full detail with citations in `API-NOTES-12.1.md`.
 |---|---|
 | Addon name | **MyUI** — the handoff says "Rebar", which collides with the layout framework's folder, slash prefix and SavedVariables |
 | Repo | Its own, beside `Rebar` and `cc-addon` |
-| Coordinates | SPEC's numbers are mock-canvas px on a 1707×960 canvas; × 0.8 gives UI units. "1px" means one physical pixel |
+| Coordinates | SPEC's numbers are mock-canvas px on a 1707×960 canvas; × 0.8 gives UI units. "1px" means one physical pixel. Lives in `Scale.MOCK_TO_UNIT` — one edit if wrong |
 | Low-health treatment | Combined: curve + one driver state (SPEC § 3) |
 | Rhythm line in v1 | No — deferred to Phase 7 |
 | Config surface | Slash commands only |
 
 The scale factor lives in one constant, added in Phase 1 as `Scale.lua`, so the reading
 above is one edit to revisit if it turns out wrong.
+
+---
+
+## Phase 1: two readings of SPEC worth your eye
+
+Both are recorded in `Frames.lua` next to the code that acts on them.
+
+**The rail's resting alpha.** SPEC § 2 gives it as "hairline 0.14, dots per § 6" — a
+per-element alpha, not a frame one. 0.14 is exactly the `trough` colour in § 7, so the
+hairline takes that palette entry and carries the alpha in its colour, leaving the Rail
+container to rest at 1 for the reveal engine to claim. If the intent was a container
+alpha of 0.14, the dots would all be dimmed by it too.
+
+**Which side of the hairline the dots sit on.** § 6 gives the dots' vertical positions
+(first 40 down, 26 spacing) but not their horizontal relationship to the hairline. The rail
+sits at x = 20, so rightward is the only direction with room. Not built yet — Phase 3 — but
+the container is a dot wide in anticipation.
 
 ---
 
@@ -126,8 +155,8 @@ traces to a citation in `API-NOTES-12.1.md`.
 
 1. Read this file, then `API-NOTES-12.1.md`, then the handoff's `RULES.md` and `SPEC.md`.
 2. `./smoke.sh`, and `git tag -n99` for what each delivered phase actually contains.
-3. Settle SPEC § 3 — the decision above.
-4. Then Phase 1: `Scale.lua` and the frame registry from SPEC § 2.
+3. Run Phase 1's in-game acceptance.
+4. Then Phase 2: the reveal engine, four channels through one arbiter.
 
 A phase is delivered when smoke is clean, `/myui audit` is clean in game, PLAN.md's
 acceptance test for it passes in game, and the tag is cut. See README for the convention.

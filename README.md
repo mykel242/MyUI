@@ -18,8 +18,8 @@ deliberately rejected explorations and must not be treated as a reference.
 | Phase | State |
 |---|---|
 | **-1 — Ground truth** | **Complete.** Four mechanisms verified against Blizzard's 12.1 source; three corrections recorded |
-| **0 — Skeleton and compliance harness** | **Complete.** Loaded in game; 116 addon + 15 lint checks green |
-| 1 — Anchors and frame registry | Not started |
+| **0 — Skeleton and compliance harness** | **Delivered** — `v0.1.0-phase0`, verified in game |
+| **1 — Anchors and frame registry** | **Built.** 178 addon + 15 lint checks green. In-game acceptance not yet run |
 | 2 — Reveal engine | Not started |
 | 3 — Rail | Not started |
 | 4 — Bars and low health | Not started |
@@ -60,7 +60,10 @@ MyUI/                 the addon
   Compat.lua          safe-read layer: secret-aware, throw-safe
   Core.lua            namespace, versioned SavedVariables, migration ladder
   Guard.lua           the compliance harness -- sanctioned sinks and curves
+  Scale.lua           SPEC.md's mock-canvas numbers -> WoW coordinates
+  Palette.lua         SPEC.md 7, fourteen colours, closed
   Registry.lua        every frame and the resting alpha SPEC.md gives it
+  Frames.lua          SPEC.md 2, built once at its permanent anchor
   Rules.lua           the forbidden list, printable in game
   Copy.lua            selectable output window
   Commands.lua        /myui
@@ -80,6 +83,7 @@ STATUS.md             where things stand; read this first when resuming
 ```
 /myui help            this list
 /myui copy            the last output in a selectable window
+/myui show            force every frame to alpha 1, or release back to resting
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset

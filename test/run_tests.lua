@@ -47,7 +47,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 7, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 10, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -60,7 +60,8 @@ check("TOC version carries the phase suffix",
       toc.Version .. " vs X-Phase " .. tostring(toc["X-Phase"]))
 check("  and the addon agrees with it",
       tonumber(toc["X-Phase"]) == ns.phase, toc["X-Phase"] .. " vs " .. tostring(ns.phase))
-for _, mod in ipairs({ "Compat", "Guard", "Registry", "Rules", "Copy" }) do
+for _, mod in ipairs({ "Compat", "Scale", "Palette", "Guard", "Registry",
+                       "Frames", "Rules", "Copy" }) do
     check("  ns." .. mod .. " exists", ns[mod] ~= nil)
 end
 
@@ -222,21 +223,182 @@ check("step alpha forwards into SetAlpha", Guard.Send(hairline, "SetAlpha", alph
 check("  which is the whole threshold mechanism", Guard.forwards == 2)
 
 -- ---------------------------------------------------------------------------
+section("Scale")
+-- ---------------------------------------------------------------------------
+
+local Scale = ns.Scale
+check("mock canvas converts by exactly 0.8", near(Scale.MOCK_TO_UNIT, 0.8))
+check("240 wide becomes 192 units", near(Scale.U(240), 192))
+check("214 up becomes 171.2 units", near(Scale.U(214), 171.2))
+
+-- 5120x2880 at uiScale 0.8: 0.8 * 2880 / 768 = 3.0 exactly. Measured on this
+-- machine by decoding a native screenshot (Rebar API-NOTES).
+check("three physical pixels per unit", near(Scale.PixelsPerUnit(), 3.0))
+check("  which is pixel-perfect", (Scale.IsPixelPerfect()) == true)
+check("a hairline is one third of a unit", near(Scale.Hairline(), 1/3))
+check("  not 0.8 units -- 1px means one PHYSICAL pixel", not near(Scale.Hairline(), 0.8))
+check("Snap lands on a pixel boundary", near(Scale.Snap(1.1), 1/3 * 3))
+
+mock.uiScale = 0.65
+check("a fractional px/unit is reported, not hidden",
+      (Scale.IsPixelPerfect()) == false, Scale.PixelsPerUnit())
+mock.uiScale = 0.8
+
+-- ---------------------------------------------------------------------------
+section("Palette")
+-- ---------------------------------------------------------------------------
+
+local Palette = ns.Palette
+local paletteCount = 0
+for _ in pairs(Palette.colors) do paletteCount = paletteCount + 1 end
+check("exactly fourteen colours", paletteCount == 14, paletteCount)
+check("  and the count is declared", Palette.COUNT == 14)
+
+check("every entry is four floats in 0..1", (function()
+    for name, c in pairs(Palette.colors) do
+        if #c ~= 4 then return false, name end
+        for _, v in ipairs(c) do
+            if type(v) ~= "number" or v < 0 or v > 1 then return false, name end
+        end
+    end
+    return true
+end)())
+
+local r, g, b, a = Palette.Get("danger")
+check("danger matches SPEC 7 rgba(242,107,97,1)",
+      near(r, 242/255) and near(g, 107/255) and near(b, 97/255) and a == 1)
+local _, _, _, troughA = Palette.Get("trough")
+check("trough alpha is 0.14, the rail hairline value", near(troughA, 0.14))
+
+check("asking for a fifteenth colour errors",
+      not pcall(Palette.Get, "somethingElse"))
+
+-- ---------------------------------------------------------------------------
+section("Frames -- SPEC 2 anchors")
+-- ---------------------------------------------------------------------------
+
+check("all four SPEC 2 frames registered", Registry.Count() == 4, Registry.Count())
+
+local EXPECTED = {
+    -- name,        resting, mock w, mock h, anchor,   x,   y
+    { "SelfStack",   0.35, 240, 20, "BOTTOM",   0,  214 },
+    { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
+    { "TargetStrip", 0,    400, 49, "TOP",      0,  -20 },
+    { "Rail",        1,     10, 440, "LEFT",   20,    0 },
+}
+
+for _, e in ipairs(EXPECTED) do
+    local name, resting, w, h, point, x, y = e[1], e[2], e[3], e[4], e[5], e[6], e[7]
+    local entry = Registry.Get(name)
+    check(name .. " is registered", entry ~= nil)
+    if entry then
+        check("  resting alpha is " .. tostring(resting), entry.resting == resting, entry.resting)
+        local gw, gh, p = Registry.Geometry(entry)
+        check("  size matches SPEC", near(gw, Scale.U(w)) and near(gh, Scale.U(h)),
+              tostring(gw) .. "x" .. tostring(gh))
+        check("  anchored " .. point, p ~= nil and p.point == point, p and p.point)
+        check("  offset matches SPEC",
+              p ~= nil and near(p.x, Scale.U(x)) and near(p.y, Scale.U(y)),
+              p and (tostring(p.x) .. "," .. tostring(p.y)))
+    end
+end
+
+-- Regression: GetPoint returns five values and Compat.Call used to forward
+-- four, so every anchor read back with y = nil and the audit printed +0.0.
+local ok5, _, _, _, _, y5 = Compat.Call(Registry.Get("SelfStack").frame, "GetPoint", 1)
+check("Compat.Call forwards GetPoint's fifth value", ok5 and near(y5, Scale.U(214)), y5)
+
+-- ---------------------------------------------------------------------------
+section("Frames -- SelfStack internals")
+-- ---------------------------------------------------------------------------
+
+local stack = Registry.Get("SelfStack").frame
+check("health bar is 240 x 4", near(stack.health:GetWidth(), Scale.U(240))
+      and near(stack.health:GetHeight(), Scale.U(4)))
+check("resource bar is 240 x 2", near(stack.resource:GetHeight(), Scale.U(2)))
+check("cast bar is 240 x 4", near(stack.cast:GetHeight(), Scale.U(4)))
+
+local _, _, _, _, ry = stack.resource:GetPoint(1)
+check("resource sits 4 below health", near(ry, -Scale.U(4)), ry)
+local _, _, _, _, cy = stack.cast:GetPoint(1)
+check("cast sits 6 below resource", near(cy, -Scale.U(6)), cy)
+local _, _, _, nx = stack.number:GetPoint(1)
+check("health number sits 8 left of the group", near(nx, -Scale.U(8)), nx)
+
+-- The compliance keystone. The ticks are fixed marks at 20% and 40% of a
+-- 240-wide bar by construction; nothing computes them from a value, and these
+-- two checks are what proves the geometry says so.
+local _, _, _, t20 = stack.tick20:GetPoint(1)
+local _, _, _, t40 = stack.tick40:GetPoint(1)
+check("20% tick sits at x = 48", near(t20, Scale.U(48)), t20)
+check("  which is 20% of the bar", near(t20 / stack.health:GetWidth(), 0.20))
+check("40% tick sits at x = 96", near(t40, Scale.U(96)), t40)
+check("  which is 40% of the bar", near(t40 / stack.health:GetWidth(), 0.40))
+check("ticks are one physical pixel wide",
+      near(stack.tick20:GetWidth(), Scale.Hairline()))
+
+-- ---------------------------------------------------------------------------
+section("Frames -- TargetStrip and Rail")
+-- ---------------------------------------------------------------------------
+
+local strip = Registry.Get("TargetStrip").frame
+check("target health bar is 400 x 3", near(strip.health:GetWidth(), Scale.U(400))
+      and near(strip.health:GetHeight(), Scale.U(3)))
+local _, _, _, _, thy = strip.health:GetPoint(1)
+check("  20 below the 11pt name row", near(thy, -Scale.U(31)), thy)
+check("cast indicator is a 3 x 6 tick", near(strip.cast:GetWidth(), Scale.U(3))
+      and near(strip.cast:GetHeight(), Scale.U(6)))
+local _, _, _, _, tcy = strip.cast:GetPoint(1)
+check("  9 below the bar", near(tcy, -Scale.U(9)), tcy)
+
+local rail = Registry.Get("Rail").frame
+check("rail hairline is 440 tall", near(rail.hairline:GetHeight(), Scale.U(440)))
+check("  and one physical pixel wide", near(rail.hairline:GetWidth(), Scale.Hairline()))
+check("no dots yet -- SPEC 6 is Phase 3", rail.dots == nil)
+
+-- ---------------------------------------------------------------------------
+section("Debug toggle")
+-- ---------------------------------------------------------------------------
+-- PLAN.md Phase 1: a design whose correct state is invisible cannot be checked
+-- by looking at it.
+
+check("frames start at their resting alphas",
+      Compat.Get(strip, "GetAlpha") == 0, Compat.Get(strip, "GetAlpha"))
+
+Registry.ForceVisible(true)
+check("forcing visible lifts every frame to 1", (function()
+    local all = true
+    Registry.Each(function(e)
+        if Compat.Get(e.frame, "GetAlpha") ~= 1 then all = false end
+    end)
+    return all
+end)())
+
+Registry.ForceVisible(false)
+check("releasing returns each to its own resting alpha", (function()
+    local all = true
+    Registry.Each(function(e)
+        if Compat.Get(e.frame, "GetAlpha") ~= e.resting then all = false end
+    end)
+    return all
+end)())
+check("  including the one that rests at zero", Compat.Get(strip, "GetAlpha") == 0)
+
+-- ---------------------------------------------------------------------------
 section("Registry")
 -- ---------------------------------------------------------------------------
 
-Registry.Add("SelfStack", mock.frame({ name = "SelfStack" }), 0.35)
-Registry.Add("Rail", mock.frame({ name = "Rail" }), 0.14)
-check("frames register", Registry.Count() == 2, Registry.Count())
-check("lookup by name works", Registry.Get("Rail").resting == 0.14)
+local baseCount = Registry.Count()
+Registry.Add("TestFrame", mock.frame({ name = "TestFrame" }), 0.5)
+check("frames register", Registry.Count() == baseCount + 1)
+check("lookup by name works", Registry.Get("TestFrame").resting == 0.5)
 
-Registry.Add("Rail", mock.frame({}), 0.99)
-check("duplicate name is refused", Registry.Count() == 2)
-check("  and the original alpha survives", Registry.Get("Rail").resting == 0.14)
+Registry.Add("TestFrame", mock.frame({}), 0.99)
+check("duplicate name is refused", Registry.Count() == baseCount + 1)
+check("  and the original alpha survives", Registry.Get("TestFrame").resting == 0.5)
 
 local snap = Registry.Snapshot()
-check("snapshot covers every frame", #snap == 2)
-check("  carries the spec resting alpha", snap[1].resting == 0.35)
+check("snapshot covers every frame", #snap == baseCount + 1)
 check("  and reports no claim at rest", snap[1].claim == "-")
 
 -- A frame that has been forwarded a secret returns a secret alpha; the audit
@@ -244,7 +406,7 @@ check("  and reports no claim at rest", snap[1].claim == "-")
 Registry.Add("Tainted", health, 0.25)
 snap = Registry.Snapshot()
 check("secret alpha reads back as a sentinel",
-      snap[3].current == Compat.SECRET, tostring(snap[3].current))
+      snap[#snap].current == Compat.SECRET, tostring(snap[#snap].current))
 
 -- ---------------------------------------------------------------------------
 section("Core -- saved variables")
@@ -252,7 +414,7 @@ section("Core -- saved variables")
 
 check("database was created", type(_G.MyUIDB) == "table")
 check("  at the current schema", _G.MyUIDB.schema == ns.SCHEMA_VERSION)
-check("  recording the phase", _G.MyUIDB.addon.phase == 0)
+check("  recording the phase", _G.MyUIDB.addon.phase == ns.phase, _G.MyUIDB.addon.phase)
 check("  with an alpha table for phase 5", type(_G.MyUIDB.alpha) == "table")
 check("no migrations needed at schema 1", next(ns.MIGRATIONS) == nil)
 
