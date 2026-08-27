@@ -62,6 +62,7 @@ MyUI/                 the addon
   Guard.lua           the compliance harness -- sanctioned sinks and curves
   Registry.lua        every frame and the resting alpha SPEC.md gives it
   Rules.lua           the forbidden list, printable in game
+  Copy.lua            selectable output window
   Commands.lua        /myui
 rules_lint.py         static compliance scan, standard library only
 smoke.sh             everything checkable without the client
@@ -78,6 +79,7 @@ STATUS.md             where things stand; read this first when resuming
 
 ```
 /myui help            this list
+/myui copy            the last output in a selectable window
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset
@@ -86,6 +88,31 @@ STATUS.md             where things stand; read this first when resuming
 ```
 
 Any unambiguous prefix works. `/mui` is an alias.
+
+## Getting output off the machine
+
+WoW's chat frame cannot be copied from, and these reports exist to be read elsewhere.
+Every command writes its output to `MyUIDB.lastOutput`, stripped of colour codes.
+
+**Off disk, no copying.** SavedVariables flush on `/reload` or logout, so:
+
+```
+/myui conditionals
+/reload
+```
+
+then read it directly:
+
+```sh
+grep -A200 'lastOutput' "/Applications/World of Warcraft/_retail_/WTF/Account"/*/SavedVariables/MyUI.lua
+```
+
+**In game.** `/myui copy` opens a selectable window on the previous command's output —
+cmd-C, escape. Use this when a reload is inconvenient.
+
+**Chat log.** `/chatlog` writes `_retail_/Logs/WoWChatLog.txt`. It captures the whole chat
+stream rather than just this addon, and whether it picks up addon `AddMessage` output is
+worth confirming before relying on it.
 
 ## Running the tests
 

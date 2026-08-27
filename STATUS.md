@@ -50,6 +50,11 @@ scalar curve drives both the 1.60s breathe and the screen-edge danger hairline d
 **One genuinely does.** The health number's 12pt → 14pt change. `SetScale` is
 `AllowedWhenUntainted` and will refuse a forwarded secret, and font size is not alpha.
 
+**To get the result back out:** run the command, then `/reload`. Every command's output is
+persisted to `MyUIDB.lastOutput` with colour codes stripped, so it can be read straight off
+disk from `WTF/Account/*/SavedVariables/MyUI.lua` with no copying. `/myui copy` gives an
+in-game selectable window if a reload is inconvenient.
+
 Run `/myui conditionals` in game. **No combat needed, and no need to be hurt** — it can be
 run standing in a city.
 

@@ -12,4 +12,5 @@ Core.lua
 Guard.lua
 Registry.lua
 Rules.lua
+Copy.lua
 Commands.lua

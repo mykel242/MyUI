@@ -118,6 +118,35 @@ function M.frame(spec)
         return f.__alpha
     end
 
+    -- Widget surface used by Copy.lua's window. These are no-ops that record
+    -- the call, not stubs that pretend success -- a test asserting on them
+    -- fails honestly if the real method is spelled differently.
+    for _, method in ipairs({
+        "SetFrameStrata", "EnableMouse", "SetMovable", "RegisterForDrag",
+        "SetClampedToScreen", "SetMultiLine", "SetAutoFocus", "SetFontObject",
+        "SetCursorPosition", "SetFocus", "HighlightText", "SetScrollChild",
+        "SetAllPoints", "SetColorTexture", "SetText", "StartMoving",
+        "StopMovingOrSizing", "SetJustifyH",
+    }) do
+        f[method] = setter(method)
+    end
+
+    f.__shown = spec.shown or false
+    f.Show    = function() f.__shown = true;  log("Show") end
+    f.Hide    = function() f.__shown = false; log("Hide") end
+    f.IsShown = function() return f.__shown end
+
+    f.GetText = function()
+        local calls = f.__calls
+        for i = #calls, 1, -1 do
+            if calls[i].method == "SetText" then return calls[i][1] end
+        end
+        return nil
+    end
+
+    f.CreateTexture    = function() return M.frame({ objectType = "Texture" }) end
+    f.CreateFontString = function() return M.frame({ objectType = "FontString" }) end
+
     f.GetStatusBarTexture = function() return f.__texture end
     f.GetObjectType = function() return spec.objectType or "Frame" end
     f.GetName = function() return spec.name end
@@ -258,17 +287,31 @@ function M.install()
     _G.UIParent = M.frame({ name = "UIParent" })
 end
 
---- Load the addon exactly as the client would, in TOC order.
+--- Load the addon exactly as the client would, in the order the TOC lists.
+--
+-- The file list is read from MyUI.toc rather than duplicated here. A hardcoded
+-- list silently stops covering a new file the moment one is added, which is
+-- how Copy.lua first went untested.
 function M.loadAddon(dir)
+    local toc = assert(io.open(dir .. "/MyUI.toc", "r"),
+                       "cannot open " .. dir .. "/MyUI.toc")
+    local files = {}
+    for line in toc:lines() do
+        local name = line:match("^%s*([%w_%-]+%.lua)%s*$")
+        if name then
+            files[#files + 1] = name
+        end
+    end
+    toc:close()
+    assert(#files > 0, "no Lua files listed in MyUI.toc")
+
     local ns = {}
-    for _, file in ipairs({
-        "Compat.lua", "Core.lua", "Guard.lua",
-        "Registry.lua", "Rules.lua", "Commands.lua",
-    }) do
+    for _, file in ipairs(files) do
         local chunk, err = loadfile(dir .. "/" .. file)
         if not chunk then error("could not load " .. file .. ": " .. tostring(err)) end
         chunk("MyUI", ns)
     end
+    ns.__loadedFiles = files
     return ns
 end
 

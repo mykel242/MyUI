@@ -40,6 +40,15 @@ local function inWarnMode(fn)
 end
 
 -- ---------------------------------------------------------------------------
+section("Load")
+-- ---------------------------------------------------------------------------
+
+check("every file in the TOC was loaded", #ns.__loadedFiles == 7, #ns.__loadedFiles)
+for _, mod in ipairs({ "Compat", "Guard", "Registry", "Rules", "Copy" }) do
+    check("  ns." .. mod .. " exists", ns[mod] ~= nil)
+end
+
+-- ---------------------------------------------------------------------------
 section("Compat")
 -- ---------------------------------------------------------------------------
 
@@ -290,6 +299,31 @@ mock.inCombat = true
 probe = output("conditionals")
 check("control tracks combat state", probe:find("%[combat%]%s+hit%s+miss") ~= nil)
 mock.inCombat = false
+
+-- ---------------------------------------------------------------------------
+section("Getting output off the machine")
+-- ---------------------------------------------------------------------------
+
+run("audit")
+check("output is persisted for the off-disk route",
+      type(_G.MyUIDB.lastOutput) == "string" and _G.MyUIDB.lastOutput ~= "")
+check("  tagged with the command that produced it", _G.MyUIDB.lastCommand == "audit")
+check("  and carries the report, not just the header",
+      _G.MyUIDB.lastOutput:find("violations", 1, true) ~= nil)
+check("  with colour codes stripped for a plain-text read",
+      _G.MyUIDB.lastOutput:find("|cff", 1, true) == nil)
+
+local persisted = _G.MyUIDB.lastOutput
+run("copy")
+check("copy does not overwrite the output it shows",
+      _G.MyUIDB.lastOutput == persisted)
+check("  and the window is up", ns.Copy.IsShown())
+
+run("conditionals")
+check("a later command replaces the persisted output",
+      _G.MyUIDB.lastOutput ~= persisted and _G.MyUIDB.lastCommand == "conditionals")
+check("  and the probe table survives the round trip",
+      _G.MyUIDB.lastOutput:find("zzznotaconditional", 1, true) ~= nil)
 
 -- ---------------------------------------------------------------------------
 section("Rules")

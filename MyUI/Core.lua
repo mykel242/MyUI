@@ -24,6 +24,10 @@ local function FreshDB()
         addon  = { version = ns.version, phase = ns.phase },
         -- Per-frame alpha overrides land here in Phase 5.
         alpha  = {},
+        -- Every command's output, persisted so it can be read off disk after a
+        -- /reload rather than copied out of the chat frame by hand.
+        lastCommand = nil,
+        lastOutput  = nil,
         guard  = { mode = "strict" },
     }
 end

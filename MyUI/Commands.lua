@@ -160,6 +160,7 @@ end
 
 local COMMANDS = {
     { "help",         "this list" },
+    { "copy",         "the last output in a selectable window" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -181,6 +182,11 @@ end
 
 local HANDLERS = {
     help         = Help,
+    copy         = function()
+        -- Deliberately shows what was captured BEFORE this command ran --
+        -- otherwise /myui copy would only ever show itself.
+        ns.Copy.Show(ns.db and ns.db.lastOutput or nil)
+    end,
     rules        = function() Rules.Print() end,
     audit        = Audit,
     guard        = SetGuardMode,
@@ -233,5 +239,13 @@ SlashCmdList["MYUI"] = function(input)
     local ok, err = pcall(HANDLERS[name], rest ~= "" and rest or nil)
     if not ok then
         ns.Print("|cfff26b61" .. tostring(err) .. "|r")
+    end
+
+    -- Persist for the off-disk route. SavedVariables are only flushed on
+    -- /reload or logout, so this is readable after one of those, not before.
+    -- copy is excluded so it cannot overwrite the output it exists to show.
+    if ns.db and not ns.readOnlyDB and name ~= "copy" then
+        ns.db.lastCommand = name
+        ns.db.lastOutput  = ns.GetOutput()
     end
 end
