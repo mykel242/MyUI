@@ -463,6 +463,12 @@ function M.install()
     _G.STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
     -- Fixed, so a report's text is deterministic across runs.
     _G.date = function() return "2026-08-27 12:00" end
+
+    -- ChatFrame_OpenChat is deprecated on 12.1 and aliased to this.
+    M.chatOpened = {}
+    _G.ChatFrameUtil = {
+        OpenChat = function(text) M.chatOpened[#M.chatOpened + 1] = text end,
+    }
 end
 
 --- Load the addon exactly as the client would, in the order the TOC lists.

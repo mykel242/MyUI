@@ -83,20 +83,20 @@ Testing.scripts = {
         title = "Phase 0 — skeleton and compliance harness",
         accept = "/reload clean, zero Lua errors, nothing visible on screen.",
         steps = {
-            { act = "Type /reload and wait for the UI to come back.",
+            { cmd = "/reload", act = "Type /reload and wait for the UI to come back.",
               expect = "No Lua error popup. MyUI prints one loaded line." },
             { act = "Look at the screen.",
               expect = "Nothing from MyUI is visible. Phase 0 draws nothing." },
-            { act = "Type /myui rules",
+            { cmd = "/myui rules", act = "Type /myui rules",
               expect = "The principle, six prohibitions, four mechanisms." },
-            { awaits = "audit", act = "Type /myui audit",
+            { awaits = "audit", cmd = "/myui audit", act = "Type /myui audit",
               expect = "A clean guard: 0 violations.",
               check = function()
                   local n = #ns.Guard.violations
                   if n == 0 then return true, "0 violations" end
                   return false, n .. " violations"
               end },
-            { act = "Type /myui conditionals",
+            { cmd = "/myui conditionals", act = "Type /myui conditionals",
               expect = "The known control differs from the unknown one." },
         },
     },
@@ -106,7 +106,7 @@ Testing.scripts = {
         accept = "Debug toggle shows every frame; positions and sizes match the "
               .. "mock; audit lists each frame with its spec resting alpha.",
         steps = {
-            { id = "show", awaits = "show on", act = "Type /myui show on",
+            { id = "show", awaits = "show on", cmd = "/myui show on", act = "Type /myui show on",
               expect = "Frames go opaque, with placeholder text and a nominal fill.",
               check = function()
                   if not Registry.forced then
@@ -134,7 +134,7 @@ Testing.scripts = {
             { act = "Far left, vertically centred: a vertical hairline?",
               expect = "One crisp pixel-wide line. Not a soft grey smear." },
 
-            { awaits = "audit", act = "Type /myui audit",
+            { awaits = "audit", cmd = "/myui audit", act = "Type /myui audit",
               expect = "Four frames with resting alphas 0.35, 0.25, 0.00, 1.00.",
               check = function()
                   for name, want in pairs(SPEC_RESTING) do
@@ -160,14 +160,14 @@ Testing.scripts = {
                                 :format(perUnit)
               end },
 
-            { act = "Type /myui outline on -- a green box around each group?",
+            { cmd = "/myui outline on", act = "Type /myui outline on -- a green box around each group?",
               expect = "Four boxes, each snug around its frame with the name above "
                     .. "it. A box with nothing inside means the frame is placed "
                     .. "right but hidden." },
-            { act = "Type /myui outline off",
+            { cmd = "/myui outline off", act = "Type /myui outline off",
               expect = "Boxes gone, frames unchanged." },
 
-            { id = "showoff", awaits = "show off", act = "Type /myui show off",
+            { id = "showoff", awaits = "show off", cmd = "/myui show off", act = "Type /myui show off",
               expect = "Placeholders clear and the bars empty.",
               check = function()
                   if Registry.forced then
@@ -177,7 +177,7 @@ Testing.scripts = {
               end },
             { act = "After /myui show off: has the top-centre strip vanished entirely?",
               expect = "TargetStrip rests at alpha 0. The others dim but remain." },
-            { act = "Type /myui show on again. Did anything move?",
+            { cmd = "/myui show on", act = "Type /myui show on again. Did anything move?",
               expect = "Nothing shifts by a pixel. Position is fixed forever." },
         },
     },
@@ -190,7 +190,7 @@ Testing.scripts = {
               .. "dwell both verified by brushing past.",
         steps = {
             { id = "showoff", awaits = "show off",
-              act = "Type /myui show off to start from rest.",
+              cmd = "/myui show off", act = "Type /myui show off to start from rest.",
               expect = "Everything back to its resting alpha.",
               check = function()
                   if Registry.forced then
@@ -262,7 +262,7 @@ Testing.scripts = {
             -- runs at all. A transient channel has to be recorded and read
             -- afterwards, not caught in the act.
             { awaits = "claims",
-              act = "Hold Alt for a second, release it, then type /myui claims.",
+              cmd = "/myui claims", act = "Hold Alt for a second, release it, then type /myui claims.",
               expect = "The log shows modifier claiming three frames, then "
                     .. "releasing them.",
               check = function()
@@ -308,6 +308,7 @@ Testing.scripts = {
               end },
 
             { awaits = "claims",
+              cmd = "/myui claims",
               act = "Hold Alt, rest the cursor on the bottom bars, then release "
                  .. "Alt while leaving the cursor there. Then /myui claims.",
               expect = "A line reading SelfStack 1.00 -> 1.00 with the winner "
@@ -331,7 +332,7 @@ Testing.scripts = {
               .. "\"+N more\"; a toast speaks once and collapses after 4s; "
               .. "the rail at rest reads as calm.",
         steps = {
-            { awaits = "notify clear", act = "Type /myui notify clear",
+            { awaits = "notify clear", cmd = "/myui notify clear", act = "Type /myui notify clear",
               expect = "The rail empties.",
               check = function()
                   if #ns.Rail.items > 0 then
@@ -343,7 +344,7 @@ Testing.scripts = {
               expect = "One vertical hairline and nothing else. This is the "
                     .. "rail at rest, and it should read as calm." },
 
-            { act = "Type /myui notify blue Whisper",
+            { cmd = "/myui notify blue Whisper", act = "Type /myui notify blue Whisper",
               expect = "A toast slides in near the top of the rail and speaks "
                     .. "once." },
             { act = "Watch that toast without touching anything.",
@@ -354,11 +355,11 @@ Testing.scripts = {
             { act = "Wait a few seconds and look at that age again.",
               expect = "It has counted up on its own." },
 
-            { act = "Type /myui notify amber Loot",
+            { cmd = "/myui notify amber Loot", act = "Type /myui notify amber Loot",
               expect = "The new one takes the top row; the first drops to the "
                     .. "second row and keeps its text." },
 
-            { awaits = "notify demo", act = "Type /myui notify demo",
+            { awaits = "notify demo", cmd = "/myui notify demo", act = "Type /myui notify demo",
               expect = "Ten arrive at once. Eight dots, two behind the square.",
               check = function()
                   local Rail = ns.Rail
@@ -395,8 +396,8 @@ Testing.scripts = {
                     .. "not, try /myui contrast lift and answer again -- SPEC 6 "
                     .. "names that exact grey, so a fail here is a spec finding." },
 
-            { act = "Type /myui notify green Urgent, then /myui notify dismiss "
-                 .. "before four seconds pass.",
+            { cmd = { "/myui notify green Urgent", "/myui notify dismiss" },
+              act = "Send the first, then dismiss it before four seconds pass.",
               expect = "The toast collapses immediately rather than waiting." },
             { act = "Send another, and click the toast itself.",
               expect = "It collapses on the click too." },
@@ -404,8 +405,9 @@ Testing.scripts = {
             -- Folded in from Phase 2: the hold binding shipped after that
             -- phase was accepted, so it has never been verified in game.
             { awaits = "claims",
-              act = "Bind MyUI -> Hold to reveal to a free key, run /myui "
-                 .. "modifier none, hold that key, release, then /myui claims.",
+              cmd = { "/myui modifier none", "/myui claims" },
+              act = "Bind MyUI -> Hold to reveal to a free key, run the first "
+                 .. "command, hold that key, release, then run the second.",
               expect = "The log shows the channel arming via binding, not via "
                     .. "keys -- so the HUD no longer fights your ability rows.",
               check = function()
@@ -434,7 +436,8 @@ Testing.scripts = {
 
 local window, rows, tallyText
 
-local ROW_H, TEXT_W = 68, 520
+local ROW_H, TEXT_W = 90, 520
+local MAX_CMDS = 2
 
 local function BuildRow(parent, index)
     local row = CreateFrame("Frame", nil, parent)
@@ -465,6 +468,25 @@ local function BuildRow(parent, index)
     row.detail:SetPoint("TOPLEFT", row.expect, "BOTTOMLEFT", 0, -2)
     row.detail:SetWidth(TEXT_W)
     row.detail:SetJustifyH("LEFT")
+
+    -- One button per command the step names. Clicking drops it into the chat
+    -- box ready to send, because a step like "type this, then type that inside
+    -- four seconds" is otherwise a typing test rather than a test of the addon.
+    row.cmds = {}
+    for c = 1, MAX_CMDS do
+        local button = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
+        button:SetSize(250, 18)
+        if c == 1 then
+            button:SetPoint("TOPLEFT", row.detail, "BOTTOMLEFT", 0, -2)
+        else
+            button:SetPoint("TOPLEFT", row.cmds[c - 1], "TOPRIGHT", 6, 0)
+        end
+        button:SetScript("OnClick", function(self)
+            Testing.SendToChat(self.command)
+        end)
+        button:Hide()
+        row.cmds[c] = button
+    end
 
     row.pass = CreateFrame("Button", nil, row, "UIPanelButtonTemplate")
     row.pass:SetSize(52, 20)
@@ -559,6 +581,41 @@ local function Build()
     rows = {}
 end
 
+--- Put a command in the chat box, focused, so it can be sent with Enter.
+--
+-- ChatFrame_OpenChat is deprecated on 12.1 and aliased to ChatFrameUtil.
+-- OpenChat; both are tried so this works either way rather than depending on
+-- which one a future build keeps.
+function Testing.SendToChat(command)
+    if not command then
+        return false
+    end
+    local util = _G.ChatFrameUtil
+    if util and type(util.OpenChat) == "function" then
+        util.OpenChat(command)
+        return true
+    end
+    if type(_G.ChatFrame_OpenChat) == "function" then
+        _G.ChatFrame_OpenChat(command)
+        return true
+    end
+    -- No chat box to fill: fall back to the copy window so the text is at
+    -- least selectable rather than needing to be retyped from the panel.
+    ns.Copy.Show(command)
+    return false
+end
+
+--- A step's commands, always as a list.
+function Testing.CommandsFor(step)
+    if step.cmd == nil then
+        return {}
+    end
+    if type(step.cmd) == "string" then
+        return { step.cmd }
+    end
+    return step.cmd
+end
+
 --- What a row should read: "waiting", "pending", "pass" or "fail".
 --
 -- Separate from the drawing on purpose. The window painted a stale "waiting"
@@ -581,6 +638,22 @@ function Testing.MarkFor(index)
         return "pass"
     end
     return "fail"
+end
+
+--- The command buttons actually shown on a row, in order. Like RowMark, this
+-- reports what is on screen rather than what should be.
+function Testing.RowCommands(index)
+    local row = rows and rows[index]
+    if not row then
+        return nil
+    end
+    local out = {}
+    for _, button in ipairs(row.cmds) do
+        if button:IsShown() then
+            out[#out + 1] = button.command
+        end
+    end
+    return out
 end
 
 --- What a row is actually painted with right now. Lets a test assert on the
@@ -641,6 +714,18 @@ function Testing.Refresh()
         if r and r.auto and r.detail then
             row.mark:SetText(row.mark:GetText() .. "\n|cff73777eauto|r")
             row.detail:SetText("|cff73777e" .. tostring(r.detail) .. "|r")
+        end
+
+        local commands = Testing.CommandsFor(step)
+        for c = 1, MAX_CMDS do
+            local button = row.cmds[c]
+            if commands[c] then
+                button.command = commands[c]
+                button:SetText(commands[c])
+                button:Show()
+            else
+                button:Hide()
+            end
         end
 
         -- A step MyUI can decide for itself does not get buttons. Offering one

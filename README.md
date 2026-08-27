@@ -164,6 +164,11 @@ Two rules the first live run taught, both enforced by tests:
   something the phase is correct not to draw. The debug toggle now supplies placeholder
   text and a nominal fill so that geometry is judgeable without shipping data.
 
+Steps that name a command carry a button for it. Clicking drops the command into the chat
+box ready to send — a step reading "type this, then type that inside four seconds" is a
+typing test rather than a test of the addon. It fills the box rather than running the
+command, so you stay in control of when it fires.
+
 `report` prints the run and writes it to `MyUIDB.testRuns`, so after a `/reload` the whole
 thing can be read off disk. `reset` starts over.
 

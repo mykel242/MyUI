@@ -1529,6 +1529,99 @@ check("phase 3's script covers what PLAN's acceptance names", (function()
 end)())
 
 -- ---------------------------------------------------------------------------
+section("Checklist -- running the commands")
+-- ---------------------------------------------------------------------------
+-- A step reading "type this, then type that inside four seconds" is a typing
+-- test, not a test of the addon. Each step's commands are declared and the
+-- panel puts them in the chat box ready to send.
+
+check("every step that names a command declares it", (function()
+    for phase, script in pairs(Testing.scripts) do
+        for i, step in ipairs(script.steps) do
+            -- Only the imperative form: prose that merely mentions a command
+            -- in passing is not a step you are being asked to run.
+            if step.act:find("Type /") or step.act:find("run the first") then
+                if #Testing.CommandsFor(step) == 0 then
+                    return false, phase .. ":" .. i
+                end
+            end
+        end
+    end
+    return true
+end)())
+
+check("declared commands are always slash commands", (function()
+    for phase, script in pairs(Testing.scripts) do
+        for i, step in ipairs(script.steps) do
+            for _, cmd in ipairs(Testing.CommandsFor(step)) do
+                if cmd:sub(1, 1) ~= "/" then return false, phase .. ":" .. i end
+            end
+        end
+    end
+    return true
+end)())
+
+check("a single command normalises to a list", (function()
+    local one = Testing.CommandsFor({ cmd = "/myui audit" })
+    return #one == 1 and one[1] == "/myui audit"
+end)())
+check("  and no command gives an empty list",
+      #Testing.CommandsFor({ act = "look at it" }) == 0)
+
+-- The step that prompted this: two commands inside four seconds.
+local tight = nil
+for _, step in ipairs(Testing.scripts[3].steps) do
+    if #Testing.CommandsFor(step) > 1 then tight = step end
+end
+check("the four-second step offers both its commands", tight ~= nil
+      and #Testing.CommandsFor(tight) == 2)
+
+mock.chatOpened = {}
+Testing.SendToChat("/myui notify demo")
+check("clicking a command fills the chat box", #mock.chatOpened == 1
+      and mock.chatOpened[1] == "/myui notify demo")
+check("  rather than running it, so you stay in control",
+      _G.MyUIDB.lastCommand ~= "notify")
+
+-- No chat box is not a reason to make someone retype it.
+local savedChat = _G.ChatFrameUtil
+_G.ChatFrameUtil = nil
+check("without a chat box it falls back to the copy window",
+      Testing.SendToChat("/myui audit") == false)
+check("  which is showing the command", ns.Copy.IsShown())
+_G.ChatFrameUtil = savedChat
+ns.Copy.Hide()
+
+Testing.Show(3)
+Testing.Refresh()
+
+local function findRow(wanted)
+    for i, step in ipairs(Testing.Steps()) do
+        if #Testing.CommandsFor(step) == wanted then return i end
+    end
+end
+
+local oneCmd, twoCmd = findRow(1), findRow(2)
+check("a one-command step paints one button", (function()
+    local painted = Testing.RowCommands(oneCmd)
+    return painted and #painted == 1
+       and painted[1] == Testing.CommandsFor(Testing.Steps()[oneCmd])[1]
+end)(), oneCmd)
+check("the four-second step paints both of its buttons", (function()
+    local painted = Testing.RowCommands(twoCmd)
+    return painted and #painted == 2
+end)(), twoCmd)
+check("a look-only step paints none", (function()
+    for i, step in ipairs(Testing.Steps()) do
+        if #Testing.CommandsFor(step) == 0 then
+            local painted = Testing.RowCommands(i)
+            return painted and #painted == 0, i
+        end
+    end
+    return false
+end)())
+
+-- ---------------------------------------------------------------------------
 section("Getting output off the machine")
 -- ---------------------------------------------------------------------------
 
