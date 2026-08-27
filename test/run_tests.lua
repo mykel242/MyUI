@@ -492,6 +492,50 @@ clearClaims()
 check("an unknown channel is refused, not silently ignored",
       not pcall(Reveal.Claim, "nosuchchannel"))
 
+-- Ties are the normal case, not an edge one: every channel claims 1.0. Before
+-- this was ordered, the credited winner came out of pairs() and flapped between
+-- resolves -- one Alt press logged three handovers at three timestamps.
+check("precedence covers every channel exactly once", (function()
+    local seen = {}
+    for _, channel in ipairs(Reveal.PRECEDENCE) do
+        if seen[channel] then return false, "duplicate " .. channel end
+        if Reveal.CHANNELS[channel] == nil then return false, "unknown " .. channel end
+        seen[channel] = true
+    end
+    for channel in pairs(Reveal.CHANNELS) do
+        if not seen[channel] then return false, "missing " .. channel end
+    end
+    return true
+end)())
+
+clearClaims()
+Reveal.Claim("cursor", "SelfStack")
+Reveal.Claim("modifier")
+check("a tie credits the more deliberate channel", stackEntry.claim == "modifier",
+      stackEntry.claim)
+check("  and stays credited to it across repeated resolves", (function()
+    for _ = 1, 50 do
+        Reveal.Resolve()
+        if stackEntry.claim ~= "modifier" then return false end
+    end
+    return true
+end)())
+check("  logging nothing, because nothing changed", (function()
+    local before = #Reveal.log
+    for _ = 1, 20 do Reveal.Resolve() end
+    return #Reveal.log == before
+end)())
+
+-- Precedence breaks ties only. A strictly higher claim still wins outright.
+local realPeek = Reveal.CHANNELS.peek
+Reveal.CHANNELS.cursor = 1.0
+Reveal.CHANNELS.peek = 0.5
+Reveal.Claim("peek", "SelfStack")
+check("precedence does not beat a genuinely higher claim",
+      stackEntry.claim == "modifier" and stackEntry.target == 1)
+Reveal.CHANNELS.peek = realPeek
+clearClaims()
+
 -- ---------------------------------------------------------------------------
 section("Reveal -- channel scope")
 -- ---------------------------------------------------------------------------

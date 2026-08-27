@@ -13,22 +13,18 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | -1 — Ground truth | **Complete.** Three corrections to the handoff, recorded with citations |
 | 0 — Skeleton and compliance harness | **Delivered** — `v0.1.0-phase0`, verified in game |
 | 1 — Anchors and frame registry | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
-| 2 — Reveal engine | **Built**, awaiting in-game acceptance |
+| 2 — Reveal engine | **Delivered** — `v0.3.0-phase2`, 16/16 in game |
 | 3 — Rail | Not started |
 | 4 — Bars and low health | Not started |
 | 5 — Edit mode | Not started |
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### The one thing waiting on you
+### Nothing is blocking
 
-**Phase 2's in-game acceptance.** `/myui test` — seventeen steps. Bind a key to
-**MyUI → Peek** in the game's Key Bindings first; two steps need it.
-
-Most of Phase 2 can only be judged by eye: a dwell either feels like a pause or it
-doesn't, and a fade either settles or snaps. Two steps are auto-checked, including
-one that verifies all five timing constants against the spec so a mistyped number
-does not have to be caught by squinting.
+Phase 3 is the next action: the rail. SPEC § 6 — dots, the two-newest text rows,
+the 8-dot cap, "+N more", and the toast lifecycle. It touches no protected data,
+which is why PLAN puts it ahead of the bars.
 
 Running a phase acceptance test: `/myui test` in game, work down the checklist,
 hit **report**, `/reload`. The report lands in `MyUIDB.testRuns` and can be read
@@ -109,6 +105,35 @@ Full detail with citations in `API-NOTES-12.1.md`.
 
 The scale factor lives in one constant, added in Phase 1 as `Scale.lua`, so the reading
 above is one edit to revisit if it turns out wrong.
+
+---
+
+## Phase 2 acceptance: passed, 2026-08-27 16:58
+
+**16 of 16**, `v0.3.0-phase2`. Every channel drives its frames in isolation, overlapping
+claims hand over without the alpha moving, and releasing everything returns each frame to
+its own resting alpha rather than to zero.
+
+**The transition log found a defect the acceptance criteria could not.** Reading the live
+log afterwards, one Alt press had produced three handover lines at three different
+timestamps, and the credited winner flapped between `modifier` and `cursor`.
+
+Cause: every channel claims 1.0, so ties are the *normal* case, and the arbiter iterated
+the claim table with `pairs()` — Lua's internal order — using a strict `>`. Whichever
+channel came out first won, and that changed between resolves. The alpha was never wrong;
+only the attribution was. But the log is a diagnostic now, and one that invents events is
+worse than none.
+
+Fixed with a declared `Reveal.PRECEDENCE`, ordered most-deliberate-first:
+`debug, peek, modifier, combat, target, cursor`. A fixed order plus a strict `>` means the
+first channel to beat the running best keeps it, so ties resolve the same way every time.
+`debug` leads because it is an override and the audit should say so; `cursor` trails
+because it is the one claim you can make by accident. A test asserts the list covers every
+channel exactly once, that repeated resolves never change the winner, and that precedence
+breaks ties only — a genuinely higher claim still wins outright.
+
+Also observed and correct: hovering the health bars reveals the cooldown line too. They sit
+18 apart and the proximity zone is 25.6, so one cursor is legitimately near both.
 
 ---
 

@@ -54,6 +54,20 @@ Reveal.CHANNELS = {
     debug    = 1.0,
 }
 
+-- SPEC.md 4 says "highest claim wins" and says nothing about ties -- but every
+-- channel claims 1.0, so ties are the NORMAL case, not an edge one.
+--
+-- Iterating the claim table with pairs() made the credited winner depend on
+-- Lua's internal table order, so it flapped between resolves: one Alt press
+-- logged three separate handovers at three different timestamps. The alpha was
+-- never wrong, only the attribution, but the transition log is a diagnostic and
+-- a diagnostic that invents events is worse than none.
+--
+-- Ordered most deliberate first, so what gets credited is the thing the player
+-- actually did. debug leads because it is an override and the audit should say
+-- so; cursor trails because it is the one claim you can make by accident.
+Reveal.PRECEDENCE = { "debug", "peek", "modifier", "combat", "target", "cursor" }
+
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
 -- and the rest are inferred. Flagged in STATUS.
@@ -170,8 +184,12 @@ local function Arbitrate(entry)
     local best, winner = entry.resting, nil
     local byChannel = claims[entry.name]
     if byChannel then
-        for channel, alpha in pairs(byChannel) do
-            if alpha > best then
+        -- Fixed order plus a strict >, so the first channel in PRECEDENCE to
+        -- beat the running best keeps it. A later equal claim cannot displace
+        -- it, which is what makes ties deterministic.
+        for _, channel in ipairs(Reveal.PRECEDENCE) do
+            local alpha = byChannel[channel]
+            if alpha and alpha > best then
                 best, winner = alpha, channel
             end
         end
