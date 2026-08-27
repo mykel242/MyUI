@@ -370,11 +370,57 @@ that quantity, with a curve evaluator on it. The reverse-fill substitute in § 3
 works and needs no extra call; this is the alternative if the wash ever needs to account
 for absorbs.
 
-**Do not assume the returns are non-secret.** The accessors carry no `SecretReturns` flag,
-but the calculator is populated from unit data that is secret, and Plater only ever
-forwards what it gets — it never compares. Treat every value as secret and route it through
-`Guard.Send`, which is what `Compat`'s fail-closed policy would do anyway. Confirm with
-`issecretvalue` in game before relying on anything looser.
+**The returns are secret.** The accessors carry no `SecretReturns` flag, which was worth
+being careful about — and Cell settles it in a source comment:
+
+> 12.0.5 secret-safe formatters. HealPredictionCalculator returns secret numbers even in
+> normal gameplay; Lua arithmetic and comparisons throw.
+
+So treat every value the calculator hands back as secret and route it through `Guard.Send`.
+
+## 9. How to *display* a secret number
+
+SPEC § 2 puts a health number left of the bar group. The value is secret, so it cannot be
+concatenated or compared — but it can be formatted.
+
+Cell, continuing the comment above: *"Values go through calculator methods and
+**C-implemented pass-throughs (string.format, AbbreviateNumbers, BreakUpLargeNumbers)**."*
+
+oUF reaches the same place independently, in `elements/tags.lua`:
+
+```lua
+return string.format('%d', UnitHealthPercent(u, true, CurveConstants.ScaleTo100))
+```
+
+Two addons, arrived at separately: **`string.format` is a legal pass-through.** It is
+C-implemented, so it never performs Lua arithmetic on the value. `AbbreviateNumbers` and
+`BreakUpLargeNumbers` are the same. That is the whole answer to the health number.
+
+Cell also builds its own scaling curves rather than relying on `CurveConstants`:
+
+```lua
+local c = C_CurveUtil.CreateCurve()
+c:AddPoint(0.0, 0.0)
+c:AddPoint(1.0, 100.0)     -- and a 0 -> -100 variant for missing health
+```
+
+## 10. Three techniques for hiding a Blizzard frame, and they are dated
+
+| Addon | TOC | Technique |
+|---|---|---|
+| ShadowedUnitFrames | 30300 | `UnregisterAllEvents()` + `Hide()` |
+| Cell | 120005 | `UnregisterAllEvents()` + `Hide()` + `SetParent(hiddenParent)` — a hidden frame it creates, credited to ElvUI |
+| oUF | 120100 | `UnregisterAllEvents()` + `SetRolesets(...)`, and **no `Hide()` at all** |
+
+The progression tracks the TOC versions, which is the useful part: the newest one stopped
+calling `Hide()`. Note also that `SetParent` is what `Enum.ForbiddenAspect.ChangeParent`
+guards, so the reparent route is only available on frames carrying no such aspect — the
+Rebar audit found none in 625 frames, but that is a measurement, not a guarantee.
+
+Neither Cell nor Plater hides the player frame; both are party/raid/nameplate addons. oUF
+is the only one of the four that does.
+
+## 5. Cooldown Manager
 
 ## 5. Cooldown Manager
 
