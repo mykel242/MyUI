@@ -12,7 +12,7 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 |---|---|
 | -1 — Ground truth | **Complete.** Three corrections to the handoff, recorded with citations |
 | 0 — Skeleton and compliance harness | **Delivered** — `v0.1.0-phase0`, verified in game |
-| 1 — Anchors and frame registry | **Built**, awaiting in-game acceptance |
+| 1 — Anchors and frame registry | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
 | 2 — Reveal engine | Not started |
 | 3 — Rail | Not started |
 | 4 — Bars and low health | Not started |
@@ -20,18 +20,13 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### The one thing waiting on you
+### Nothing is blocking
 
-**Phase 1's in-game acceptance.** Deploy, then:
+Phase 2 is the next action: the reveal engine, four channels through one arbiter.
 
-```
-/myui test
-```
-
-That opens the checklist in game — fifteen steps, four of which MyUI checks itself.
-Work down it, click pass/fail on the ones that need your eyes, then hit **report**
-and `/reload`. The report lands in `MyUIDB.testRuns` and `MyUIDB.lastOutput`, so
-it can be read off disk with nothing transcribed.
+Running a phase acceptance test: `/myui test` in game, work down the checklist,
+hit **report**, `/reload`. The report lands in `MyUIDB.testRuns` and can be read
+off disk with nothing transcribed.
 
 Deploying a build:
 
@@ -111,54 +106,34 @@ above is one edit to revisit if it turns out wrong.
 
 ---
 
-## Phase 1: second acceptance run, 2026-08-27 15:57
+## Phase 1 acceptance: passed, 2026-08-27 16:08
 
-**10 passed, 5 failed — and the screenshots prove the frames are correct.** The health
-number, target name and level, target bar and cast tick all render exactly where SPEC puts
-them. Measured off the screenshot, the 20% tick sits at 20.1% of the bar's width.
+**15 of 15**, `v0.2.0-phase1`. Every frame at its SPEC anchor, both threshold ticks
+visible, 3.0000 physical pixels per unit, nothing moving between show and release.
 
-Three separate faults, all in the tooling:
+It took three runs, and **every failure across all three was in the test tooling, not the
+addon**. Worth recording, because the same mistakes are available in every later phase:
 
-- **`/myui show` is a toggle**, and the script said "Type /myui show" as though it were
-  idempotent. Run when the state was already on, it turned everything *off* — which is why
-  the bars stayed faint and the target strip stayed invisible until a later `show` flipped
-  it back. The script now says `show on` and `show off` explicitly.
-- **The auto-check could pass while the screen was unchanged.** It compared only the
-  registry's intent, so it reported "4 frames targeted at 1" over a UI that was still at
-  resting alpha. It now checks the frame's real alpha too, falling back to intent only when
-  the alpha is genuinely unreadable — and saying which it did.
-- **The debug fill was 0.65**, which buried the 40% tick under a 92%-white fill. SPEC says
-  the 20% tick reads against the fill and the 40% tick against the empty trough, so the only
-  fill showing both is one between them. It is 0.30, and a test asserts the range rather
-  than the number.
+| Run | Result | What was actually wrong |
+|---|---|---|
+| 15:45 | 6/9 | Steps asked to see the health number, target labels and the dark tick — none of which Phase 1 draws, because it has no data and the dark tick reads against a fill that does not exist at value 0 |
+| 15:57 | 10/15 | `/myui show` is a toggle and the script said "type /myui show", so running it when already on turned everything *off*. The auto-check compared only the addon's intent, so it passed over an unchanged screen. The debug fill was 0.65, burying the 40% tick under a 92%-white fill |
+| 16:08 | **15/15** | — |
 
-Auto-checks are also re-evaluated the moment a command changes state, so a latched pass
-records the step it belongs to rather than whatever was true when the report ran.
+Five rules came out of it, all now enforced by tests:
 
-## Phase 1: first acceptance run, 2026-08-27 15:45
+1. **One assertion per step.** A compound question cannot be answered — a fail says
+   something was wrong without saying what.
+2. **Only ask for what the phase draws.** Debug mode supplies placeholder text and a
+   nominal fill so geometry is judgeable before data exists.
+3. **Never depend on a toggle.** Steps use explicit `on` / `off`.
+4. **An auto-check must verify the screen, not the intent.** It reads the frame's real
+   alpha, falling back to intent only when the alpha is genuinely secret, and says which.
+5. **Not-done is not a failure.** Steps await the command that performs them and read
+   "waiting" until it runs.
 
-**6 passed, 3 failed — and all three failures were the test script's fault, not the
-addon's.** The bars, the target bar and the rail hairline all rendered where SPEC puts
-them. What was missing was the health number, the target name and level, and the dark 20%
-tick — none of which Phase 1 draws, because it has no data and the dark tick is specified
-to read against a fill that does not exist at value 0.
-
-Two fixes, both structural rather than one-off:
-
-- **The debug toggle now supplies placeholder text and a nominal 0.65 fill.** Plain
-  constants, cleared on release. Phase 4 replaces them with forwarded values. Without this
-  a whole class of geometry is unjudgeable until Phase 4.
-- **Every step now asks exactly one question**, and a test enforces it. The failing step
-  bundled four assertions, so the report could not say which part was wrong.
-
-Also added `/myui outline` — a green box at TOOLTIP strata around each registered frame.
-"The frame is missing" and "the frame is behind your action bars" look identical on screen,
-and this separates them. A box with nothing inside it means the geometry is right.
-
-Frame strata is now explicit (`MEDIUM`, which is what was already working). SPEC never
-mentions strata, and inheriting whatever the default happens to be is not a decision.
-
----
+The debug fill is 0.30 for a reason worth keeping: SPEC says the 20% tick reads against the
+fill and the 40% against the empty trough, so only a value between them shows both.
 
 ## Phase 1: two readings of SPEC worth your eye
 
@@ -201,8 +176,7 @@ traces to a citation in `API-NOTES-12.1.md`.
 
 1. Read this file, then `API-NOTES-12.1.md`, then the handoff's `RULES.md` and `SPEC.md`.
 2. `./smoke.sh`, and `git tag -n99` for what each delivered phase actually contains.
-3. Run Phase 1's in-game acceptance: `/myui test`.
-4. Then Phase 2: the reveal engine, four channels through one arbiter.
+3. Phase 2: the reveal engine, four channels through one arbiter.
 
 A phase is delivered when smoke is clean, `/myui audit` is clean in game, PLAN.md's
 acceptance test for it passes in game, and the tag is cut. See README for the convention.

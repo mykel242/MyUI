@@ -19,7 +19,7 @@ deliberately rejected explorations and must not be treated as a reference.
 |---|---|
 | **-1 — Ground truth** | **Complete.** Four mechanisms verified against Blizzard's 12.1 source; three corrections recorded |
 | **0 — Skeleton and compliance harness** | **Delivered** — `v0.1.0-phase0`, verified in game |
-| **1 — Anchors and frame registry** | **Built.** 178 addon + 15 lint checks green. In-game acceptance not yet run |
+| **1 — Anchors and frame registry** | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
 | 2 — Reveal engine | Not started |
 | 3 — Rail | Not started |
 | 4 — Bars and low health | Not started |
