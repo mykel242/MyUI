@@ -151,8 +151,18 @@ item on it. Rather than invent a data binding the design never asked for, Phase 
 at once, on demand. **The real sources are an open design question.**
 
 **Where the toast sits.** Named in § 6 and § 8 with its timings, never with its geometry.
-Anchored to the newest dot and extending right, since that is what it collapses into.
-Slides 12 in over 180ms. **Wants your eye.**
+
+The first attempt gave it its own dot and its own copy of the text, anchored over the first
+row — so while it was up you saw the same notification **twice, overlapping itself**. Found
+in game; every offline test passed, because none of them asked what the row was doing
+meanwhile.
+
+Read literally, § 6's "collapses into its dot" says what the toast *is*: the newest item's
+row, expanded. So it has no dot of its own, it borrows the first slot's, and that slot's
+text stays hidden until the toast has collapsed into it. The slide comes from 12 left over
+180ms — a Translation snaps back to its anchor when it finishes, so sliding *in* means
+anchoring short of the destination and moving the anchor as the animation ends, not
+animating toward it.
 
 **What a second toast does.** § 6 says a toast "speaks once, then collapses after 4s or on
 dismissal" and says nothing about two arriving together. A newer one takes the slot and

@@ -1131,6 +1131,47 @@ check("  showing the toast", Rail.toastFrame:IsShown())
 check("  with the item's text", Rail.toastFrame.label:GetText() == "Spoken")
 check("  playing the entrance", Rail.toastFrame.entrance:IsPlaying())
 
+-- The bug this section exists to prevent: the toast used to carry its own dot
+-- and its own copy of the text, anchored over the first row, so while it was up
+-- you saw the same notification twice, overlapping itself. Every earlier test
+-- passed, because none of them asked what the ROW was doing meanwhile.
+check("the toast draws no dot of its own", Rail.toastFrame.dot == nil)
+check("  borrowing the first slot's instead", (function()
+    local p = { Rail.toastFrame:GetPoint(1) }
+    return p[2] == Rail.slots[1].dot
+end)())
+check("the row it stands in for is not drawn underneath it",
+      not Rail.slots[1].name:IsShown())
+check("  though the dot stays, since the toast collapses into it",
+      Rail.slots[1].dot ~= nil and Rail.slots[1]:IsShown())
+check("  and the second row is unaffected", (function()
+    Rail.Add("amber", "Older")
+    Rail.Add("green", "Newest")
+    return Rail.slots[2].name:IsShown()
+end)())
+
+Rail.Collapse()
+Rail.toastFrame.collapse:Finish()
+check("the row appears once the toast has collapsed into it",
+      Rail.slots[1].name:IsShown())
+check("  carrying the same text the toast had",
+      Rail.slots[1].name:GetText() == "Newest")
+
+-- The slide has to come FROM somewhere. A Translation snaps back to its anchor
+-- when it finishes, so animating toward the anchor would slide right and then
+-- jump left.
+Rail.Add("violet", "Sliding")
+local startX = select(4, Rail.toastFrame:GetPoint(1))
+Rail.toastFrame.entrance:Finish()
+local restX = select(4, Rail.toastFrame:GetPoint(1))
+check("the toast starts left of where it settles", startX < restX,
+      tostring(startX) .. " -> " .. tostring(restX))
+Rail.Collapse()
+Rail.toastFrame.collapse:Finish()
+
+Rail.Clear()
+Rail.Add("blue", "Spoken")
+
 mock.advance(ns, 3.9, 4)
 check("it is still up before the dwell runs out", Rail.IsToasting())
 mock.advance(ns, 0.2, 1)
