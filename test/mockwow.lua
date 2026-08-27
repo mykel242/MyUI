@@ -222,7 +222,14 @@ function M.install()
 
     _G.GetBuildInfo = function() return "12.1.0", "69497", "Aug 11 2026", 120100 end
     _G.InCombatLockdown = function() return false end
-    _G.C_AddOns = { GetAddOnMetadata = function() return "0.1.0-phase0" end }
+    -- Reads the real TOC once loadAddon has parsed it. Hardcoding a version
+    -- here meant the acceptance report printed the previous phase's number.
+    _G.C_AddOns = {
+        GetAddOnMetadata = function(_, key)
+            if key == "Version" then return M.tocVersion end
+            return M.toc and M.toc[key]
+        end,
+    }
     _G.SlashCmdList = {}
     _G.C_Timer = { After = function(_, fn) fn() end }
     _G.GetCursorPosition = function() return M.cursorX or 100, M.cursorY or 100 end
@@ -359,6 +366,8 @@ function M.install()
     -- which is this machine's measured configuration (Rebar API-NOTES).
     _G.GetPhysicalScreenSize = function() return M.physW or 5120, M.physH or 2880 end
     _G.STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
+    -- Fixed, so a report's text is deterministic across runs.
+    _G.date = function() return "2026-08-27 12:00" end
 end
 
 --- Load the addon exactly as the client would, in the order the TOC lists.
@@ -381,6 +390,10 @@ function M.loadAddon(dir)
     end
     toc:close()
     assert(#files > 0, "no Lua files listed in MyUI.toc")
+
+    -- Before loading: Core.lua reads the version at file scope.
+    M.toc = meta
+    M.tocVersion = meta.Version
 
     local ns = {}
     for _, file in ipairs(files) do

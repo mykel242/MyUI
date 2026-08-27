@@ -64,6 +64,7 @@ MyUI/                 the addon
   Palette.lua         SPEC.md 7, fourteen colours, closed
   Registry.lua        every frame and the resting alpha SPEC.md gives it
   Frames.lua          SPEC.md 2, built once at its permanent anchor
+  Testing.lua         the in-game acceptance checklist, per phase
   Rules.lua           the forbidden list, printable in game
   Copy.lua            selectable output window
   Commands.lua        /myui
@@ -84,6 +85,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui help            this list
 /myui copy            the last output in a selectable window
 /myui show            force every frame to alpha 1, or release back to resting
+/myui test            the acceptance checklist; test report | reset | <phase>
 /myui rules           the compliance contract, printed
 /myui audit           every frame, resting alpha, live alpha, reveal claim
 /myui guard           strict | warn | reset
@@ -117,6 +119,21 @@ cmd-C, escape. Use this when a reload is inconvenient.
 **Chat log.** `/chatlog` writes `_retail_/Logs/WoWChatLog.txt`. It captures the whole chat
 stream rather than just this addon, and whether it picks up addon `AddMessage` output is
 worth confirming before relying on it.
+
+## Running a phase acceptance test
+
+`/myui test` opens the checklist for the current phase, in game. PLAN.md ends every phase
+with an in-game test and those are the only ones that matter — the offline suite cannot see
+a frame in the wrong place or a hairline that renders grey. Reading that script off a second
+screen is how steps get skipped, so it lives in the addon.
+
+Steps MyUI can verify itself carry a check and answer on their own, marked `auto`. The rest
+are the ones that genuinely need your eyes, and those get pass/fail buttons. An auto pass
+**latches** — several steps test states that are mutually exclusive by design, so
+re-evaluating everything at the end would fail whichever you did first.
+
+`report` prints the run and writes it to `MyUIDB.testRuns`, so after a `/reload` the whole
+thing can be read off disk. `reset` starts over.
 
 ## Phase tags
 

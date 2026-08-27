@@ -49,6 +49,21 @@ function Registry.Each(fn)
     end
 end
 
+--- The alpha the registry last set on a frame.
+--
+-- Read this, never GetAlpha. From Phase 4 a frame that has been forwarded a
+-- secret carries SecretAspect.Alpha, and reading its alpha back returns a
+-- secret rather than a number -- so anything that checks state against what we
+-- intended has to hold that intent itself. The audit still shows the live value
+-- for information, as a sentinel when it is unreadable.
+function Registry.Target(name)
+    local entry = byName[name]
+    if not entry then
+        return nil
+    end
+    return entry.target
+end
+
 --- A printable snapshot: name, resting alpha, live alpha, current claim.
 -- Live alpha is read through Compat because GetAlpha is guarded by the
 -- RequiresScriptObjectAlphaAccess predicate and a frame we have forwarded a
@@ -85,10 +100,11 @@ function Registry.ForceVisible(on)
     end
     Registry.Each(function(entry)
         if Registry.forced then
-            entry.frame:SetAlpha(1)
+            entry.target = 1
         else
-            entry.frame:SetAlpha(entry.resting)
+            entry.target = entry.resting
         end
+        entry.frame:SetAlpha(entry.target)
     end)
     return Registry.forced
 end

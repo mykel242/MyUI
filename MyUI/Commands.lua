@@ -209,6 +209,7 @@ local COMMANDS = {
     { "help",         "this list" },
     { "copy",         "the last output in a selectable window" },
     { "show",         "force every frame to alpha 1, or release back to resting" },
+    { "test",         "the acceptance checklist; test report | reset | <phase>" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -245,6 +246,18 @@ local HANDLERS = {
         else
             ns.Print("frames released to their resting alphas.")
         end
+    end,
+    test         = function(arg)
+        if arg == "report" then
+            ns.Testing.Report()
+            return
+        end
+        if arg == "reset" then
+            ns.Testing.Reset()
+            ns.Print("acceptance run reset for phase " .. tostring(ns.Testing.phase))
+            return
+        end
+        ns.Testing.Show(tonumber(arg))
     end,
     copy         = function()
         -- Deliberately shows what was captured BEFORE this command ran --

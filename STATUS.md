@@ -25,16 +25,13 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 **Phase 1's in-game acceptance.** Deploy, then:
 
 ```
-/myui show          every frame to alpha 1
-/myui audit         sizes, anchors and px-per-unit
-/myui show off      back to resting
-/reload             flushes the audit to MyUIDB.lastOutput
+/myui test
 ```
 
-PLAN.md's acceptance: the toggle shows every frame, positions and sizes match the
-mock, and the audit lists each frame with the resting alpha from the spec table.
-The audit also reports physical pixels per unit, so a blurry hairline has an
-explanation rather than a mystery.
+That opens the checklist in game — nine steps, four of which MyUI checks itself.
+Work down it, click pass/fail on the ones that need your eyes, then hit **report**
+and `/reload`. The report lands in `MyUIDB.testRuns` and `MyUIDB.lastOutput`, so
+it can be read off disk with nothing transcribed.
 
 Deploying a build:
 
@@ -155,7 +152,7 @@ traces to a citation in `API-NOTES-12.1.md`.
 
 1. Read this file, then `API-NOTES-12.1.md`, then the handoff's `RULES.md` and `SPEC.md`.
 2. `./smoke.sh`, and `git tag -n99` for what each delivered phase actually contains.
-3. Run Phase 1's in-game acceptance.
+3. Run Phase 1's in-game acceptance: `/myui test`.
 4. Then Phase 2: the reveal engine, four channels through one arbiter.
 
 A phase is delivered when smoke is clean, `/myui audit` is clean in game, PLAN.md's

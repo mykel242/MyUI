@@ -47,7 +47,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 10, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 11, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -60,8 +60,10 @@ check("TOC version carries the phase suffix",
       toc.Version .. " vs X-Phase " .. tostring(toc["X-Phase"]))
 check("  and the addon agrees with it",
       tonumber(toc["X-Phase"]) == ns.phase, toc["X-Phase"] .. " vs " .. tostring(ns.phase))
+check("  and reports the TOC version, not a stale one",
+      ns.version == toc.Version, ns.version .. " vs " .. tostring(toc.Version))
 for _, mod in ipairs({ "Compat", "Scale", "Palette", "Guard", "Registry",
-                       "Frames", "Rules", "Copy" }) do
+                       "Frames", "Testing", "Rules", "Copy" }) do
     check("  ns." .. mod .. " exists", ns[mod] ~= nil)
 end
 
@@ -385,30 +387,6 @@ end)())
 check("  including the one that rests at zero", Compat.Get(strip, "GetAlpha") == 0)
 
 -- ---------------------------------------------------------------------------
-section("Registry")
--- ---------------------------------------------------------------------------
-
-local baseCount = Registry.Count()
-Registry.Add("TestFrame", mock.frame({ name = "TestFrame" }), 0.5)
-check("frames register", Registry.Count() == baseCount + 1)
-check("lookup by name works", Registry.Get("TestFrame").resting == 0.5)
-
-Registry.Add("TestFrame", mock.frame({}), 0.99)
-check("duplicate name is refused", Registry.Count() == baseCount + 1)
-check("  and the original alpha survives", Registry.Get("TestFrame").resting == 0.5)
-
-local snap = Registry.Snapshot()
-check("snapshot covers every frame", #snap == baseCount + 1)
-check("  and reports no claim at rest", snap[1].claim == "-")
-
--- A frame that has been forwarded a secret returns a secret alpha; the audit
--- must show a sentinel rather than throw on it.
-Registry.Add("Tainted", health, 0.25)
-snap = Registry.Snapshot()
-check("secret alpha reads back as a sentinel",
-      snap[#snap].current == Compat.SECRET, tostring(snap[#snap].current))
-
--- ---------------------------------------------------------------------------
 section("Core -- saved variables")
 -- ---------------------------------------------------------------------------
 
@@ -523,6 +501,98 @@ check("control tracks combat state",
 mock.inCombat = false
 
 -- ---------------------------------------------------------------------------
+section("Acceptance checklist")
+-- ---------------------------------------------------------------------------
+
+local Testing = ns.Testing
+check("a script exists for every delivered phase", (function()
+    for phase = 0, ns.phase do
+        if not Testing.scripts[phase] then return false, phase end
+    end
+    return true
+end)())
+
+check("every step says what to do and what to expect", (function()
+    for phase, script in pairs(Testing.scripts) do
+        if not script.title or not script.accept then return false, phase end
+        for i, step in ipairs(script.steps) do
+            if not step.act or step.act == "" then return false, phase .. ":" .. i end
+            if not step.expect or step.expect == "" then return false, phase .. ":" .. i end
+        end
+    end
+    return true
+end)())
+
+check("the current phase has steps", #Testing.Steps() > 0)
+
+-- Auto-checks must actually track state, not just return true. Force the
+-- frames visible and step 1 passes; release them and it fails.
+Registry.ForceVisible(true)
+Testing.results = {}
+Testing.Recheck()
+check("auto-check passes when the frames are forced visible",
+      Testing.results[1] and Testing.results[1].verdict == "pass",
+      Testing.results[1] and Testing.results[1].detail)
+check("  and is marked as decided automatically", Testing.results[1].auto == true)
+check("  while the show-off step correctly fails",
+      Testing.results[8] and Testing.results[8].verdict == "fail")
+
+Registry.ForceVisible(false)
+Testing.results = {}
+Testing.Recheck()
+check("releasing flips both verdicts",
+      Testing.results[1].verdict == "fail" and Testing.results[8].verdict == "pass",
+      Testing.results[8] and Testing.results[8].detail)
+
+-- Steps 1 and 8 test mutually exclusive states on purpose. A pass has to latch,
+-- or finishing the sequence always fails whichever step you did first.
+Registry.ForceVisible(true)
+Testing.Reset()
+check("step 1 passes with the frames forced", Testing.results[1].verdict == "pass")
+Registry.ForceVisible(false)
+Testing.Recheck()
+check("step 8 now passes too", Testing.results[8].verdict == "pass")
+check("  and step 1 keeps its pass", Testing.results[1].verdict == "pass",
+      Testing.results[1].verdict)
+Testing.Recheck(true)
+check("forcing a re-check re-evaluates it", Testing.results[1].verdict == "fail")
+Registry.ForceVisible(true)
+Testing.Reset()
+check("reset clears manual verdicts too", Testing.results[2] == nil)
+Registry.ForceVisible(false)
+Testing.Recheck()
+
+-- A step MyUI can measure must not be overridable by a click.
+check("auto steps report a detail string", type(Testing.results[6].detail) == "string")
+
+Testing.Set(2, "pass")
+check("manual verdicts are recorded", Testing.results[2].verdict == "pass")
+check("  and marked as not automatic", Testing.results[2].auto == false)
+
+local pass, fail, pending = Testing.Tally()
+check("tally adds up to the step count",
+      pass + fail + pending == #Testing.Steps(),
+      pass .. "+" .. fail .. "+" .. pending)
+
+ns.ClearOutput()
+Testing.Report()
+local report = ns.GetOutput()
+check("report names the phase", report:find("Phase 1", 1, true) ~= nil)
+check("  carries the acceptance tally", report:find("passed", 1, true) ~= nil)
+check("  prints the expectation for anything not passing",
+      report:find("expected:", 1, true) ~= nil)
+check("  and reports the running version", report:find(ns.version, 1, true) ~= nil)
+check("report is persisted for reading off disk",
+      _G.MyUIDB.testRuns and _G.MyUIDB.testRuns[ns.phase] ~= nil)
+check("  with the counts alongside the text",
+      type(_G.MyUIDB.testRuns[ns.phase].pass) == "number")
+
+Testing.Show()
+check("the checklist window opens", Testing.IsShown())
+run("test")
+check("  and /myui test opens it too", Testing.IsShown())
+
+-- ---------------------------------------------------------------------------
 section("Getting output off the machine")
 -- ---------------------------------------------------------------------------
 
@@ -561,6 +631,33 @@ check("every prohibition names an alternative", (function()
     return true
 end)())
 check("four sanctioned mechanisms", #Rules.mechanisms == 4)
+
+-- ---------------------------------------------------------------------------
+section("Registry")
+-- ---------------------------------------------------------------------------
+-- Last on purpose: this section registers fixtures, and anything that walks
+-- the whole registry has to run before they pollute it.
+-- ---------------------------------------------------------------------------
+
+local baseCount = Registry.Count()
+Registry.Add("TestFrame", mock.frame({ name = "TestFrame" }), 0.5)
+check("frames register", Registry.Count() == baseCount + 1)
+check("lookup by name works", Registry.Get("TestFrame").resting == 0.5)
+
+Registry.Add("TestFrame", mock.frame({}), 0.99)
+check("duplicate name is refused", Registry.Count() == baseCount + 1)
+check("  and the original alpha survives", Registry.Get("TestFrame").resting == 0.5)
+
+local snap = Registry.Snapshot()
+check("snapshot covers every frame", #snap == baseCount + 1)
+check("  and reports no claim at rest", snap[1].claim == "-")
+
+-- A frame that has been forwarded a secret returns a secret alpha; the audit
+-- must show a sentinel rather than throw on it.
+Registry.Add("Tainted", health, 0.25)
+snap = Registry.Snapshot()
+check("secret alpha reads back as a sentinel",
+      snap[#snap].current == Compat.SECRET, tostring(snap[#snap].current))
 
 -- ---------------------------------------------------------------------------
 print("")
