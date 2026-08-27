@@ -20,10 +20,9 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | 6 — Polish and persistence | Not started |
 | 7 (v2) — Rhythm line | Not started |
 
-### The one thing waiting on you
+### Nothing is blocking
 
-**SPEC § 3 needs a decision.** The probe has run; the answer is below. It blocks Phase 4
-only — Phases 1 to 3 can proceed either way.
+SPEC § 3 is settled — see below. Phase 1 is the next action.
 
 Deploying a build:
 
@@ -33,42 +32,35 @@ python3 ~/Development/cc-addon/wowaddons.py --update MyUI
 
 ---
 
-## Answered: no health conditional exists. Decision needed on the alternative.
+## Answered: SPEC § 3 needs no event. Step curves do it.
 
-Probed on a live client 2026-08-27. **`RegisterStateDriver` cannot deliver SPEC § 3's
-state** — there is no health macro conditional. The probe also found that an unrecognised
-conditional is *ignored* by the parser, so the clause matches; it now tests numeric
-candidates as an always-false / always-true pair, which discriminates at any health.
+Two probes settled this.
 
-### The alternative: hook Blizzard's `LowHealthFrame`
+**No health macro conditional exists** (live client, 2026-08-27). `RegisterStateDriver`
+cannot deliver SPEC § 3's state. The probe also found that an unrecognised conditional is
+*ignored* by the parser, so the clause matches; it now tests numeric candidates as an
+always-false / always-true pair, which discriminates at any health.
 
-`LowHealthFrame` is a named global that Blizzard shows when player health crosses 0.35. It
-computes that with `UnitHealth() / UnitHealthMax()` — which its untainted code may do and
-ours may not. `HookScript("OnShow", ...)` gives us the moment without reading anything.
+**But an event turned out not to be necessary.** Auditing four shipped unit-frame addons
+surfaced the technique: a **Step curve** holding one alpha below a cutoff and another above
+it, evaluated against health, yields an alpha that flips at the boundary. Forward it to
+`SetAlpha` and the threshold exists with no comparison anywhere in Lua. Plater ships this
+for its execute-range marker.
 
-It satisfies the one principle, but it is **a fifth mechanism, not one of RULES.md's
-four.** That is a rules amendment, so it wants your sign-off rather than quiet adoption.
-
-Because it is a genuine event rather than a forwarded secret, everything a driver state
-could carry is legal inside it — including the 12pt → 14pt change that no forwarded value
-can drive.
-
-What it costs:
-
-| | |
+| Tell | How |
 |---|---|
-| Threshold | Fixed at **0.35**, not the ~20% SPEC's ticks imply. Blizzard's number, not ours |
-| CVar dependency | Off if the player disables `doNotFlashLowHealthWarning`. Detectable at load, so it can warn |
-| Shared frame | Also used for the in-combat fullscreen flash, which we cannot distinguish — but that only fires behind a fullscreen panel, where the HUD is hidden anyway |
+| Screen-edge hairline at 0.35 | Step alpha straight into `SetAlpha` |
+| Number 12pt → 14pt | Two stacked FontStrings cross-faded by step alpha |
+| Breathe 1.0 ↔ 0.55 | Two copies of the health group, one steady and one permanently animating, cross-faded by step alpha. The animation never starts or stops, so nothing has to start it |
 
-**If you reject it**, only the screen-edge hairline ships as specified — it is a static
-appearance, which is what a curve does. The font-size change needs an extra FontString
-cross-faded by curve alpha. **The breathe cannot ship at all**: a curve maps health to a
-value, not time to a value, and nothing alpha-only can dim a group to 0.55 without also
-tinting it. See API-NOTES § 4.
+Cost: duplicated frames for two tells. Against that, the alternative — hooking Blizzard's
+`LowHealthFrame` — costs a CVar the player can switch off, a threshold fixed at 0.35 that
+is not ours, and a fifth mechanism outside RULES.md's four.
 
-**Either way SPEC § 3 changes**, so this is a decision, not an implementation detail.
-Phases 1-3 are unblocked regardless; the answer is only needed by Phase 4.
+**Recommendation: step curves.** They stay inside the existing rules and keep the threshold
+ours. `Guard.StepCurve` and `Guard.AlphaAt` ship in Phase 0. **SPEC § 3 is unblocked** and
+Phase 4 no longer waits on a decision — though the duplicated-frame approach is a change to
+how § 3 is built, so it is worth your eye before Phase 4 starts.
 
 ---
 

@@ -14,6 +14,10 @@ local function check(name, cond, detail)
     end
 end
 
+local function near(a, b, eps)
+    return type(a) == "number" and math.abs(a - b) <= (eps or 0.0001)
+end
+
 local function section(title)
     print("")
     print("== " .. title)
@@ -160,32 +164,62 @@ check("IsPlain is true for a number", Guard.IsPlain(1))
 section("Guard -- curves")
 -- ---------------------------------------------------------------------------
 
--- SPEC.md 3, the health fill curve, verbatim.
+-- SPEC.md 3, the health fill curve. The stops are percentages in the spec; the
+-- curve wants a fraction, so they go through Guard.Fraction on the way in.
 local HEALTH_STOPS = {
-    { 100, { 240/255, 241/255, 243/255, 0.92 } },
-    {  58, { 242/255, 214/255, 150/255, 0.92 } },
-    {  34, { 242/255, 170/255, 120/255, 0.92 } },
-    {  17, { 242/255, 120/255, 100/255, 0.94 } },
-    {   6, { 242/255,  86/255,  80/255, 1.00 } },
+    { Guard.Fraction(100), { 240/255, 241/255, 243/255, 0.92 } },
+    { Guard.Fraction(58),  { 242/255, 214/255, 150/255, 0.92 } },
+    { Guard.Fraction(34),  { 242/255, 170/255, 120/255, 0.92 } },
+    { Guard.Fraction(17),  { 242/255, 120/255, 100/255, 0.94 } },
+    { Guard.Fraction(6),   { 242/255,  86/255,  80/255, 1.00 } },
 }
 
+check("Fraction converts a spec percentage", near(Guard.Fraction(58), 0.58))
+
+-- Regression: the namespace is C_CurveUtil. Spelling it CurveUtil returns nil
+-- on the live client while every offline test still passes, which is exactly
+-- what happened until oUF and Plater were read.
 local curve, err = Guard.ColorCurve(HEALTH_STOPS)
 check("ColorCurve builds from spec stops", curve ~= nil, err)
 check("  with all five stops", curve and curve:GetPointCount() == 5)
 check("  and no secret flag before use", curve and curve:HasSecretValues() == false)
 
+local savedNamespace = _G.C_CurveUtil
+_G.C_CurveUtil = nil
+local absent, why = Guard.ColorCurve(HEALTH_STOPS)
+check("ColorCurve degrades rather than throwing without C_CurveUtil",
+      absent == nil and type(why) == "string", why)
+_G.C_CurveUtil = savedNamespace
+
+-- A threshold as a curve, not a branch. This is what makes SPEC.md 3's
+-- discrete moment expressible with no event behind it.
+local step, stepErr = Guard.StepCurve(Guard.Fraction(35), 1, 0)
+check("StepCurve builds", step ~= nil, stepErr)
+check("  as a Step curve, not interpolated",
+      step and step:GetType() == _G.Enum.LuaCurveType.Step)
+check("  with a point either side of the cutoff", step and step:GetPointCount() == 2)
+
 local colour = Guard.HealthThrough("player", curve)
-check("HealthThrough returns a value", colour ~= nil)
-check("  which is secret", Compat.IsSecret(colour))
-check("  and flags the curve as having seen one", curve:HasSecretValues() == true)
+check("HealthThrough returns the evaluated colour", colour ~= nil)
+check("  and flags the curve as having seen a secret", curve:HasSecretValues() == true)
+
+local alpha = Guard.AlphaAt("player", step)
+check("AlphaAt yields the alpha channel", alpha ~= nil)
+check("  which is secret, so it can be forwarded but never read",
+      Compat.IsSecret(alpha))
 
 -- The full sanctioned path, end to end, with nothing inspected in between.
 local health = mock.frame({ name = "HealthFill" })
 Guard.Reset()
+local r, g, b, a = colour:GetRGBA()
 check("curve output forwards into SetVertexColor",
-      Guard.Send(health, "SetVertexColor", colour))
+      Guard.Send(health, "SetVertexColor", r, g, b, a))
 check("  counted as a forward", Guard.forwards == 1)
 check("  frame now carries the alpha aspect", health.__secretAspect == true)
+
+local hairline = mock.frame({ name = "DangerHairline" })
+check("step alpha forwards into SetAlpha", Guard.Send(hairline, "SetAlpha", alpha))
+check("  which is the whole threshold mechanism", Guard.forwards == 2)
 
 -- ---------------------------------------------------------------------------
 section("Registry")

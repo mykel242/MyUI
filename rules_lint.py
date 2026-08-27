@@ -148,9 +148,95 @@ def check_file(path):
     return findings
 
 
+# --------------------------------------------------------------------------
+# Audit mode
+# --------------------------------------------------------------------------
+# Pointed at somebody else's addon, most of the rules are noise: R3 flags every
+# legitimate SetScale, R5 flags every OnUpdate, R7 asks for a function only
+# MyUI has. These four travel, because they describe the pattern 12.1 forbids
+# rather than a MyUI convention.
+PORTABLE_RULES = {"R1", "R2", "R4", "R6"}
+
+# The other half of the question. A clean lint could just mean the addon never
+# touches health; these markers say whether it has actually adopted the 12.1
+# mechanisms, which is what we came to read.
+ADOPTION = {
+    "UnitHealthPercent": re.compile(r"\bUnitHealthPercent\s*\("),
+    "UnitPowerPercent":  re.compile(r"\bUnitPowerPercent\s*\("),
+    "ColorCurve":        re.compile(r"CreateColorCurve|LuaColorCurve"),
+    "LowHealthFrame":    re.compile(r"\bLowHealthFrame\b"),
+    "SecretAware":       re.compile(r"\bissecretvalue\b|\bC_Secrets\b"),
+    "ReverseFill":       re.compile(r"\bSetReverseFill\s*\("),
+}
+
+
+def toc_interface(root):
+    """Highest Interface version any TOC in the addon declares."""
+    versions = set()
+    for toc in root.rglob("*.toc"):
+        try:
+            text = toc.read_text(encoding="utf-8", errors="replace")
+        except OSError:
+            continue
+        for m in re.finditer(r"^##\s*Interface\s*:\s*([\d,\s]+)$", text, re.M):
+            for part in m.group(1).split(","):
+                part = part.strip()
+                if part.isdigit():
+                    versions.add(int(part))
+    return max(versions) if versions else None
+
+
+def audit(roots):
+    print(f"{'ADDON':<22}{'TOC':<9}{'LUA':>5}{'R1':>5}{'R2':>5}{'R4':>5}{'R6':>5}   12.1 MECHANISMS")
+    detail = []
+    for root in roots:
+        files = sorted(root.rglob("*.lua"))
+        counts = {r: 0 for r in PORTABLE_RULES}
+        found, worst = set(), []
+        for path in files:
+            try:
+                for f in check_file(path):
+                    if f[2] in PORTABLE_RULES:
+                        counts[f[2]] += 1
+                        worst.append(f)
+            except (OSError, UnicodeDecodeError):
+                continue
+            try:
+                text = path.read_text(encoding="utf-8", errors="replace")
+            except OSError:
+                continue
+            for name, pattern in ADOPTION.items():
+                if pattern.search(text):
+                    found.add(name)
+
+        toc = toc_interface(root)
+        print(f"{root.name:<22}{toc or '-':<9}{len(files):>5}"
+              f"{counts['R1']:>5}{counts['R2']:>5}{counts['R4']:>5}{counts['R6']:>5}"
+              f"   {', '.join(sorted(found)) or '|cffnone'.replace('|cff', '') or 'none'}")
+        detail.append((root.name, worst))
+
+    print()
+    for name, worst in detail:
+        if not worst:
+            continue
+        print(f"--- {name}: first 3 of {len(worst)}")
+        for path, lineno, rule, message, source in worst[:3]:
+            rel = path.relative_to(path.parents[len(path.parents) - 1])
+            print(f"  {rule} {path.name}:{lineno}  {source[:96]}")
+    return 0
+
+
 def main(argv):
+    args = argv[1:]
+    if args and args[0] == "--audit":
+        roots = [Path(a) for a in args[1:]]
+        if not roots:
+            print("usage: rules_lint.py --audit <addon-dir> [...]")
+            return 2
+        return audit(roots)
+
     targets = []
-    for arg in argv[1:]:
+    for arg in args:
         p = Path(arg)
         targets.extend(sorted(p.rglob("*.lua")) if p.is_dir() else [p])
     if not targets:

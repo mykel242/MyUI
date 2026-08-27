@@ -158,22 +158,46 @@ end
 -- ---------------------------------------------------------------------------
 -- The sanctioned continuous path. UnitHealthPercent(unit, usePredicted, curve)
 -- returns the *evaluated* result, so the percentage never enters Lua at all.
--- UnitDocumentation.lua:1431. See API-NOTES-12.1.md § 1.
+-- UnitDocumentation.lua:1431. See API-NOTES-12.1.md 1.
+--
+-- Three details that are easy to get wrong, all confirmed against Blizzard's
+-- source and against how oUF and Plater actually call this (API-NOTES 6):
+--
+--   1. The namespace is C_CurveUtil, not CurveUtil.
+--      CurveUtilDocumentation.lua declares Namespace = "C_CurveUtil".
+--   2. The curve input is health as a FRACTION, 0..1 -- not a percentage.
+--      Blizzard_SharedXMLBase/CurveConstants.lua builds ZeroToOne from
+--      AddPoint(0.0, 0.0) to AddPoint(1.0, 1.0), and ScaleTo100 exists
+--      precisely because the input is not already a percentage.
+--   3. A Step curve turns a threshold into a forwardable value, with no
+--      comparison anywhere. See Guard.StepCurve.
 --
 -- Build curves once at load. A curve that has evaluated a secret carries the
 -- secret-values flag until SetToDefaults clears it.
 
---- Build a colour curve from {x, {r,g,b,a}} stops, x in 0..100.
+--- Health percentages from SPEC.md, expressed as the fraction the curve wants.
+function Guard.Fraction(percent)
+    return percent / 100
+end
+
+--- Build a colour curve from {fraction, {r,g,b,a}} stops, fraction in 0..1.
+-- curveType is an Enum.LuaCurveType; omitted means the engine default (Linear).
 -- Returns nil plus a reason if the client cannot make one, so callers degrade
 -- rather than throw on an unexpected build.
-function Guard.ColorCurve(stops)
-    local util = _G.CurveUtil
+function Guard.ColorCurve(stops, curveType)
+    local util = _G.C_CurveUtil
     if not util or type(util.CreateColorCurve) ~= "function" then
-        return nil, "CurveUtil.CreateColorCurve unavailable"
+        return nil, "C_CurveUtil.CreateColorCurve unavailable"
     end
     local ok, curve = pcall(util.CreateColorCurve)
     if not ok or not curve then
         return nil, "CreateColorCurve failed"
+    end
+    if curveType ~= nil then
+        local typed = pcall(function() curve:SetType(curveType) end)
+        if not typed then
+            return nil, "SetType failed"
+        end
     end
     for _, stop in ipairs(stops) do
         local x, c = stop[1], stop[2]
@@ -187,8 +211,28 @@ function Guard.ColorCurve(stops)
     return curve
 end
 
---- Forward a unit's health through a curve. Returns whatever the curve yields,
--- which is secret and must only ever be passed onward via Guard.Send.
+--- A threshold, expressed as a curve rather than a branch.
+--
+-- A Step curve holding alpha `below` under the cutoff and `above` over it,
+-- evaluated against health and forwarded to SetAlpha, produces a hard boundary
+-- with no comparison in Lua. The colour channels are unused; only alpha
+-- carries the signal.
+--
+-- This is the technique Plater uses for its execute-range marker, and it is
+-- what makes SPEC.md 3's discrete moment expressible without an event.
+function Guard.StepCurve(cutoffFraction, below, above)
+    local step = _G.Enum and _G.Enum.LuaCurveType and _G.Enum.LuaCurveType.Step
+    if step == nil then
+        return nil, "Enum.LuaCurveType.Step unavailable"
+    end
+    return Guard.ColorCurve({
+        { 0,              { 0, 0, 0, below } },
+        { cutoffFraction, { 0, 0, 0, above } },
+    }, step)
+end
+
+--- Forward a unit's health through a curve. Returns the evaluated colour,
+-- whose channels are secret and must only ever be passed onward via Guard.Send.
 function Guard.HealthThrough(unit, curve)
     local ok, result = pcall(_G.UnitHealthPercent, unit, true, curve)
     if not ok then
@@ -204,6 +248,20 @@ function Guard.PowerThrough(unit, curve)
         return nil
     end
     return result
+end
+
+--- The alpha channel of a curve evaluated against health.
+-- Secret. Legal to hand to Guard.Send; illegal to look at.
+function Guard.AlphaAt(unit, curve)
+    local colour = Guard.HealthThrough(unit, curve)
+    if colour == nil then
+        return nil
+    end
+    local ok, _, _, _, a = pcall(colour.GetRGBA, colour)
+    if not ok then
+        return nil
+    end
+    return a
 end
 
 Guard.SANCTIONED = SANCTIONED

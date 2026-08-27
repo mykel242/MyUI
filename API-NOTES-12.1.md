@@ -202,6 +202,77 @@ Substitutes exist for both, and both are visibly worse:
 So without an event, one tell ships as specified, one ships with an extra frame, and one
 cannot ship at all.
 
+## 6. Audit of shipped unit-frame addons
+
+Four popular addons linted with `rules_lint.py --audit`, 2026-08-27. The portable rules
+(R1/R2/R4/R6) say whether an addon still does what 12.1 forbids; the mechanism scan says
+whether it has actually adopted the new APIs.
+
+| Addon | TOC | Lua | R1 | R2 | R6 | 12.1 mechanisms |
+|---|---|---|---|---|---|---|
+| oUF | 120100 | 39 | 1 | 1 | 7 | ColorCurve, ReverseFill, UnitHealthPercent, C_Secrets |
+| Plater | 120100 | 185 | 3 | 2 | 39 | ColorCurve, ReverseFill, UnitHealthPercent, C_Secrets |
+| Cell | 120005 | 174 | 4 | 0 | 22 | ColorCurve, ReverseFill, UnitPowerPercent, C_Secrets |
+| ShadowedUnitFrames | 30300 | 35 | 3 | 6 | 5 | none |
+
+ShadowedUnitFrames is a control: TOC 30300, no 12.1 mechanism anywhere, and `fader.lua:131`
+reads `UnitHealth(unit) ~= UnitHealthMax(unit)`. That is the pre-12.1 pattern RULES.md
+warns is everywhere, and it is what an untargeted search would have surfaced first.
+
+The remaining hits in the 12.1-aware three are mostly cast and threat code, not health.
+**They have all migrated their health paths and none of them hooks `LowHealthFrame`.**
+
+### Three corrections this produced, all to our own code
+
+1. **The namespace is `C_CurveUtil`, not `CurveUtil`.** `CurveUtilDocumentation.lua`
+   declares `Namespace = "C_CurveUtil"`. `Guard.ColorCurve` had it wrong and would have
+   returned nil on the live client while every offline test passed, because the mock
+   encoded the same wrong assumption. Third time that has happened on this project.
+
+2. **The curve input is a fraction, 0..1 — not a percentage.**
+   `Blizzard_SharedXMLBase/CurveConstants.lua` builds `ZeroToOne` from `AddPoint(0.0, 0.0)`
+   to `AddPoint(1.0, 1.0)`, and `ScaleTo100` exists precisely because the input is not
+   already a percentage. SPEC's stops are percentages and must be divided by 100.
+
+3. **`Enum.LuaCurveType.Step` exists**, and it is the piece the design was missing.
+
+### A threshold without a branch — Plater's execute-range technique
+
+`Plater.lua:11693` and `:7120`. A Step curve holding one alpha below a cutoff and another
+above it, evaluated against health, yields an alpha that flips at the boundary. It is
+forwarded straight to `SetAlpha` and never compared:
+
+```lua
+local curve = C_CurveUtil.CreateColorCurve()
+curve:SetType(Enum.LuaCurveType.Step)
+curve:AddPoint(0,    CreateColor(0, 0, 0, 1))   -- below the cutoff
+curve:AddPoint(0.35, CreateColor(0, 0, 0, 0))   -- above it
+
+local _, _, _, a = UnitHealthPercent(unit, true, curve):GetRGBA()
+frame:SetAlpha(a)                                -- forwarded, never read
+```
+
+Only the alpha channel carries signal; the colour channels are unused. Shipped as
+`Guard.StepCurve` and `Guard.AlphaAt`.
+
+### What this does to SPEC § 3
+
+A hard boundary is now expressible with no event at all, which changes the answer recorded
+in § 4:
+
+| Tell | With a step curve |
+|---|---|
+| Screen-edge hairline at 0.35 | Forward the step alpha to `SetAlpha`. Done |
+| Number 12pt → 14pt | Two stacked FontStrings, cross-faded by step alpha. The step makes the change instant rather than a fade |
+| Breathe 1.0 ↔ 0.55 at 1.60s | Two copies of the health group — one steady, one running a permanent 1.60s alpha animation — cross-faded by step alpha. The animation never starts or stops, so no event is needed to start it |
+
+The cost is duplicated frames for two of the three, and a threshold we choose rather than
+Blizzard's 0.35. Against that, hooking `LowHealthFrame` costs a CVar dependency, a fixed
+threshold, and a fifth mechanism outside RULES.md.
+
+**Recommendation: step curves.** They stay inside the existing rules, keep the threshold
+ours, and are the technique a shipped 12.1 addon already relies on.
+
 ## 5. Cooldown Manager
 
 `Interface/AddOns/Blizzard_CooldownViewer` (and `Blizzard_CooldownBroadcaster`) exist.

@@ -188,6 +188,8 @@ function M.install()
 
     _G.Enum = {
         SecretAspect = { ObjectSecurity = 1, Alpha = 2, VertexColor = 3, Scale = 4, BarValue = 5 },
+        -- LuaCurveObjectConstantsDocumentation.lua
+        LuaCurveType = { Linear = 0, Step = 1, Cosine = 2, Cubic = 3 },
         AddOnRestrictionType  = { Combat = 0, Encounter = 1, ChallengeMode = 2, PvPMatch = 3 },
         AddOnRestrictionState = { Inactive = 0, Activating = 1, Active = 2 },
     }
@@ -209,36 +211,59 @@ function M.install()
         return { r = r, g = g, b = b, a = a or 1 }
     end
 
-    -- CurveUtil.CreateColorCurve -- CurveUtilDocumentation.lua:11
+    -- C_CurveUtil.CreateColorCurve -- CurveUtilDocumentation.lua declares
+    -- Namespace = "C_CurveUtil". The mock spelled this "CurveUtil" for two
+    -- commits and the addon spelled it the same wrong way, so every test
+    -- passed while the live client would have returned nil. Found by reading
+    -- how oUF and Plater actually call it.
     M.curves = {}
-    _G.CurveUtil = {
-        CreateColorCurve = function()
-            local curve = { points = {}, secretFlag = false }
-            function curve:AddPoint(x, color)
-                if secretSet[x] then error("attempt to add a secret point", 2) end
-                self.points[#self.points + 1] = { x = x, y = color }
-            end
-            function curve:GetPointCount() return #self.points end
-            function curve:HasSecretValues() return self.secretFlag end
-            function curve:SetToDefaults()
-                self.points = {}
-                self.secretFlag = false
-            end
-            M.curves[#M.curves + 1] = curve
-            return curve
-        end,
+    local function makeCurve()
+        local curve = { points = {}, secretFlag = false, curveType = 0 }
+        function curve:AddPoint(x, color)
+            if secretSet[x] then error("attempt to add a secret point", 2) end
+            self.points[#self.points + 1] = { x = x, y = color }
+        end
+        function curve:SetType(t) self.curveType = t end
+        function curve:GetType() return self.curveType end
+        function curve:GetPointCount() return #self.points end
+        function curve:HasSecretValues() return self.secretFlag end
+        function curve:SetToDefaults()
+            self.points, self.secretFlag, self.curveType = {}, false, 0
+        end
+        M.curves[#M.curves + 1] = curve
+        return curve
+    end
+
+    _G.C_CurveUtil = {
+        CreateColorCurve = makeCurve,
+        CreateCurve      = makeCurve,
     }
 
     -- UnitHealthPercent(unit, usePredicted, curve) -- UnitDocumentation.lua:1431.
-    -- SecretReturns = true, so the result is secret whether or not a curve is
-    -- supplied. With a curve it is the evaluated colour; without, a percentage.
+    -- With a curve it returns the evaluated colour. The colour object itself is
+    -- ordinary -- Plater indexes it directly -- but every channel it yields is
+    -- secret, which is what makes the alpha forwardable and unreadable.
+    local function evaluated()
+        return {
+            GetRGBA = function()
+                return M.secret(), M.secret(), M.secret(), M.secret()
+            end,
+        }
+    end
+
     _G.UnitHealthPercent = function(unit, usePredicted, curve)
-        if curve then curve.secretFlag = true end
         M.healthCalls = (M.healthCalls or 0) + 1
+        if curve then
+            curve.secretFlag = true
+            return evaluated()
+        end
         return M.secret()
     end
     _G.UnitPowerPercent = function(unit, usePredicted, curve)
-        if curve then curve.secretFlag = true end
+        if curve then
+            curve.secretFlag = true
+            return evaluated()
+        end
         return M.secret()
     end
     _G.UnitHealth    = function() return M.secret() end
