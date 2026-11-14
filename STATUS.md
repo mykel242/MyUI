@@ -19,6 +19,15 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
   Round 003 supersedes it (the rail is cut).
 - `wip/aug28` was merged in R3 (2026-11-14) and its docs repointed to `design/current`.
 
+### R3 — reconcile (2026-11-14, `v0.5.0-r3`)
+
+- `wip/aug28` merged; the rail cut; toasts at `ToastAnchor` (`Toast.lua`), the history
+  (`Center.lua`) reattached to them; sources fixed to round 003's five hues (whispers violet).
+  Rulings in `design/current/DECISIONS-003.md` and SPEC § 7 / § 11. Inventory: `R3-INVENTORY.md`.
+- Harness: 58/58 frames pass at UI scale 1.0 (laptop); `pixel-perfect` fails at 2.91 until R4.
+- UI scale moved 0.8 → 1.0 by hand: 0.8 was unreadable on the laptop. R4 sets it per screen.
+- Next: **R3b** (SPEC § 11's clearing, pulled forward), then R4.
+
 ### R2 — capture harness (2026-11-14)
 
 - `MyUI_Test/` (dev env only) runs suites from code and screenshots each state over a
