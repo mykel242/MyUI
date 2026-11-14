@@ -569,8 +569,15 @@ that is not what those settings are.
 They are previews, not gameplay visibility. What Edit Mode *can* hide in play is the action
 bars (`VisibleSetting`: always / in combat / out of combat / hidden). So a `MyUI` layout clears
 the bars and nothing else; the target and focus frames, cast bar and buffs each need their own
-technique, decided per frame like the player frame. PlayerFrame's roleset filter is being
-probed in game first (`/myui clear probe`, and the `myui-clear` harness suite).
+technique, decided per frame like the player frame.
+
+**Probed in game, 2026-11-14 18:18, 12.1.5.70783: the roleset filter does not hide
+`PlayerFrame`.** `SetRolesets("myuiCleared")` succeeded out of combat, but
+`IsRolesetFiltered()` stayed false and the frame stayed visible; no UI mode was active
+(`GetActiveBlockedRolesets()` empty). Put back to `unitFrames` cleanly, no errors. An unknown
+roleset is only filtered when a mode's allowlist is active — so oUF's `'alwaysBlocked'` does
+not hide anything either, it only stops Blizzard's modes from *showing* the frame. SPEC § 11's
+"filtered" technique is dead for normal play.
 
 Two more facts for that decision:
 
