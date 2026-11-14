@@ -129,6 +129,28 @@ and diffed, with Mykel touching no files; Claude reads the results from the repo
 
 ---
 
+## R3b — Clear the screen, early (added 2026-11-14)
+
+Pulled forward from Phase 6b at Mykel's call: with toasts and the history in, MyUI's frames
+overlap the Blizzard elements they stand in for. SPEC § 11's clearing, **minus the
+replacements**:
+
+1. Player frame **filtered** (roleset), out of combat only — its first in-game test (API-NOTES § 7).
+2. A `MyUI` Edit Mode layout with the bars, target, cast bar and buffs off; the previous
+   layout's name saved, so switching back is exact.
+3. Chat, minimap and bags **adopted**: registered at resting alpha 0, revealed by the engine;
+   chat also on an incoming whisper, held 8s. Alpha only.
+4. `/myui restore` undoes all three, combat-safe, and says what it undid.
+
+Everything queues on `InCombatLockdown()` and flushes on `PLAYER_REGEN_ENABLED`. MyUI's own
+minimap, chat view and bags stay in Phase 6b; each lands before its stand-in is stowed.
+
+**Acceptance:** a harness suite shoots the cleared screen and the restored one; nothing
+protected is touched in combat (forced-combat test); `/myui restore` returns the exact prior
+layout; zero Lua errors.
+
+---
+
 ## R4 — Fold Rebar in as the layout layer
 
 SPEC § 9. Port the grid, snapping and persistence into MyUI; inspector and overlap behind
@@ -185,8 +207,8 @@ The build does not invent these. Where one is needed and missing, raise it.
   compliance surface in v1; audit after each sub-step.
 - **Phase 5 — Edit mode.** Now SPEC § 9, on top of the R4 layout layer.
 - **Phase 6 — Polish and persistence.** As round 002.
-- **Phase 6b — Clearing the screen, with replacements.** SPEC § 11, plus the D1 minimap, chat
-  and bags. Each replacement lands before its Blizzard frame is cleared.
+- **Phase 6b — The replacements.** The D1 minimap, chat view and bags; each replaces its
+  adopted Blizzard frame (§ 11's clearing itself moved to R3b).
 - **Phase 7 (v2) — Rhythm line.** Unchanged.
 
 Every phase now adds its acceptance test as a harness suite, not a hand-run script.
