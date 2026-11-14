@@ -271,9 +271,11 @@ local function FramesFor(test)
 end
 
 -- Things on screen that are not the HUD and would otherwise land in every
--- shot: Blizzard's "Screen captured" notice, and our own windows. Alpha only,
--- restored afterwards -- none of these is protected.
-local QUIET = { "ActionStatus", "MyUITestWindow", "MyUICopy" }
+-- shot: Blizzard's "Screen captured" notice, a quest NPC's talking head (it
+-- covered TargetStrip in the first in-game run), Rebar's grid (persisted
+-- user state; the Rebar suite raises it for its own tests), and our own
+-- windows. Alpha only, restored afterwards -- none of these is protected.
+local QUIET = { "ActionStatus", "TalkingHeadFrame", "RebarGrid", "MyUITestWindow", "MyUICopy" }
 local quieted = {}
 
 local function Quiet(on)

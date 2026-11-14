@@ -46,19 +46,23 @@ T.Suite("rebar", {
         local g = db and db.grid or {}
         saved = { shown = GridShown(), divisions = g.divisions, border = g.borderPixels }
         GridOff(api)
+        -- The harness quiets the grid for every other suite; raise it here.
+        if Grid() then Grid():SetAlpha(1) end
     end,
     after = function(api)
         GridOff(api)
-        if saved then
-            if saved.border then api.rebar("grid border " .. saved.border) end
-            if saved.divisions then
-                -- Setting divisions shows the grid when it is hidden, so set
-                -- them and then return to the saved visibility.
-                api.rebar("grid " .. saved.divisions)
-                if not saved.shown then GridOff(api) end
-            elseif saved.shown then
-                api.rebar("grid")
-            end
+        if Grid() then Grid():SetAlpha(0) end   -- the harness restores it at the end
+        if not saved then return end
+        -- Put the live grid back (Rebar's defaults are 16 divisions and a 3px
+        -- border when nothing was saved)...
+        api.rebar("grid border " .. (saved.border or 3))
+        api.rebar("grid " .. (saved.divisions or 16))   -- shows it
+        if not saved.shown then GridOff(api) end
+        -- ...and the saved settings exactly as found, including "never set".
+        -- The first in-game run left borderPixels = 1 behind; this is why.
+        local g = _G.RebarDB and _G.RebarDB.grid
+        if g then
+            g.borderPixels, g.divisions, g.shown = saved.border, saved.divisions, saved.shown
         end
     end,
     tests = {

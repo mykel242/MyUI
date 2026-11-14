@@ -212,6 +212,8 @@ def need_pillow():
     except ImportError:
         pass
     import sys
-    if VENV_PYTHON.exists() and Path(sys.executable).resolve() != VENV_PYTHON.resolve():
+    # Compare prefixes, not resolved executables: a venv's python is a symlink
+    # to the very interpreter that just failed to import Pillow.
+    if VENV_PYTHON.exists() and Path(sys.prefix).resolve() != VENV_PYTHON.parent.parent.resolve():
         os.execv(str(VENV_PYTHON), [str(VENV_PYTHON), *sys.argv])
     sys.exit("Pillow is needed: python3 -m venv tools/.venv && tools/.venv/bin/pip install Pillow")

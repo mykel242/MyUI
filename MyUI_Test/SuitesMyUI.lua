@@ -31,10 +31,15 @@ end
 --- Every test starts from rest: nothing forced, no claims, no outline, no
 -- peek, an empty rail. Synthetic claims stand in for the real triggers, so a
 -- target you happened to have when the key was pressed does not leak in.
-local function Baseline(api)
+--
+-- fill: the debug placeholders (number, names, 30% bar fill) stand in for the
+-- live data Phase 4 will bring, so a reveal has something visible to reveal.
+-- Off only where the test is about the empty state itself.
+local function Baseline(api, fill)
     local ns = api.ns()
     if not ns then return end
     if ns.Registry.forced then ns.Registry.ForceVisible(false) end
+    ns.Frames.Placeholders(fill ~= false)
     if ns.Peek and ns.Peek.IsActive() then ns.Peek.Stop() end
     for _, ch in ipairs(CHANNELS) do ns.Reveal.Release(ch) end
     if ns.Outline and ns.Outline.IsShown() then ns.Outline.Toggle(false) end
@@ -46,7 +51,7 @@ end
 local function Restore(api)
     local ns = api.ns()
     if not ns then return end
-    Baseline(api)
+    Baseline(api, false)
     api.myui("outline off")
     if saved and ns.db then
         ns.db.contrast = saved.contrast
@@ -123,8 +128,9 @@ T.Suite("myui-p1", {
     after = Restore,
     tests = {
         { id = "rest",
-          what = "Every frame at its SPEC 2 resting alpha; TargetStrip invisible.",
-          setup = Baseline,
+          what = "Every frame at its SPEC 2 resting alpha, bars empty, no placeholder "
+              .. "text; TargetStrip invisible.",
+          setup = function(api) Baseline(api, false) end,
           check = function(api) return AlphasAre(api, SPEC_RESTING) end },
 
         { id = "show-on",
@@ -252,7 +258,7 @@ T.Suite("myui-p3", {
     tests = {
         { id = "empty",
           what = "The rail at rest: one vertical hairline, nothing else. Calm.",
-          setup = Baseline, frames = RailFrames,
+          setup = function(api) Baseline(api) end, frames = RailFrames,
           check = function(api)
               local n = #api.ns().Rail.items
               return n == 0, n .. " items"
