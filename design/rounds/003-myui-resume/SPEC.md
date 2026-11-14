@@ -1,0 +1,443 @@
+# SPEC — MyUI
+
+Decisions only. Where the HTML reference shows alternatives, **this file is authoritative** —
+the mock contains rejected explorations that must not be implemented.
+
+Reference resolution for all coordinates below: the mock canvas is **1707 × 960**. Screen
+centre is x = 853. Express everything as anchor offsets, never absolute pixels.
+
+---
+**Round 003 (2026-11-14), decided by Mykel.** The addon and the design are both **MyUI** — the
+name "Rebar" is retired as a design name and survives only as the old layout addon, which is
+folded in (§ 9). The rail is cut (§ 6). MyUI now *replaces* minimap, chat and bags rather than
+only quieting them (§ 10, § 11). Reasoning: `DECISIONS-003.md`.
+
+## 1. The premise
+
+At rest the screen is the game. No frame is permanent. Every element is summoned by cursor,
+state, low health, or the peek key, and returns to its resting alpha when that stops being
+true. Position is **set once in edit mode, then fixed** — muscle memory survives because nothing moves
+during play.
+Hidden must never mean lost.
+
+Geometry is flat: 1px hairlines, no corner radius, no gradients, no fill above 14% opacity
+except a data bar. All life comes from alpha, plus one scale pulse and one slide on entrance.
+**The addon ships no texture assets at all** — every element is a solid fill or a 1px line.
+See § 6 for why the one planned texture was cut.
+
+---
+
+## 2. Frames, anchors, resting alpha
+
+| Frame | Anchor | Size | Resting alpha |
+|---|---|---|---|
+| `SelfStack` | BOTTOM, centred, 214 up from bottom edge | 240 wide | 0.35 |
+| `Cooldowns` (rhythm line) | 18 below resource bar, centred | 240 × 4 | 0.25 |
+| `TargetStrip` | TOP, centred, 20 down from top edge | 400 wide | 0 |
+| `ToastAnchor` | Placed by the player in edit mode (§ 9) | — | 0 (toasts show only while speaking) |
+
+Anchors above are defaults. The layout layer (§ 9) lets the player move any MyUI frame once,
+in edit mode; it does not move during play.
+
+### Replaced frames
+
+MyUI clears Blizzard's minimap, chat and bags (§ 11) and draws **its own minimal versions**,
+registered like every other MyUI frame and revealed by the same engine:
+
+| Frame | Resting alpha | Revealed by | Status |
+|---|---|---|---|
+| Minimap | 0 | proximity, peek | **Square, minimal.** All Blizzard and addon minimap buttons gathered into one menu |
+| Chat | 0 | a toast you interact with; a summon key | **Ignored by default.** Opens from a toast, or summoned with channel / log filters |
+| Bags | 0 | proximity, peek, bag-open key | **Deferred** — adopted until designed |
+| Objective tracker | see § 13 | — | behaviour carried over from ChatQuiet |
+
+Until a replacement is built, the Blizzard frame is *adopted* as round 002 specified —
+resting alpha 0, revealed by the engine, alpha only. Adoption is the interim, not the design.
+
+### SelfStack internals (relative to the 240-wide group)
+
+- Health bar — 240 × 4, trough `rgba(255,255,255,0.14)`
+- Resource bar — 240 × 2, 4 below health
+- Cast bar — 240 × 4, 6 below resource
+- Health number — 40 wide, right-aligned, 8 left of the bar group, 12pt
+- Threshold ticks on the health bar — static geometry, always present:
+  - 20% mark at x = 48, `rgba(0,0,0,0.55)` (reads against the fill)
+  - 40% mark at x = 96, `rgba(255,255,255,0.25)` (reads against the empty trough)
+
+The ticks are the design's compliance keystone. They are fixed marks; the *bar* crossing them
+is the event, and the player's eye does the comparison. Never compute their position from a
+value.
+
+### TargetStrip internals
+
+- Name — 11pt, `rgba(240,241,243,1)`, left-aligned at group left
+- Level — 11pt, `rgba(173,177,184,1)`, right-aligned at group right
+- Health bar — 400 × 3, 20 below the name row
+- Cast indicator — 3 × 6 tick, 9 below the bar
+
+---
+
+## 3. Low health — decision: **combined (4d)**, amended
+
+Three layers now: a colour ramp, a depleted-region wash, and a discrete moment. They do not
+duplicate each other. Two of the three are built differently from the original spec because
+12.1 removed the mechanism each assumed — see HANDBACK-RESPONSE.md § B.
+
+### Continuous layer — `ColorCurveObject` on the health fill
+
+Curve stops (linear interpolation between them):
+
+| Health | Fill colour |
+|---|---|
+| 100 | `rgba(240,241,243,0.92)` |
+| 58 | `rgba(242,214,150,0.92)` |
+| 34 | `rgba(242,170,120,0.92)` |
+| 17 | `rgba(242,120,100,0.94)` |
+| 6 | `rgba(242,86,80,1)` |
+
+The health number takes the same curve at full opacity.
+
+### Continuous layer — the depleted wash, as a reverse-filled bar
+
+**Superseded:** `MaskTexture` has no inversion parameter on 12.1, and inverting it would need
+a texture asset, which § 6 forbids.
+
+Instead: a second bar occupying the same rect as the health bar, filled from the **right**,
+fed the same forwarded value. It covers exactly the depleted region by construction — no mask,
+no asset, and it cannot drift out of alignment with the fill boundary. Colour
+`rgba(242,107,97, α)`, α ramping 0 → 0.22 across the same range as the curve.
+
+### Discrete layer — **one** state, produced by a step curve
+
+**Superseded:** `RegisterStateDriver` resolves through the macro-conditional parser and there
+is no health conditional of any spelling on 12.1, so the driver state has no event to fire on.
+
+Instead: a **step curve** — one alpha below the cutoff, another above it — evaluated against
+the forwarded health value and passed to `SetAlpha`. This produces a hard threshold with no
+comparison in Lua. Two of the three tells below therefore need duplicated frames cross-faded
+by the step alpha rather than mutated in place. The effect is as specified; the build is not.
+
+One boundary, one moment. On entry:
+
+- Health number 12pt → 14pt. This is the only type-size change anywhere in the addon, which
+  is what makes it register. *Built as two stacked labels, 12pt and 14pt, cross-faded by the
+  step alpha.*
+- Health group breathes alpha 1.0 ↔ 0.55 at 1.60s.
+- A 1px danger hairline appears at the full screen edge, inset 0, at alpha 0.35. No gradient,
+  no vignette, no blur. It works because it is the only shape in the design that is not a bar,
+  and it lives in peripheral vision where a bar cannot.
+
+Deepest state (if a second cutoff is later added — **not in v1**): hairline breathes at
+0.80s. v1 ships one cutoff only.
+
+### Does low health summon the HUD? — **yes, narrowly**
+
+The step curve above produces a secret value, and a secret may never be compared, so it can
+escalate the HUD but cannot claim in the arbiter. Summoning therefore uses a fifth mechanism
+(RULES § Five sanctioned mechanisms): a secure hook on Blizzard's own low-health frame, whose
+show/hide is a plain boolean event and may be compared freely.
+
+- It reveals **`SelfStack` only.** Not the cooldowns, not the target strip. The narrow version
+  is deliberate: low health is a reason to see your own numbers, not a reason to redraw the
+  screen.
+- Claim 1.0, held for as long as the hook is shown. No dwell in, no timeout out.
+- Threshold is Blizzard's, fixed at 35%, and not ours to move.
+- The player can switch the underlying warning off. MyUI reads that setting at load; if it is
+  off, the summon channel is silently unavailable and the escalation layers still work. One
+  line in `/myui audit` reports which.
+
+Nothing else in the addon ever changes colour.
+
+---
+
+## 4. Reveal engine — four channels, one arbiter
+
+**The modifier channel is cut.** A conventional three-row action bar layout leaves no modifier
+free, so a HUD keyed to one reveals itself on every modified cast — the incidental-reveal
+problem the 140ms dwell exists to prevent, arriving through a different door. Proximity and
+peek already cover deliberate reveal. No modifier keys, and no escape hatch: one fewer channel
+is worth more than the option.
+
+All four resolve through a single arbiter that computes one target alpha per frame per tick.
+Do not let frames manage their own visibility; that is the architectural mistake this design
+is most vulnerable to.
+
+| Channel | Trigger | Notes |
+|---|---|---|
+| Cursor proximity | Cursor within **32 units** of the frame, held **140ms** | The dwell is what stops brushing past while looting from flashing the HUD |
+| State change | Combat enter/exit, target acquired/lost | Event-driven only |
+| Low health | Blizzard low-health hook shown | Reveals `SelfStack` only; see § 3 |
+| Tap-to-peek | Peek key | Reveals for **3s** on a visible drain clock, then fades |
+
+Every channel claims **1.0**, so ties are the normal case rather than an edge one. Precedence
+when tied, highest first: low health, state change, peek, proximity. This decides only which
+channel is *credited* in `/myui claims`; the resulting alpha is identical either way.
+
+Arbitration: highest claim wins. When all claims release, the frame returns to its resting
+alpha from § 2 — never to zero unless its resting alpha is zero.
+
+Fades: **120ms in, 260ms out.** Out is slower so release feels like settling rather than
+snapping.
+
+---
+
+## 5. Rhythm line — **v2, not v1**
+
+Specified fully so nothing is lost, but see PLAN.md: this is deferred out of the first
+release as the highest-risk component. Build the addon coherent without it.
+
+- Six cells, **38 × 4, gutter 2**, total 240 × 4. Uniform height forever.
+- Position equals ability identity. Order is fixed user configuration. **Never computed.**
+- CDM stays alive at alpha 0 doing all tracking. Each cell is a Cooldown frame receiving
+  forwarded values and inspecting none.
+- `SetSwipeColor` draws the recharge body — the depleting portion is the engine's swipe, not
+  a width you calculate.
+- `isDisplayingEdge` / `SetEdgeTexture` give the came-up moment a 1px cap for **180ms**. This
+  is the peripheral event, delivered by the widget.
+- Charges: cell subdivides with a 1px gutter, one segment per charge.
+- All six up: line goes solid, one **1.35×** scale pulse. This is the whole point — the line
+  going solid is a single peripheral event you never have to read.
+
+**Cut, permanently:** variable cell height or alpha encoding priority. Priority is a ranking,
+a ranking is a comparison, no 12.1 mechanism makes it legal, and no future patch will fix it
+because it was never data — it was a rotation opinion. Rotation opinions belong to Hekili.
+
+---
+
+## 6. Notifications — toasts and a history
+
+**The rail is cut** (round 003). It felt too rigid in play, and the build's handback found it
+lossy: a normal few minutes produced eight dots and "+7 more", two of fifteen readable
+(HANDBACK-2 H2). What survives is the part that worked — a toast that speaks once — plus a
+record you can summon.
+
+### Toasts
+
+- A toast speaks once and leaves after **4s** or on dismissal. Slide + fade in, 180ms.
+- **Toasts appear at `ToastAnchor`, wherever the player puts it** in edit mode (D1). Not a
+  fixed column. A toast never covers `SelfStack` or `TargetStrip`.
+- **A toast can be interacted with.** A whisper or other chat toast opens chat at that
+  conversation; this is the main way into chat (§ 14).
+- A long name **truncates with an ellipsis; the age never yields** (rules on HANDBACK-2 H1).
+- Every string carries a shadow in `rgba(0,0,0,0.55)` — the existing tick-dark, no new colour.
+- Simultaneous toasts stack away from the anchor's snapped corner. Cap: tune in Phase 6.
+
+### History
+
+- Every notification is written to a per-character log (`Log.lua` in the Aug 28 work), with a
+  hard ceiling and nothing expiring by age.
+- The history is **summoned by a key**, filtered by hue, and returns to nothing when closed.
+  The Aug 28 notification centre (`Center.lua`) is the starting point, reattached to toasts
+  instead of the rail.
+
+### What feeds it
+
+Round 002's seven sources plus whispers, still five hues (D1). Four hues mean *something happened*;
+orange means *something wants you*.
+
+| Hue | Sources | Events |
+|---|---|---|
+| Blue `rgba(140,200,255,1)` | Loot received | `CHAT_MSG_LOOT`, `LOOT_ITEM_ROLL_WON` |
+| Amber `rgba(255,209,89,1)` | Quest objective, quest complete, achievement earned | `QUEST_ACCEPTED`, `QUEST_TURNED_IN`, `UNIT_QUEST_LOG_CHANGED`, `ACHIEVEMENT_EARNED` |
+| Green `rgba(166,217,140,1)` | Currency, reputation | `CURRENCY_DISPLAY_UPDATE`, `CHAT_MSG_COMBAT_FACTION_CHANGE` |
+| Violet `rgba(209,179,255,1)` | **Whisper** | `CHAT_MSG_WHISPER`, `CHAT_MSG_BN_WHISPER` |
+| Orange `rgba(242,158,115,1)` | Mail, bag full, low durability, group and guild invites | `UPDATE_PENDING_MAIL`, `BAG_UPDATE_DELAYED`, `UPDATE_INVENTORY_DURABILITY`, `PARTY_INVITE_REQUEST`, `GUILD_INVITE_REQUEST` |
+
+Two rules: **one toast per event, never a stream**, and **no source may read a unit value.**
+Defaults: loot at uncommon and above; durability at 20%; bag notice at zero free slots. All
+three are saved variables. Whispers take violet and achievements move to amber, so the palette stays at
+**thirteen** (D1). The Aug 28 work's sixth hue is dropped.
+
+The bloom stays cut; `assets/` keeps the evidence.
+
+
+## 7. Colour table — complete
+
+**Thirteen** colours, all RGBA float. Nothing outside this list.
+
+Tertiary text is lifted to `rgba(173,177,184,1)`, which is the existing secondary value — so
+the two collapse into one entry, `Text dim`. They never appear in the same row (secondary is
+the target level, tertiary was the rail age), so the hierarchy loses nothing and the palette
+gets one colour shorter. The old `115,119,126` survives only as `/myui contrast normal`, a
+debug affordance for checking the original intent. It is not a palette entry.
+
+```
+Fill / primary      rgba(240,241,243,0.92)
+Text primary        rgba(240,241,243,1)
+Text dim            rgba(173,177,184,1)
+Trough              rgba(255,255,255,0.14)
+Fill dim            rgba(255,255,255,0.25)
+Tick dark           rgba(0,0,0,0.55)
+Danger              rgba(242,107,97,1)
+Resource accent     rgba(140,211,255,1)
+Notif blue          rgba(140,200,255,1)
+Notif amber         rgba(255,209,89,1)
+Notif green         rgba(166,217,140,1)
+Notif violet        rgba(209,179,255,1)
+Notif orange        rgba(242,158,115,1)
+```
+
+Curve intermediates (§ 3) are interpolation stops, not palette entries.
+
+---
+
+## 8. Motion table
+
+| Event | Motion |
+|---|---|
+| Reveal in | alpha → target, 120ms |
+| Reveal out | alpha → resting, 260ms |
+| Toast entrance | slide + fade, 180ms |
+| Toast leave | 4s dwell, then 200ms fade |
+| Peek | 3s visible drain clock |
+| Low-health breathe | 1.0 ↔ 0.55, 1.60s |
+| Rhythm cell came-up | 1px edge cap, 180ms |
+| Rhythm line all-up | 1.35× scale pulse, once |
+
+No easing curve is specified anywhere in this design more expressive than a linear or
+standard ease — the restraint is deliberate.
+
+---
+
+## 9. Edit mode and the layout layer
+
+The old Rebar addon is **folded into MyUI** as its layout layer. It is not a dependency and
+not a second addon: its code moves into the MyUI tree, and its repo becomes reference.
+
+What comes across:
+
+- The **viewport-aware, pixel-exact grid** (Rebar `Grid.lua`, verified from a native
+  5120 × 2880 screenshot at uiScale 0.8).
+- **Corner snapping and persistent positions** (Rebar `Manage.lua`). Rebar's in-game
+  drag-snap was never tested; it is tested here for the first time.
+- The 12.1 guard layer (`Compat.lua`) — already shared.
+- The inspector and overlap scan, as **developer tools only**, behind `/myui dev`.
+
+What does not: Rebar's "foreign profile adapters" (its unbuilt Phase 5). MyUI lays out MyUI's
+frames and the Blizzard frames it adopts — never another addon's.
+
+Edit mode itself, as round 002 specified:
+
+- Screen dims to `rgba(0,0,0,0.55)`; the grid appears at 0.07 alpha, every 4th line at 0.14.
+- Every frame gets a 1px ghost outline at `rgba(255,255,255,0.45)` with its name in 10pt
+  letterspaced caps, and **its resting alpha printed next to it** (`rest 0.35`).
+- Drag with snapping; per-frame alpha slider; reveal-group toggle.
+- **Preview at rest** — drops the whole UI to resting alphas over the live game.
+
+Positions saved by the old Rebar addon are migrated on first load, not lost.
+
+
+## 10. Out of scope — say no to these
+
+- Procs are not exposed; nothing here claims to show one.
+- Damage meters and ability suggestions stay Blizzard's.
+- No Classic support. Declare retail-only in the TOC.
+- No comparative displays of any kind (RULES).
+- **No dependencies** outside MyUI and Blizzard (RULES § Dependencies).
+- No layout of other addons' frames (§ 9).
+
+**Reversed in round 003:** round 002 said Rebar "offers nothing in [the minimap, chat and
+bags'] place." MyUI now replaces them (§ 2, § 11). A clear screen that leaves the player
+unable to find their bags is the confusion this project exists to remove.
+
+**Plumber is declined** for now (D1) — too big to consider.
+
+**DialogueUI is taken on** as a MyUI module, built from its behaviour, never its code. v1:
+the quest and NPC dialog window; keyboard choices (number keys pick, space accepts); its dark
+theme and overall look, **rebuilt flat in MyUI's palette** — no textures, per § 1 (D1).
+
+**Bags are deferred** — a big topic, taken up later. Until then Blizzard's bags are adopted
+(§ 2).
+
+
+## 11. Clearing the screen — **MyUI's job**
+
+The mock's bare backdrop is MyUI's output, not a precondition the player arranges. MyUI
+ships a clean screen and can put it back.
+
+Three techniques, by what each frame permits:
+
+**Filtered — the player frame.** Nothing in Blizzard's twenty-three unit-frame settings or
+thirty-six account settings hides it; only an addon can. Tag it with a roleset no UI mode
+includes and let Blizzard's own visibility system filter it out. Pre-12.1 addons call
+`Hide()`; do not — the audited addon claiming 12.1 support stopped doing that for a reason.
+A few lines, reversible.
+
+**Hidden — the action bars.** MyUI creates and activates an Edit Mode layout named `MyUI`
+with every bar disabled, recording the player's previous layout name in saved variables.
+Disabling the addon, or `/myui restore`, switches back. Nothing is destroyed.
+
+**Replaced — minimap, chat, bags.** MyUI draws its own (§ 2). Until each exists, the
+Blizzard frame is adopted as below. Not hidden. Registered in the frame registry at resting
+alpha 0 and revealed by the ordinary engine (§ 2, § 4). This is the § 1 premise applied to
+Blizzard's frames rather than ours: hidden must never mean lost, and a chat frame you cannot
+summon is lost. Chat additionally reveals on an incoming whisper and holds for 8s.
+
+Everything else the mock removes — target frame, cast bar, buffs, party and raid frames — the
+player already turns off in Edit Mode, and MyUI's layout does it for them.
+
+**Combat lockdown is the whole risk here.** Protected frames may only be hidden or shown out
+of combat. All filtering and layout activation happens on `PLAYER_ENTERING_WORLD` and on
+addon enable; if `InCombatLockdown()` is true, queue and flush on `PLAYER_REGEN_ENABLED`.
+Never in combat, in either direction. The adopted frames are alpha-only and therefore exempt —
+which is the second reason they are adopted rather than hidden.
+
+`/myui restore` reverses all three, in combat-safe order, and prints what it undid.
+
+**Superseded in part by the Aug 28 work.** `Stow.lua` removes Blizzard frames by reparenting
+them under a hidden frame, so Blizzard's own Show/Hide calls keep succeeding with nowhere to
+draw. That is a different technique from filtering and hiding above, and it was never
+specified. PLAN phase R3 decides which stands, per frame, and records it here.
+
+
+## 12. Modules carried in from the author's other addons
+
+| From | Becomes | What it does |
+|---|---|---|
+| Rebar | Layout layer, § 9 | Grid, snapping, persistent positions, dev inspector |
+| ChatQuiet | Chat module (§ 2) and Tracker module (§ 13) | Chat chrome hidden until hover, an alerting tab stays visible; tracker background cleared |
+| HideBarTooltips | **Nothing — stays separate** | — |
+
+ChatQuiet is retired once its two modules pass in game. Until then it stays in the play
+environments (`nyx-minimal`, `raid`) and out of `newui`.
+
+## 13. Objective tracker
+
+Carried over from ChatQuiet unchanged: background cleared; resting alpha 0.1; hidden in
+combat, **except in Mythic+ on trash**, where the timer and enemy forces live; alpha only,
+never touching `ObjectiveTrackerManager` or Blizzard's alpha globals (both taint).
+
+## 14. Minimap and chat — D1 answers
+
+**Minimap.** Square and minimal. Every button that normally hangs around the minimap —
+Blizzard's (tracking, calendar, mail, and the like) and other addons' — is gathered into
+**one menu**, opened from the minimap.
+
+This is the one place MyUI touches other addons' frames, and it does so **narrowly**: it moves
+their minimap buttons into its menu and nothing else. No library is used to do it and none is
+required; an addon with no minimap button is unaffected. § 9's rule otherwise stands.
+
+**Chat.** Ignored by default — it has no resting presence. Two ways in:
+
+1. **From a toast.** Interacting with a chat toast (whisper first) opens chat at that message.
+2. **Summoned**, with filters by channel, and a log view.
+
+**One view (D1, provisional — Mykel is not yet certain).** Chat and the notification history
+(§ 6) are the same summoned view, filtered by notification hue and by chat channel. A chat
+toast opens it at that message. Build it so splitting into two views later is cheap.
+
+## 15. Screens — laptop to ultrawide
+
+An original requirement, restated in round 003: MyUI must play well on a **laptop screen**
+(the 16" MacBook Pro, `nyx-minimal`) and on a **widescreen / ultrawide** (`Pallas`).
+
+- Every position is an **anchor offset**, never an absolute pixel (already § "Reference
+  resolution"). The 1707 × 960 mock is a reference, not a target.
+- The layout layer's grid is **viewport-aware** (§ 9): it measures the usable rect and stays
+  pixel-exact at the display's scale.
+- **Confirmed (D1):** on displays wider than 16:9, the centre
+  cluster — `SelfStack`, `TargetStrip`, the dialog window — sits inside a centred 16:9 focus
+  area so the eye does not travel; the edges hold only what is summoned.
+- Saved positions live in each machine's own WTF, so a laptop and a desktop keep separate
+  layouts without any sync.
+- Every acceptance test runs on both screen shapes (PLAN R2).

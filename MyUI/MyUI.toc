@@ -3,6 +3,7 @@
 ## Notes: A HUD that isn't there. Every element is summoned; nothing is permanent.|nPhase 3: the rail.
 ## Author: mykel
 ## Version: 0.4.0-phase3
+## X-License: MIT
 ## SavedVariables: MyUIDB
 ## X-Phase: 3
 ## X-Retail-Only: true

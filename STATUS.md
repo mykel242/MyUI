@@ -6,6 +6,22 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 
 ---
 
+## Round 003 — Resume track (2026-11-14)
+
+The spec now lives in this repo at `design/current` (→ `design/rounds/003-myui-resume`);
+every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
+
+- The ~3,700 lines left uncommitted at the 2026-08-28 pause are on branch `wip/aug28`,
+  committed exactly as found. Reconciled in R3, not before.
+- **That work cites a "Round 5"** (`Log.lua`, `Center.lua`, `Rail.lua`, `Commands.lua`,
+  `test/run_tests.lua`). It lives in `design/rounds/000 - rebar proposal 2` and was never
+  taken in through `./rebar intake`. **It is not part of the spec — do not build from it.**
+  Round 003 supersedes it (the rail is cut).
+- `wip/aug28`'s copies of `STATUS.md`, `CONTINUATION.md` and `README.md` still name
+  `UI - Rebar/in/current`; repoint them to `design/current` when R3 merges it.
+
+---
+
 ## Where things stand
 
 | Phase | State |

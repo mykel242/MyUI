@@ -17,7 +17,7 @@ Three directories, all separate git repos:
 | Path | What |
 |---|---|
 | `~/Development/MyUI` | **This.** The addon. |
-| `~/Development/UI - Rebar/design_handoff_rebar` | The design handoff: `SPEC.md`, `PLAN.md`, `RULES.md`, and an HTML mock. **Read-only — never edit.** |
+| `design/current` (in this repo) | The design handoff being built: `SPEC.md`, `PLAN.md`, `RULES.md`, and an HTML mock. A symlink into `design/rounds/`. Spec changes are commits here, alongside the code they govern. `~/Development/UI - Rebar` is a read-only archive. |
 | `~/Development/Rebar` | A *different* addon by the same author: frame-layout tooling, `editmode.py`, and `API-NOTES-12.1.md`. Source of `Compat.lua` and much ground truth. |
 | `~/Development/cc-addon` | `wowaddons.py` — deploys this addon to the live game folder. |
 
