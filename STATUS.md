@@ -32,7 +32,8 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
   R2's acceptance, pending Mykel's OK.
 - **Finding for R3:** uiScale 0.8 is not pixel-perfect on the laptop (2.33 px/unit at
   3456x2234); it was chosen for the 5K display (exactly 3).
-- Ultrawide (Pallas) baseline not yet taken.
+- Ultrawide baseline **deferred**: Pallas is dead (2026-11-14). SPEC § 15's both-shapes
+  rule is owed; take the ultrawide baseline when a widescreen machine is back.
 
 ---
 
