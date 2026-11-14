@@ -2723,6 +2723,16 @@ do
     Reveal.Release("peek")
     check("  and they settle back to 0", Registry.Get("Minimap").target == 0)
 
+    -- The minimap draws its arrow and blips through alpha, so the map itself
+    -- is hidden once a fade settles at 0, and shown again before it fades in.
+    mock.advance(ns, 0.3, 3)
+    check("the minimap map is hidden at rest", not made.Minimap:IsShown())
+    Reveal.Claim("peek")
+    check("  shown when summoned", made.Minimap:IsShown())
+    Reveal.Release("peek")
+    mock.advance(ns, 0.3, 3)
+    check("  and hidden again once the fade-out finishes", not made.Minimap:IsShown())
+
     Reveal.Claim("combat")
     check("combat does not reveal chat or the minimap",
           Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0

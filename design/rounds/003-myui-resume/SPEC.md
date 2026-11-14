@@ -404,7 +404,8 @@ be summoned. Never for a protected frame.
 | Action bars | The `MyUI` Edit Mode layout sets every bar with a visibility setting to **in combat only** (R3b ruling) |
 | Buffs, debuffs, player cast bar | **Adopted** (R3b ruling). The cast bar sets its own alpha when a cast starts, so it shows while casting |
 | Main action bar, stance and pet bars | **Adopted**, revealed in combat like the Edit Mode bars (they have no visibility setting) |
-| Micro menu; the minimap's own map (its arrow and blips ignore the cluster's alpha) | **Adopted** |
+| Micro menu; the chat panel's social button | **Adopted** (the social button also answers whispers) |
+| The minimap's own map | **Adopted, and hidden once it settles at 0** — its arrow and blips draw regardless of alpha. Shown again before it fades in |
 | Party and raid frames | **Adopted**, revealed in combat (R3b ruling) |
 | Chat log, tabs, dock, buttons | Adopted now; **stowed** once MyUI's chat view exists. The edit box is freed first |
 | Raid manager tab (`CompactRaidFrameManager`) | **Stowed**, queued out of combat |

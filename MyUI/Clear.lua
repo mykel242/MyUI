@@ -54,7 +54,9 @@ Clear.ADOPT = {
     { "StanceBar",  "StanceBar" },
     { "PetBar",     "PetActionBar" },
     { "MicroMenu",  "MicroMenuContainer" },
-    { "MinimapMap", "Minimap" },
+    { "MinimapMap", "Minimap", hideAtZero = true },
+    -- The social button on the chat panel: friends and guild online.
+    { "ChatSocial", "QuickJoinToastButton" },
     -- Party and raid frames: adopted, revealed in combat.
     { "Party",      "PartyFrame" },
     { "CompactParty", "CompactPartyFrame" },
@@ -88,8 +90,10 @@ function Clear.Adopt()
         if frame and not Clear.adopted[name] and not ns.Registry.Get(name)
            and type(frame.SetAlpha) == "function" then
             local alpha = ns.Compat.Get(frame, "GetAlpha")
-            Clear.adopted[name] = { frame = frame, alpha = type(alpha) == "number" and alpha or 1 }
-            ns.Registry.Add(name, frame, 0)
+            Clear.adopted[name] = { frame = frame, alpha = type(alpha) == "number" and alpha or 1,
+                                    shown = frame:IsShown() }
+            local entry = ns.Registry.Add(name, frame, 0)
+            entry.hideAtZero = spec.hideAtZero
             n = n + 1
         end
     end
@@ -109,6 +113,7 @@ function Clear.Release()
         ns.Reveal.Release("whisper", name)
         ns.Registry.Remove(name)
         a.frame:SetAlpha(a.alpha or 1)
+        if a.shown and not a.frame:IsShown() then a.frame:Show() end
         n = n + 1
     end
     Clear.adopted = {}

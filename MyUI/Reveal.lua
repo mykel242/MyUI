@@ -102,7 +102,7 @@ local SCOPE = {
                MainBar = true, StanceBar = true, PetBar = true,
                Party = true, CompactParty = true, Raid = true },
     target = { TargetStrip = true },
-    whisper = { Chat = true, ChatDock = true, ChatButtons = true },
+    whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
 }
 
 -- ---------------------------------------------------------------------------
@@ -279,6 +279,11 @@ function Reveal.Resolve()
         end
 
         if entry.target ~= target then
+            -- A frame that draws through alpha (the minimap's arrow and
+            -- blips) is shown again before it fades in.
+            if entry.hideAtZero and target > 0 and not entry.frame:IsShown() then
+                entry.frame:Show()
+            end
             entry.fadeFrom  = entry.current or entry.resting
             entry.fadeStart = now
             if target > (entry.current or entry.resting) then
@@ -297,7 +302,11 @@ function Reveal.Snap()
     Registry.Each(function(entry)
         entry.current = entry.target
         entry.fadeStart = nil
+        if entry.hideAtZero and entry.target > 0 and not entry.frame:IsShown() then
+            entry.frame:Show()
+        end
         entry.frame:SetAlpha(entry.current)
+        Reveal.HideIfSettled(entry)
     end)
 end
 
@@ -414,6 +423,7 @@ local function StepFade(entry, now)
         entry.current = entry.resting
     end
     if entry.current == entry.target then
+        Reveal.HideIfSettled(entry)
         return
     end
     if not entry.fadeStart or not entry.fadeDuration or entry.fadeDuration <= 0 then
@@ -428,6 +438,17 @@ local function StepFade(entry, now)
         end
     end
     entry.frame:SetAlpha(entry.current)
+    Reveal.HideIfSettled(entry)
+end
+
+--- R3b: some adopted frames draw parts of themselves regardless of alpha --
+-- the minimap's player arrow and blips. Those are flagged hideAtZero, and
+-- once a fade has fully settled at 0 they are hidden as well. Never a
+-- protected frame: only Clear flags them, and only unprotected ones.
+function Reveal.HideIfSettled(entry)
+    if entry.hideAtZero and entry.current == 0 and entry.target == 0 and entry.frame:IsShown() then
+        entry.frame:Hide()
+    end
 end
 
 function Reveal.Tick()
