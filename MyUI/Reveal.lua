@@ -323,8 +323,15 @@ Reveal.EdgeDistance = EdgeDistance
 --- The dwell is the whole point of this channel: it stops brushing past while
 -- looting from flashing the HUD (SPEC.md 4). Entering the zone starts a clock;
 -- only staying in it for DWELL asserts the claim.
+-- Set by MyUI_Test while it captures screenshots: wherever the cursor happened
+-- to be when the run key was pressed must not decide what the shots show.
+Reveal.cursorSuspended = false
+
 local function UpdateProximity(now)
-    local x, y = CursorPosition()
+    local x, y
+    if not Reveal.cursorSuspended then
+        x, y = CursorPosition()
+    end
     Registry.Each(function(entry)
         local near = false
         if x then

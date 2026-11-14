@@ -204,6 +204,17 @@ function M.frame(spec)
     f.GetBottom = function() return f.__rect and f.__rect[2] end
     f.GetRight  = function() return f.__rect and f.__rect[3] end
     f.GetTop    = function() return f.__rect and f.__rect[4] end
+    -- What the screenshot harness reads: a rect, the effective scale and
+    -- visibility. GetRect is nil until a test places the frame, as the
+    -- client's is until layout has run.
+    f.GetRect = function()
+        local r = f.__rect
+        if not r then return nil end
+        return r[1], r[2], r[3] - r[1], r[4] - r[2]
+    end
+    f.GetEffectiveScale = function() return M.uiScale or 0.8 end
+    f.IsVisible = function() return f.__shown end
+    f.GetEffectiveAlpha = function() return f.GetAlpha() end
     f.GetFrameStrata = function() return f.__strata or "MEDIUM" end
     f.GetFrameLevel  = function() return f.__level or 1 end
     f.GetObjectType = function() return spec.objectType or "Frame" end
@@ -476,9 +487,10 @@ end
 -- The file list is read from MyUI.toc rather than duplicated here. A hardcoded
 -- list silently stops covering a new file the moment one is added, which is
 -- how Copy.lua first went untested.
-function M.loadAddon(dir)
-    local toc = assert(io.open(dir .. "/MyUI.toc", "r"),
-                       "cannot open " .. dir .. "/MyUI.toc")
+function M.loadAddon(dir, name)
+    name = name or "MyUI"
+    local toc = assert(io.open(dir .. "/" .. name .. ".toc", "r"),
+                       "cannot open " .. dir .. "/" .. name .. ".toc")
     local files, meta = {}, {}
     for line in toc:lines() do
         local name = line:match("^%s*([%w_%-]+%.lua)%s*$")
@@ -490,17 +502,20 @@ function M.loadAddon(dir)
         end
     end
     toc:close()
-    assert(#files > 0, "no Lua files listed in MyUI.toc")
+    assert(#files > 0, "no Lua files listed in " .. name .. ".toc")
 
-    -- Before loading: Core.lua reads the version at file scope.
-    M.toc = meta
-    M.tocVersion = meta.Version
+    -- Before loading: Core.lua reads the version at file scope. Only MyUI's
+    -- TOC answers GetAddOnMetadata; loading the test addon must not change it.
+    if name == "MyUI" then
+        M.toc = meta
+        M.tocVersion = meta.Version
+    end
 
     local ns = {}
     for _, file in ipairs(files) do
         local chunk, err = loadfile(dir .. "/" .. file)
         if not chunk then error("could not load " .. file .. ": " .. tostring(err)) end
-        chunk("MyUI", ns)
+        chunk(name, ns)
     end
     ns.__loadedFiles = files
     ns.__toc = meta

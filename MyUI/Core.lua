@@ -138,6 +138,19 @@ end
 -- Load
 -- ---------------------------------------------------------------------------
 
+-- The test seam. MyUI_Test (dev environment only, never shipped) drives the
+-- addon into known states and needs the namespace to do it. It is handed over
+-- when, and only when, MyUI_Test itself loads -- so a normal install never
+-- exposes ns as a global.
+local seam = CreateFrame("Frame")
+seam:RegisterEvent("ADDON_LOADED")
+seam:SetScript("OnEvent", function(self, _, addon)
+    if addon == "MyUI_Test" then
+        _G.MyUI_TestAPI = ns
+        self:UnregisterEvent("ADDON_LOADED")
+    end
+end)
+
 local loader = CreateFrame("Frame")
 loader:RegisterEvent("ADDON_LOADED")
 loader:SetScript("OnEvent", function(self, event, addon)
