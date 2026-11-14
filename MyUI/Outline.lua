@@ -66,6 +66,12 @@ function Outline.Toggle(on)
     Outline.shown = on
 
     Registry.Each(function(entry)
+        -- MyUI's own frames only. Adopted Blizzard frames (R3b) are not
+        -- MyUI's geometry, and their labels landed inside MyUI's boxes.
+        if ns.Clear and ns.Clear.IsAdopted(entry.name) then
+            if boxes[entry.name] then boxes[entry.name]:Hide() end
+            return
+        end
         local box = boxes[entry.name]
         if not box then
             box = BuildBox(entry)
