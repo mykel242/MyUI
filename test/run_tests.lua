@@ -57,7 +57,7 @@ check("every file in the TOC was loaded", #ns.__loadedFiles == 15, #ns.__loadedF
 -- so these three must agree before one is cut. They drift silently otherwise,
 -- and the tag is the thing a cold pickup trusts.
 local toc = ns.__toc
-check("TOC targets retail 12.1 only", toc.Interface == "120100", toc.Interface)
+check("TOC targets retail 12.1 only", toc.Interface == "120105", toc.Interface)
 check("TOC saves to MyUIDB", toc.SavedVariables == "MyUIDB", toc.SavedVariables)
 check("TOC version carries the phase suffix",
       toc.Version:match("%-phase(%d+)$") == toc["X-Phase"],

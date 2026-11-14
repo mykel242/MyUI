@@ -5,7 +5,7 @@ No frame is permanent. Every element is summoned by cursor proximity, a held mod
 state change, or a peek key, and returns to a resting alpha when that stops being true.
 A single left-edge rail holds anything that happened while you weren't looking.
 
-Retail only. Targets **Midnight 12.1.0**, TOC `120100`. There is no Classic fallback —
+Retail only. Targets **Midnight 12.1.5**, TOC `120105`. There is no Classic fallback —
 neither the curve APIs nor Cooldown Manager exist there, so supporting it would be a
 different addon.
 
