@@ -75,7 +75,7 @@ end
 -- SPEC.md 2's table, restated here so the test asserts against the spec rather
 -- than against whatever Frames.lua happens to have registered.
 local SPEC_RESTING = {
-    SelfStack = 0.35, Cooldowns = 0.25, TargetStrip = 0, Rail = 1,
+    SelfStack = 0.35, Cooldowns = 0.25, TargetStrip = 0,
 }
 
 Testing.scripts = {
@@ -230,13 +230,6 @@ Testing.scripts = {
               expect = "They fade back to faint over about a quarter second — "
                     .. "and stop there. They must NOT vanish." },
 
-            { act = "Hold Alt.",
-              expect = "Everything appears at once, with no pause. The modifier "
-                    .. "channel has no dwell." },
-            { act = "Release Alt.",
-              expect = "Everything settles back to resting. The top-centre strip "
-                    .. "disappears completely; the others stay faint." },
-
             { act = "Target something.",
               expect = "The top-centre strip appears on its own. The bottom "
                     .. "group stays faint." },
@@ -256,39 +249,18 @@ Testing.scripts = {
               expect = "It empties over about three seconds, then everything "
                     .. "fades back to resting." },
 
-            -- These used to ask you to type a command while holding Alt, which
-            -- cannot be done: on macOS Option-combinations insert accented
-            -- characters, and Shift turns "/" into "?", so the command never
-            -- runs at all. A transient channel has to be recorded and read
-            -- afterwards, not caught in the act.
-            { awaits = "claims",
-              cmd = "/myui claims", act = "Hold Alt for a second, release it, then type /myui claims.",
-              expect = "The log shows modifier claiming three frames, then "
-                    .. "releasing them.",
-              check = function()
-                  -- Reads the input entries, not the outcomes: whether you
-                  -- pressed the key is a different question from what the
-                  -- arbiter did about it.
-                  local claimed, released = 0, 0
-                  for _, e in ipairs(ns.Reveal.log) do
-                      if e.channel == "modifier" then
-                          if e.kind == "claim" then claimed = claimed + 1 end
-                          if e.kind == "release" then released = released + 1 end
-                      end
-                  end
-                  if claimed == 0 then
-                      return false, "no modifier press recorded yet"
-                  end
-                  if released == 0 then
-                      return false, "pressed but never released"
-                  end
-                  return true, ("%d press%s recorded"):format(
-                      claimed, claimed == 1 and "" or "es")
-              end },
-
+            -- A transient channel has to be recorded and read afterwards rather
+            -- than caught in the act. That began as a workaround: the step
+            -- above this one used to ask you to type a command while holding
+            -- Alt, which cannot be done -- on macOS an Option-combination
+            -- inserts an accented character and Shift turns "/" into "?", so
+            -- the command never ran at all. The modifier channel is gone now
+            -- and the constraint went with it, but the technique is better
+            -- anyway and the cursor dwell still needs it: the cursor has to
+            -- leave the frame to reach the chat box.
             { awaits = "claims",
               act = "Rest the cursor on the bottom bars for a second, move away, "
-                 .. "then run /myui claims again.",
+                 .. "then type /myui claims.",
               expect = "A cursor claim on SelfStack, and none on the target strip.",
               check = function()
                   local onStack, onStrip = false, false
@@ -327,102 +299,47 @@ Testing.scripts = {
     },
 
     [3] = {
-        title = "Phase 3 — the rail",
-        accept = "Eight simultaneous notifications cap correctly and show "
-              .. "\"+N more\"; a toast speaks once and collapses after 4s; "
-              .. "the rail at rest reads as calm.",
+        title = "R3 — toasts and a history",
+        accept = "A toast speaks once at the toast anchor and leaves after 4s; "
+              .. "past the cap the oldest leaves at once; every notification "
+              .. "is in the log; the history opens filtered; a whisper toast "
+              .. "opens chat.",
         steps = {
             { awaits = "notify clear", cmd = "/myui notify clear", act = "Type /myui notify clear",
-              expect = "The rail empties.",
+              expect = "Nothing speaking.",
               check = function()
-                  if #ns.Rail.items > 0 then
-                      return false, #ns.Rail.items .. " still on the rail"
-                  end
-                  return true, "empty"
+                  local n = #ns.Toast.live
+                  return n == 0, n .. " speaking"
               end },
-            { act = "Look at the left edge of the screen.",
-              expect = "One vertical hairline and nothing else. This is the "
-                    .. "rail at rest, and it should read as calm." },
-
-            { cmd = "/myui notify blue Whisper", act = "Type /myui notify blue Whisper",
-              expect = "A toast slides in near the top of the rail and speaks "
-                    .. "once." },
-            { act = "Watch that toast without touching anything.",
-              expect = "It collapses on its own after about four seconds." },
-            { act = "Look at the top of the rail now.",
-              expect = "One coloured dot, with the name beside it and an age to "
-                    .. "the right." },
-            { act = "Wait a few seconds and look at that age again.",
-              expect = "It has counted up on its own." },
-
-            { cmd = "/myui notify amber Loot", act = "Type /myui notify amber Loot",
-              expect = "The new one takes the top row; the first drops to the "
-                    .. "second row and keeps its text." },
-
-            { awaits = "notify demo", cmd = "/myui notify demo", act = "Type /myui notify demo",
-              expect = "Ten arrive at once. Eight dots, two behind the square.",
-              check = function()
-                  local Rail = ns.Rail
-                  local shown = 0
-                  for i = 1, Rail.CAP do
-                      if Rail.slots and Rail.slots[i]:IsShown() then
-                          shown = shown + 1
-                      end
-                  end
-                  if shown ~= Rail.CAP then
-                      return false, shown .. " dots shown, cap is " .. Rail.CAP
-                  end
-                  if Rail.Overflow() < 1 then
-                      return false, "nothing overflowed"
-                  end
-                  return true, ("%d dots, +%d behind the square")
-                               :format(shown, Rail.Overflow())
-              end },
-            { act = "Count the dots on the rail.",
-              expect = "Exactly eight, however many were sent." },
-            { act = "Look below the eighth dot.",
-              expect = "A hollow square with a count beside it, not a ninth dot. "
-                    .. "Hollow because a solid one would read as another item." },
-            { act = "Look at rows three and below.",
-              expect = "Bare dots with no text. Only the newest two are named." },
-            { act = "Compare the lower dots with the top two.",
-              expect = "The lower ones are visibly dimmer." },
-
-            -- The palette is light-on-dark and the dim greys lose to mid-tone
-            -- terrain in both directions. A shadow cannot fix a contrast
-            -- problem, only an edge problem.
-            { act = "Read the age on the top row and the count beside the square.",
-              expect = "Both legible against the ground you are standing on. If "
-                    .. "not, try /myui contrast lift and answer again -- SPEC 6 "
-                    .. "names that exact grey, so a fail here is a spec finding." },
-
+            { cmd = "/myui notify blue Loot", act = "Type /myui notify blue Loot",
+              expect = "A toast slides in at the left edge, upper third: a blue "
+                    .. "dot, the name, an age on the right." },
+            { act = "Watch it without touching anything.",
+              expect = "It fades out on its own after about four seconds." },
             { cmd = { "/myui notify green Urgent", "/myui notify dismiss" },
               act = "Send the first, then dismiss it before four seconds pass.",
-              expect = "The toast collapses immediately rather than waiting." },
-            { act = "Send another, and click the toast itself.",
-              expect = "It collapses on the click too." },
-
-            -- Folded in from Phase 2: the hold binding shipped after that
-            -- phase was accepted, so it has never been verified in game.
-            { awaits = "claims",
-              cmd = { "/myui modifier none", "/myui claims" },
-              act = "Bind MyUI -> Hold to reveal to a free key, run the first "
-                 .. "command, hold that key, release, then run the second.",
-              expect = "The log shows the channel arming via binding, not via "
-                    .. "keys -- so the HUD no longer fights your ability rows.",
+              expect = "The toast leaves immediately rather than waiting." },
+            { awaits = "notify demo", cmd = "/myui notify demo", act = "Type /myui notify demo",
+              expect = "Five sent; three speaking, stacked downward; the "
+                    .. "first two left at once.",
               check = function()
-                  for _, e in ipairs(ns.Reveal.log) do
-                      if e.kind == "claim" and e.channel == "modifier"
-                         and e.via == "binding" then
-                          return true, "armed via binding"
-                      end
-                  end
-                  return false, "no binding-armed claim recorded yet"
+                  local n = #ns.Toast.live
+                  return n == ns.Toast.CAP, ("%d speaking, cap %d"):format(n, ns.Toast.CAP)
               end },
-
-            { act = "Stand back and look at the whole screen with the rail full.",
-              expect = "It still reads as calm. If the rail draws your eye at "
-                    .. "rest, that is the finding this phase exists to catch." },
+            { awaits = "log", cmd = "/myui log", act = "Type /myui log",
+              expect = "Every notification is listed, including the ones "
+                    .. "that never got a toast.",
+              check = function()
+                  local n = ns.Log.Count()
+                  return n >= 6, n .. " in the log"
+              end },
+            { cmd = "/myui center violet", act = "Type /myui center violet, then Escape",
+              expect = "The history opens at the toast anchor, filtered to "
+                    .. "whispers; Escape closes it." },
+            { act = "Have someone whisper you, then click the toast.",
+              expect = "Our edit box opens holding /w and their name." },
+            { act = "Stand back and look at the screen with nothing speaking.",
+              expect = "Nothing at the left edge at all. No column, no hairline." },
         },
     },
 }

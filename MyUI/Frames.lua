@@ -56,30 +56,28 @@ function Frames.TextStyle()
 end
 
 -- A shadow rescues light text on a light backdrop. It does nothing for the dim
--- greys: textTertiary is rgba(115,119,126,1), a mid-grey, and mid-grey on the
--- mid-brown of a cave floor has almost no contrast in either direction. SPEC 6
--- names that exact value for the age, so this is a spec conflict rather than an
--- implementation bug -- but the age and the "+N more" count are unreadable in
--- ordinary terrain, so there is a way to lift them.
+-- greys: SPEC 6 originally named rgba(115,119,126,1) for the rail age, a
+-- mid-grey, and mid-grey on the mid-brown of a cave floor has almost no
+-- contrast in either direction. Verified in game 2026-08-27 -- the age and the
+-- "+N more" count are unreadable over ordinary terrain, and the Phase 3
+-- acceptance step for them only passed with the lift on.
 --
--- Lifting moves dim text one step UP the palette. No fifteenth colour, and
--- nothing outside SPEC 7.
+-- Phase 3 shipped that lift as a deliberate deviation and raised it. THE
+-- AMENDED SPEC 7 ADOPTS IT: dim text is rgba(173,177,184,1), which was already
+-- the secondary value, so the two palette entries collapsed into one textDim
+-- and the palette went from fourteen colours to thirteen.
+--
+-- So "lift" is no longer a deviation -- it is the spec, and it is simply what
+-- the palette holds. Nothing is remapped at draw time any more. The command
+-- survives as the debug affordance the amendment kept: "normal" draws dim text
+-- in the superseded value so the original intent can still be checked in game.
 Frames.CONTRAST_LEVELS = { normal = true, lift = true }
 
-local LIFT = {
-    textTertiary  = "textSecondary",
-    textSecondary = "textPrimary",
-}
+-- Deliberately NOT a palette entry. SPEC 7 is closed at thirteen and this is
+-- not one of them -- it is the value the amendment removed, kept reachable for
+-- one diagnostic command and drawn nowhere else.
+local SUPERSEDED_DIM = { 115 / 255, 119 / 255, 126 / 255, 1 }
 
--- DEFAULTS TO LIFT, which is a deliberate deviation from SPEC 6.
---
--- Verified in game 2026-08-27: with "normal", the age and the "+N more" count
--- are unreadable against ordinary terrain, and the Phase 3 acceptance step for
--- it only passes with lift on. Shipping a default that has been demonstrated
--- unreadable would be choosing spec fidelity over the thing the spec is for.
---
--- /myui contrast normal restores SPEC's exact values in one command, and the
--- deviation is recorded in DESIGN-QUESTIONS.md for the designer to rule on.
 function Frames.Contrast()
     if ns.db and ns.db.contrast and Frames.CONTRAST_LEVELS[ns.db.contrast] then
         return ns.db.contrast
@@ -87,11 +85,15 @@ function Frames.Contrast()
     return "lift"
 end
 
-local function ResolveColor(name)
-    if Frames.Contrast() == "lift" and LIFT[name] then
-        return LIFT[name]
+--- The colour a string draws in, after the contrast setting. Returns four
+-- floats rather than a palette name, because "normal" resolves to a value that
+-- is deliberately outside the palette and Palette.Get would refuse it.
+function Frames.TextColor(name)
+    if name == "textDim" and Frames.Contrast() == "normal" then
+        return SUPERSEDED_DIM[1], SUPERSEDED_DIM[2],
+               SUPERSEDED_DIM[3], SUPERSEDED_DIM[4]
     end
-    return name
+    return Palette.Get(name)
 end
 
 --- Apply the current legibility treatment to one string.
@@ -119,7 +121,7 @@ function Frames.Text(parent, size, colorName, justify)
     fs.__size = size
     fs.__color = colorName
     Legible(fs, size)
-    fs:SetTextColor(Palette.Get(ResolveColor(colorName)))
+    fs:SetTextColor(Frames.TextColor(colorName))
     fs:SetJustifyH(justify)
     Frames.strings = Frames.strings or {}
     Frames.strings[#Frames.strings + 1] = fs
@@ -132,7 +134,7 @@ local Text = Frames.Text
 function Frames.RestyleText()
     for _, fs in ipairs(Frames.strings or {}) do
         Legible(fs, fs.__size)
-        fs:SetTextColor(Palette.Get(ResolveColor(fs.__color)))
+        fs:SetTextColor(Frames.TextColor(fs.__color))
     end
 end
 
@@ -237,7 +239,7 @@ local function BuildTargetStrip()
     local name = Text(group, 11, "textPrimary", "LEFT")
     name:SetPoint("TOPLEFT", group, "TOPLEFT", 0, 0)
 
-    local level = Text(group, 11, "textSecondary", "RIGHT")
+    local level = Text(group, 11, "textDim", "RIGHT")
     level:SetPoint("TOPRIGHT", group, "TOPRIGHT", 0, 0)
 
     local health = Bar(group, 400, 3)
@@ -249,34 +251,6 @@ local function BuildTargetStrip()
 
     group.name, group.level, group.health, group.cast = name, level, health, cast
     return group
-end
-
--- ---------------------------------------------------------------------------
--- Rail -- LEFT, x = 20, vertically centred. 440 tall.
--- ---------------------------------------------------------------------------
--- SPEC.md 2 gives the rail's resting alpha as "hairline 0.14, dots per 6",
--- which is a per-element alpha rather than a frame one. 0.14 is exactly the
--- trough colour from SPEC.md 7, so the hairline takes that colour and carries
--- its alpha in the palette entry, leaving the container to rest at 1 for the
--- reveal engine to claim.
---
--- Dots are SPEC.md 6 and arrive in Phase 3 with the notification lifecycle
--- that produces them. Container width is a dot wide so they have somewhere to
--- go; SPEC does not say which side of the hairline they sit on, and at x = 20
--- rightward is the only direction with room.
-
-local function BuildRail()
-    local rail = CreateFrame("Frame", "MyUIRail", UIParent)
-    rail:SetFrameStrata(Frames.STRATA)
-    rail:SetSize(U(10), U(440))
-    rail:SetPoint("LEFT", UIParent, "LEFT", U(20), 0)
-
-    local hairline = Fill(rail, "trough", "ARTWORK")
-    hairline:SetSize(Scale.Hairline(), U(440))
-    hairline:SetPoint("TOPLEFT", rail, "TOPLEFT", 0, 0)
-
-    rail.hairline = hairline
-    return rail
 end
 
 -- ---------------------------------------------------------------------------
@@ -340,7 +314,6 @@ function Frames.OnLogin()
     Registry.Add("SelfStack", selfStack, 0.35)
     Registry.Add("Cooldowns", BuildCooldowns(selfStack), 0.25)
     Registry.Add("TargetStrip", BuildTargetStrip(), 0)
-    Registry.Add("Rail", BuildRail(), 1)
 
     Registry.Each(function(entry)
         entry.frame:SetAlpha(entry.resting)

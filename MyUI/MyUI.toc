@@ -1,15 +1,18 @@
 ## Interface: 120105
 ## Title: MyUI
-## Notes: A HUD that isn't there. Every element is summoned; nothing is permanent.|nPhase 3: the rail.
+## Notes: A HUD that isn't there. Every element is summoned; nothing is permanent.|nR3: toasts and a history.
 ## Author: mykel
-## Version: 0.4.0-phase3
+## Version: 0.5.0-r3
 ## X-License: MIT
 ## SavedVariables: MyUIDB
+## SavedVariablesPerCharacter: MyUICharDB
 ## X-Phase: 3
 ## X-Retail-Only: true
 
 Compat.lua
 Core.lua
+Log.lua
+Stow.lua
 Scale.lua
 Palette.lua
 Guard.lua
@@ -17,7 +20,11 @@ Registry.lua
 Frames.lua
 Reveal.lua
 Peek.lua
-Rail.lua
+Toast.lua
+Center.lua
+Panel.lua
+Sources.lua
+Chat.lua
 Outline.lua
 Testing.lua
 Rules.lua

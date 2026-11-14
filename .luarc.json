@@ -1,0 +1,72 @@
+{
+  "$schema": "https://raw.githubusercontent.com/LuaLS/vscode-lua/master/setting/schema.json",
+  "runtime": {
+    "version": "Lua 5.1"
+  },
+  "diagnostics": {
+    "globals": [
+      "BACKPACK_CONTAINER",
+      "BINDING_HEADER_MYUI",
+      "BINDING_NAME_MYUI_PEEK",
+      "C_AddOns",
+      "C_Container",
+      "C_CurrencyInfo",
+      "C_CurveUtil",
+      "C_Item",
+      "C_QuestLog",
+      "C_Timer",
+      "ChatFrameUtil",
+      "CreateColor",
+      "CreateFrame",
+      "DEFAULT_CHAT_FRAME",
+      "Enum",
+      "FACTION_STANDING_INCREASED",
+      "FACTION_STANDING_INCREASED_ACCOUNT_WIDE",
+      "FACTION_STANDING_INCREASED_ACH_BONUS",
+      "FACTION_STANDING_INCREASED_GENERIC",
+      "GetAchievementInfo",
+      "GetBuildInfo",
+      "GetCursorPosition",
+      "GetInventoryItemDurability",
+      "GetPhysicalScreenSize",
+      "GetTime",
+      "HasNewMail",
+      "InCombatLockdown",
+      "IsAltKeyDown",
+      "IsShiftKeyDown",
+      "LOOT_ITEM_PUSHED_SELF",
+      "LOOT_ITEM_SELF",
+      "LOOT_ITEM_SELF_MULTIPLE",
+      "MyUIDB",
+      "MyUI_Peek",
+      "NUM_TOTAL_EQUIPPED_BAG_SLOTS",
+      "SLASH_MYUI1",
+      "SLASH_MYUI2",
+      "STANDARD_TEXT_FONT",
+      "SecureCmdOptionParse",
+      "SlashCmdList",
+      "UIParent",
+      "UnitExists",
+      "UnitGUID",
+      "UnitHealth",
+      "UnitHealthMax",
+      "UnitHealthPercent",
+      "UnitPowerPercent",
+      "date",
+      "issecretvalue"
+    ],
+    "disable": [
+      "duplicate-set-field"
+    ]
+  },
+  "workspace": {
+    "checkThirdParty": false,
+    "ignoreDir": [
+      ".git",
+      "test/fixtures"
+    ]
+  },
+  "format": {
+    "enable": false
+  }
+}
