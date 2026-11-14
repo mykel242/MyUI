@@ -25,6 +25,7 @@ Center.lua
 Panel.lua
 Sources.lua
 Chat.lua
+Clear.lua
 Outline.lua
 Testing.lua
 Rules.lua

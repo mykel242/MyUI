@@ -225,6 +225,8 @@ local COMMANDS = {
     { "what",         "name whatever is under the cursor; bind MyUI -> Name what" },
     { "stow",         "take Blizzard furniture off the screen: raid | show raid" },
     { "panel",        "the dev panel: the toggles as switches" },
+    { "clear",        "clear the screen (SPEC 11): on | probe -- tests the player-frame filter" },
+    { "restore",      "put back everything clearing took" },
     { "text",         "legibility over bright scenery: shadow | outline | none" },
     { "contrast",     "the dim grey: lift is SPEC 7; normal is the value it replaced" },
     { "rules",        "the 12.1 compliance contract, printed" },
@@ -478,6 +480,30 @@ local HANDLERS = {
                  :format(arg ~= "" and (", filtered to " .. arg) or ""))
     end,
 
+    clear        = function(arg)
+        local Clear = ns.Clear
+        arg = (arg or ""):lower():gsub("%s+$", "")
+        if arg == "probe" then
+            local r = Clear.ProbePlayer()
+            if r.error then
+                ns.Print("probe: " .. r.error)
+                return
+            end
+            ns.Print(("player-frame filter: SetRolesets %s, filtered %s, visible %s -> %s; restored %s")
+                     :format(r.setOk and "ok" or ("failed: " .. tostring(r.setError)),
+                             tostring(r.filtered), tostring(r.visibleBefore),
+                             tostring(r.visibleDuring), tostring(r.restored)))
+            return
+        end
+        local n = Clear.Apply()
+        ns.Print(("clearing on -- %d Blizzard frame(s) adopted at alpha 0; "):format(n)
+                 .. "peek or hover summons them. |cffadb1b8/myui restore|r undoes it.")
+    end,
+    restore      = function()
+        local n = ns.Clear.Restore()
+        ns.Print(("restored -- %d adopted frame(s) back at their own alpha. "):format(n)
+                 .. "|cffadb1b8/myui clear|r clears again.")
+    end,
     panel        = function()
         if not ns.Panel then return end
         ns.Panel.Toggle()

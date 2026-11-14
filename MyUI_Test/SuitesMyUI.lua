@@ -358,3 +358,70 @@ T.Suite("myui-toasts", {
           end },
     },
 })
+
+-- ---------------------------------------------------------------------------
+-- R3b -- clearing the screen (SPEC 11)
+-- ---------------------------------------------------------------------------
+-- Checks, not shots: adopted frames are Blizzard's chat, minimap and bags, and
+-- a crop of chat is other people's names and words.
+
+local function Target(api, name)
+    local e = api.ns().Registry.Get(name)
+    return e and e.target
+end
+
+T.Suite("myui-clear", {
+    title = "R3b -- clearing the screen",
+    requires = function(api)
+        local ok, why = NeedMyUI(api)
+        if not ok then return ok, why end
+        if not api.ns().Clear then return false, "no Clear module" end
+        return true
+    end,
+    before = function(api) Baseline(api) end,
+    after = function(api)
+        local ns = api.ns()
+        ns.Reveal.Release("peek")
+        ns.Reveal.Release("whisper")
+        ns.Reveal.Snap()
+    end,
+    tests = {
+        { id = "adopted", shot = false,
+          what = "Chat, minimap and bags adopted at resting alpha 0.",
+          check = function(api)
+              local Clear = api.ns().Clear
+              if not Clear.Enabled() then return false, "clearing is off (/myui restore)" end
+              local missing = {}
+              for _, spec in ipairs(Clear.ADOPT) do
+                  if Target(api, spec[1]) ~= 0 then missing[#missing + 1] = spec[1] end
+              end
+              return #missing == 0, #missing == 0 and "all at 0" or ("not at 0: " .. table.concat(missing, ", "))
+          end },
+        { id = "peek-reveals", shot = false,
+          what = "Peek summons them.",
+          setup = function(api) api.ns().Reveal.Claim("peek") end,
+          check = function(api)
+              return Target(api, "Chat") == 1 and Target(api, "Minimap") == 1,
+                     ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
+          end,
+          teardown = function(api) api.ns().Reveal.Release("peek") end },
+        { id = "whisper-reveals-chat", shot = false,
+          what = "A whisper summons chat, and only chat.",
+          setup = function(api) api.ns().Clear.OnWhisper() end,
+          check = function(api)
+              return Target(api, "Chat") == 1 and Target(api, "Minimap") == 0,
+                     ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
+          end,
+          teardown = function(api) api.ns().Reveal.Release("whisper") end },
+        { id = "player-frame-probe", shot = false,
+          what = "SPEC 11's roleset filter on PlayerFrame: does it actually filter? (records, restores)",
+          check = function(api)
+              local r = api.ns().Clear.ProbePlayer()
+              if r.error then return false, r.error end
+              return r.filtered == true and r.restored and not r.filteredAfter,
+                     ("set %s, filtered %s, visible %s->%s, restored %s, blocked before [%s]"):format(
+                         tostring(r.setOk), tostring(r.filtered), tostring(r.visibleBefore),
+                         tostring(r.visibleDuring), tostring(r.restored), tostring(r.blockedBefore))
+          end },
+    },
+})

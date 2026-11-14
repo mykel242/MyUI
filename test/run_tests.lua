@@ -51,7 +51,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 21, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 22, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -1479,7 +1479,8 @@ end
 
 check("bare /myui prints help", output(""):find("audit", 1, true) ~= nil)
 check("prefix 'aud' resolves to audit", output("aud"):find("audit --", 1, true) ~= nil)
-check("prefix 'r' resolves to rules", output("r"):find("Forwarding a secret", 1, true) ~= nil)
+-- "r" is ambiguous since R3b added restore; "ru" is not.
+check("prefix 'ru' resolves to rules", output("ru"):find("Forwarding a secret", 1, true) ~= nil)
 check("unknown command is reported", output("zzz"):find("unknown command", 1, true) ~= nil)
 
 Guard.Reset()
@@ -2686,6 +2687,90 @@ check("  and refuses a hue that does not exist", (function()
     return ns.GetOutput():find("unknown hue", 1, true) ~= nil
 end)())
 run("center close")
+
+-- ---------------------------------------------------------------------------
+section("Clearing -- SPEC 11, R3b")
+-- ---------------------------------------------------------------------------
+-- Adoption: Blizzard's chat, minimap and bags at resting alpha 0, revealed by
+-- the ordinary engine. Alpha only, so no combat queue.
+
+do
+    local Clear = ns.Clear
+    local made = {}
+    for _, spec in ipairs(Clear.ADOPT) do
+        made[spec[2]] = mock.frame({ name = spec[2] })
+        _G[spec[2]] = made[spec[2]]
+        made[spec[2]]:SetAlpha(0.9)
+    end
+    local before = Registry.Count()
+
+    local n = Clear.Apply()
+    check("every adopted frame is registered", n == #Clear.ADOPT
+          and Registry.Count() == before + #Clear.ADOPT, n)
+    check("  at resting alpha 0", (function()
+        for _, spec in ipairs(Clear.ADOPT) do
+            local e = Registry.Get(spec[1])
+            if not e or e.resting ~= 0 or e.target ~= 0 then return false, spec[1] end
+        end
+        return true
+    end)())
+    check("  and the chat edit box left the log first", ns.Chat.editBoxFreed == true
+          or _G.ChatFrame1EditBox == nil)
+    check("applying twice adopts nothing new", Clear.Apply() == 0)
+
+    Reveal.Claim("peek")
+    check("peek reveals them", Registry.Get("Minimap").target == 1 and Registry.Get("Chat").target == 1)
+    Reveal.Release("peek")
+    check("  and they settle back to 0", Registry.Get("Minimap").target == 0)
+
+    Reveal.Claim("combat")
+    check("combat does not reveal them (it is scoped to SelfStack and Cooldowns)",
+          Registry.Get("Chat").target == 0 and Registry.Get("SelfStack").target == 1)
+    Reveal.Release("combat")
+
+    Clear.OnWhisper()
+    check("a whisper reveals chat", Registry.Get("Chat").target == 1
+          and Registry.Get("ChatDock").target == 1)
+    check("  and only chat", Registry.Get("Minimap").target == 0
+          and Registry.Get("SelfStack").target == 0.35)
+    mock.advance(ns, Clear.WHISPER_HOLD - 1)
+    check("  held for the 8s", Registry.Get("Chat").target == 1)
+    Clear.OnWhisper()
+    mock.advance(ns, Clear.WHISPER_HOLD - 1)
+    check("  a second whisper restarts the hold", Registry.Get("Chat").target == 1)
+    mock.advance(ns, 2)
+    check("  then lets go", Registry.Get("Chat").target == 0)
+
+    run("restore")
+    check("/myui restore unregisters them", Registry.Count() == before, Registry.Count())
+    check("  and gives back their own alpha", made.MinimapCluster:GetAlpha() == 0.9,
+          made.MinimapCluster:GetAlpha())
+    check("  and is remembered", Clear.Enabled() == false)
+    run("clear")
+    check("/myui clear turns it back on", Clear.Enabled() and Registry.Get("Bags") ~= nil)
+    run("restore")
+
+    -- The probe: SPEC 11's filter on PlayerFrame, tried and put back.
+    local player = mock.frame({ name = "PlayerFrame" })
+    local rolesets = "unitFrames"
+    player.SetRolesets = function(_, r) rolesets = r end
+    player.IsRolesetFiltered = function() return rolesets == "myuiCleared" end
+    player.IsVisible = function() return rolesets ~= "myuiCleared" end
+    _G.PlayerFrame = player
+    local r = Clear.ProbePlayer()
+    check("the probe tries the filter and reads it", r.setOk and r.filtered == true
+          and r.visibleDuring == false)
+    check("  and puts the frame back exactly", rolesets == "unitFrames" and r.filteredAfter == false)
+    check("  and records it for reading off disk", ns.db.clear.probe == r)
+    local was = _G.InCombatLockdown
+    _G.InCombatLockdown = function() return true end
+    rolesets = "unitFrames"
+    local r2 = Clear.ProbePlayer()
+    _G.InCombatLockdown = was
+    check("  never in combat: SetRolesets is protected", r2.error ~= nil and rolesets == "unitFrames")
+    _G.PlayerFrame = nil
+    for _, spec in ipairs(Clear.ADOPT) do _G[spec[2]] = nil end
+end
 
 -- ---------------------------------------------------------------------------
 print("")

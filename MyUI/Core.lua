@@ -233,6 +233,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             -- Last: the box borrows Frames' font and the palette,
             -- and nothing else depends on it existing.
             { "chat override", ns.Chat   },
+            -- After chat: adopting the log frees the edit box first.
+            { "clearing",     ns.Clear    },
         }) do
             local label, module = step[1], step[2]
             if module and module.OnLogin then
