@@ -137,10 +137,16 @@ SPEC § 9. Port the grid, snapping and persistence into MyUI; inspector and over
 **Pixel-exact scale per screen** (added 2026-11-14). Rebar set `uiScale 0.8` for the 5120×2880
 display, where it is exactly 3 px/unit; it is one account-wide number, the maximised window
 takes whatever display it opens on, and nothing recomputed it — 2.33 px/unit on the laptop
-panel. On login and on a display change, out of combat, the layout layer measures the window
-and applies the nearest scale giving a whole number of physical pixels per unit (laptop
-3456×2234 → 0.6876 at 2 px/unit; 5120×2880 → 0.8 at 3), within the client's limits. It reports
-what it chose; the player can pin a scale instead.
+panel, where Mykel also found **everything too small to read** (2026-11-14).
+
+So **readable first, then crisp.** On login and on a display change, out of combat, the
+layout layer takes a target size (default: Blizzard's own, uiScale 1.0, i.e. height ÷ 768
+px/unit), rounds it to the nearest whole number of physical pixels per unit, and applies that
+scale to `UIParent` — which may sit just past the cvar's 1.0 ceiling. Laptop 3456×2234:
+2.91 → **3 px/unit, scale 1.031**. 5120×2880: 3.75 → 4 (or 3 at 0.8 if the player prefers the
+smaller size). It reports what it chose; the player can set the target size or pin a scale.
+Never the nearest-smaller step for crispness alone: 2 px/unit on the laptop (0.6876) is
+crisp and unreadable.
 
 **Acceptance:** saved positions survive the migration; Rebar's never-run drag-snap test
 passes; the grid is pixel-exact per the harness **on every screen it runs on**, and the
