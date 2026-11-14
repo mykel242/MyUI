@@ -224,8 +224,8 @@ record you can summon.
 
 ### History
 
-- Every notification is written to a per-character log (`Log.lua` in the Aug 28 work), with a
-  hard ceiling and nothing expiring by age.
+- Every notification is written to a per-character log (`Log.lua`), with a hard ceiling
+  (5,000) and nothing expiring by age.
 - The history is **summoned by a key**, filtered by hue, and returns to nothing when closed.
   The Aug 28 notification centre (`Center.lua`) is the starting point, reattached to toasts
   instead of the rail.
@@ -384,10 +384,20 @@ which is the second reason they are adopted rather than hidden.
 
 `/myui restore` reverses all three, in combat-safe order, and prints what it undid.
 
-**Superseded in part by the Aug 28 work.** `Stow.lua` removes Blizzard frames by reparenting
-them under a hidden frame, so Blizzard's own Show/Hide calls keep succeeding with nowhere to
-draw. That is a different technique from filtering and hiding above, and it was never
-specified. PLAN phase R3 decides which stands, per frame, and records it here.
+**Stowed — a fourth technique, ruled in R3 (2026-11-14).** `Stow.lua` reparents a frame under
+a hidden parent, so Blizzard's own Show/Hide calls keep succeeding with nowhere to draw. It is
+used only for a frame that is **unprotected, that Blizzard keeps showing itself, and that
+MyUI has replaced**; anything not yet replaced stays adopted, because a stowed frame cannot
+be summoned. Never for a protected frame.
+
+| Frame | Technique |
+|---|---|
+| Player frame | Filtered (roleset), out of combat only |
+| Action bars | Hidden by the `MyUI` Edit Mode layout |
+| Chat log, tabs, dock, buttons | Adopted now; **stowed** once MyUI's chat view exists. The edit box is freed first |
+| Raid manager tab (`CompactRaidFrameManager`) | **Stowed**, queued out of combat |
+| Minimap, bags | Adopted until replaced; decided when built |
+| Objective tracker | Alpha only (§ 13) |
 
 
 ## 12. Modules carried in from the author's other addons

@@ -65,3 +65,15 @@ not separate pieces held together.
 - **The spec moves into the MyUI repo** (`design/`); `UI - Rebar` is archived.
 - **GitHub mirror is public.**
 - **Licence: MIT.**
+
+## R3 rulings — 2026-11-14
+
+On `R3-INVENTORY.md`:
+
+1. **Merge `wip/aug28` and cut from it** — it is ahead of `main`, not beside it.
+2. **The rail goes**; its toast moves to `Toast.lua` at `ToastAnchor`. `Log.lua` is the
+   history's record and `Center.lua` the summoned view. `Sources.lua`: achievements → amber,
+   "You died" (red) dropped, whispers → violet added.
+3. **Stow, per frame**, as recorded in SPEC § 11.
+4. **`Panel.lua`** stays as a dev aid opened by `/myui panel` (no minimap button); it becomes
+   MyUI's entry in the § 14 minimap menu once that exists.
