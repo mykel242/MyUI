@@ -45,6 +45,7 @@ local SHOT_GAP = 1.2
 --       frames  = { "GlobalName", ... } or function(api) return {name=frame,...} end,
 --       regions = { { "name", x, y, w, h }, ... },  -- fixed boxes, normalised, top-left
 --       check   = function(api) return ok, detail end,  -- optional
+--       beforeShot = function(api) end,             -- just before the screenshot
 --       shot    = false,                        -- check-only test
 --       teardown= function(api) end,
 --   }, ... },
@@ -283,7 +284,10 @@ end
 -- covered TargetStrip in the first in-game run), Rebar's grid (persisted
 -- user state; the Rebar suite raises it for its own tests), and our own
 -- windows. Alpha only, restored afterwards -- none of these is protected.
-local QUIET = { "ActionStatus", "TalkingHeadFrame", "RebarGrid", "MyUITestWindow", "MyUICopy" }
+-- The XP bar and the damage meter sit under the Rebar grid's readout and
+-- corner boxes and change as you play.
+local QUIET = { "ActionStatus", "TalkingHeadFrame", "RebarGrid", "StatusTrackingBarManager",
+                "DamageMeter", "MyUITestWindow", "MyUICopy" }
 local quieted = {}
 
 local function Quiet(on)
@@ -350,6 +354,9 @@ local function RunTest(suite, test)
     if test.shot ~= false then
         local gap = SHOT_GAP - (GetTime() - lastShotAt)
         if gap > 0 then Wait(gap) end
+        -- Last-moment touch-ups that must not depend on how long the waits
+        -- took (a rail age reading 0s in one run and 1s in the next).
+        Protected(key .. " beforeShot", test.beforeShot, api)
         local frames = FramesFor(test)
         local before = time()
         Screenshot()

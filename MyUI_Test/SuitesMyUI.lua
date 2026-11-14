@@ -258,6 +258,16 @@ local function RailFrames(api)
     return f
 end
 
+-- Ages count up in whole seconds, and how long a test's waits take varies by
+-- a second either way. Stamp every item "now" just before the shot so every
+-- row reads 0s, in every run.
+local function FreshAges(api)
+    local ns = api.ns()
+    local now = ns.Reveal.Now()
+    for _, item in ipairs(ns.Rail.items) do item.at = now end
+    ns.Rail.Refresh()
+end
+
 T.Suite("myui-p3", {
     title = "Phase 3 -- the rail",
     requires = NeedMyUI,
@@ -266,7 +276,7 @@ T.Suite("myui-p3", {
     tests = {
         { id = "empty",
           what = "The rail at rest: one vertical hairline, nothing else. Calm.",
-          setup = function(api) Baseline(api) end, frames = RailFrames,
+          setup = function(api) Baseline(api) end, frames = RailFrames, beforeShot = FreshAges,
           check = function(api)
               local n = #api.ns().Rail.items
               return n == 0, n .. " items"
@@ -275,7 +285,7 @@ T.Suite("myui-p3", {
         { id = "toast",
           what = "A blue Whisper toast slid in near the top of the rail.",
           setup = function(api) Baseline(api); api.myui("notify blue Whisper") end,
-          wait = 0.8, frames = RailFrames,
+          wait = 0.8, frames = RailFrames, beforeShot = FreshAges,
           check = function(api)
               local on = api.ns().Rail.IsToasting()
               return on and true or false, on and "toasting" or "no toast"
@@ -289,7 +299,7 @@ T.Suite("myui-p3", {
               api.myui("notify blue Whisper"); api.myui("notify dismiss")
               api.myui("notify amber Loot"); api.myui("notify dismiss")
           end,
-          frames = RailFrames,
+          frames = RailFrames, beforeShot = FreshAges,
           check = function(api)
               local items = api.ns().Rail.items
               return #items == 2 and items[1].name == "Loot",
@@ -302,7 +312,7 @@ T.Suite("myui-p3", {
           setup = function(api)
               Baseline(api); api.myui("notify demo"); api.myui("notify dismiss")
           end,
-          frames = RailFrames,
+          frames = RailFrames, beforeShot = FreshAges,
           check = function(api)
               local Rail = api.ns().Rail
               local shown = 0
@@ -320,7 +330,7 @@ T.Suite("myui-p3", {
               Baseline(api); api.myui("contrast normal")
               api.myui("notify demo"); api.myui("notify dismiss")
           end,
-          frames = RailFrames,
+          frames = RailFrames, beforeShot = FreshAges,
           teardown = function(api)
               local ns = api.ns()
               if saved and ns.db then ns.db.contrast = saved.contrast; ns.Frames.RestyleText() end
