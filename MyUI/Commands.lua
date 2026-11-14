@@ -217,10 +217,15 @@ local COMMANDS = {
     { "test",         "the acceptance checklist; test report | reset | <phase>" },
     { "outline",      "diagnostic boxes around every frame, above everything" },
     { "claims",       "who is claiming each frame, and every recent transition" },
-    { "modifier",     "which keys reveal the HUD: alt shift ctrl, or none" },
     { "notify",       "feed the rail: <type> [name] [count] | demo | clear | dismiss" },
+    { "sources",      "what feeds the rail for real: thresholds, readings, latches" },
+    { "log",          "the record behind the rail: <hue> to filter | clear" },
+    { "chat",         "our edit box instead of Blizzard's: on | off | hide | show" },
+    { "center",       "the notification centre: <hue> to open filtered | close" },
+    { "what",         "name whatever is under the cursor; bind MyUI -> Name what" },
+    { "stow",         "take Blizzard furniture off the screen: raid | show raid" },
     { "text",         "legibility over bright scenery: shadow | outline | none" },
-    { "contrast",     "lift the dim greys one palette step: normal | lift" },
+    { "contrast",     "the dim grey: lift is SPEC 7; normal is the value it replaced" },
     { "rules",        "the 12.1 compliance contract, printed" },
     { "audit",        "every frame, its resting alpha, live alpha and reveal claim" },
     { "guard",        "strict | warn | reset -- how violations are reported" },
@@ -244,7 +249,23 @@ local HANDLERS = {
     help         = Help,
     show         = function(arg)
         local on
-        if arg == "off" then
+        if arg == "hide" then
+            if not Chat.IsOverriding() then
+                ns.Print("not while the override is off -- you would have no way to type.")
+                return
+            end
+            Chat.HideLog()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = true end
+            ns.Print(("chat log stowed -- %d frame(s) out of sight."):format(Chat.StowedCount()))
+            ns.Raw("  Enter still opens ours, / still opens Blizzard's.")
+            ns.Raw("  |cffadb1b8/myui chat show|r brings the furniture back")
+            return
+        elseif arg == "show" then
+            Chat.ShowLog()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = false end
+            ns.Print("chat log back. A /reload restores Blizzard's exact layout.")
+            return
+        elseif arg == "off" then
             on = false
         elseif arg == "on" then
             on = true
@@ -278,13 +299,13 @@ local HANDLERS = {
         end
         ns.Print("contrast: |cfff0f1f3" .. Frames.Contrast() .. "|r")
         ns.Raw("  A shadow rescues light text on a light backdrop and does nothing "
-               .. "for the dim greys.")
-        ns.Raw("  |cffadb1b8lift|r moves tertiary to secondary and secondary to "
-               .. "primary -- still SPEC 7, no fifteenth colour.")
-        ns.Raw("  |cffadb1b8lift is the default|r -- a deliberate deviation. SPEC 6 "
-               .. "names rgba(115,119,126,1) for the age,")
-        ns.Raw("  and it is unreadable over ordinary terrain. "
-               .. "|cffadb1b8/myui contrast normal|r restores the spec exactly.")
+               .. "for the dim grey.")
+        ns.Raw("  |cffadb1b8lift|r is rgba(173,177,184,1) -- textDim, and since the "
+               .. "SPEC 7 amendment simply the spec.")
+        ns.Raw("  |cffadb1b8normal|r is rgba(115,119,126,1), the value it replaced: "
+               .. "unreadable over ordinary terrain,")
+        ns.Raw("  no longer a palette entry, and kept only so the original intent "
+               .. "can still be looked at.")
     end,
     text         = function(arg)
         local Frames = ns.Frames
@@ -322,12 +343,12 @@ local HANDLERS = {
         end
         if arg == "demo" then
             -- Ten, so the 8-dot cap and the "+2 more" square both show.
-            local kinds = { "blue", "amber", "green", "violet", "orange" }
-            for i = 1, 10 do
+            local kinds = { "blue", "amber", "green", "violet", "orange", "red" }
+            for i = 1, 12 do
                 Rail.Add(kinds[(i - 1) % #kinds + 1], "Notice " .. i, i % 3 + 1)
             end
-            ns.Print(("added 10 -- %d dots capped, %d behind the square")
-                     :format(Rail.CAP, Rail.Overflow()))
+            ns.Print(("added 12 -- %d dots live at pitch %d, none hidden")
+                     :format(#Rail.items, Rail.Pitch()))
             return
         end
 
@@ -345,37 +366,256 @@ local HANDLERS = {
         ns.Print(("%s: %s x%d -- %d on the rail")
                  :format(item.kind, item.name, item.count, #Rail.items))
     end,
-    modifier     = function(arg)
-        local Reveal = ns.Reveal
-        if arg and arg ~= "" then
-            local names = {}
-            for word in arg:gmatch("%a+") do
-                names[#names + 1] = word
-            end
-            local set, bad = Reveal.SetModifiers(names)
-            if not set then
-                ns.Print(("unknown modifier %q -- alt, shift, ctrl or none"):format(bad))
-                return
-            end
+    -- SPEC 6's sources are conditions as much as events, and a condition that
+    -- has already latched looks exactly like one that never fired. This prints
+    -- the readings beside the latches so the two can be told apart -- which is
+    -- the only way to check the stream rule in game without filling your bags
+    -- twice.
+    -- The rail forgets on purpose now -- dots decay, and the pool has a
+    -- ceiling. This is the thing that makes that honest, so it needs to be
+    -- readable without opening the SavedVariables file.
+    log          = function(arg)
+        local Log = ns.Log
+        if not Log or not Log.db then
+            ns.Print("no log")
+            return
+        end
+        arg = (arg or ""):lower():gsub("%s+$", "")
+
+        if arg == "clear" then
+            local n = Log.Count()
+            Log.Clear()
+            ns.Print(("cleared %d entries."):format(n))
+            return
         end
 
-        local active = {}
-        for name in pairs(Reveal.Modifiers()) do
-            active[#active + 1] = name
+        local kind = arg ~= "" and arg or nil
+        if kind and not ns.Rail.HUES[kind] then
+            ns.Print(("unknown hue %q -- blue, amber, green, violet, orange, red"):format(kind))
+            return
         end
-        table.sort(active)
-        if #active == 0 then
-            ns.Print("modifier reveal is |cfff26b61off|r. "
-                     .. "|cffadb1b8/myui modifier alt shift|r to re-enable.")
+
+        local tally = Log.Tally()
+        ns.Print(("%d kept, per character, ceiling %d"):format(Log.Count(), Log.MAX))
+        local counts = {}
+        for hue in pairs(ns.Rail.HUES) do
+            counts[#counts + 1] = ("%s %d"):format(hue, tally[hue] or 0)
+        end
+        table.sort(counts)
+        ns.Raw("  " .. table.concat(counts, "   "))
+
+        local rows = Log.Filter(kind, 15)
+        if #rows == 0 then
+            ns.Raw("  nothing recorded" .. (kind and (" for " .. kind) or ""))
+            return
+        end
+        for _, e in ipairs(rows) do
+            local when = date and date("%H:%M:%S", e.at) or tostring(e.at)
+            ns.Raw(("  %s  %-7s %s%s"):format(
+                tostring(when), e.kind, tostring(e.name),
+                (e.count or 1) > 1 and (" x" .. e.count) or ""))
+        end
+        if Log.Count(kind) > #rows then
+            ns.Raw(("  ... %d more"):format(Log.Count(kind) - #rows))
+        end
+    end,
+
+    -- FOUND IN GAME: CompactRaidFrameManager is 221x361 at the left edge,
+    -- exactly where the rail lives, and appears whenever you are in a group or
+    -- Edit Mode is force-showing party frames.
+    stow         = function(arg)
+        local Stow = ns.Stow
+        if not Stow then
+            ns.Print("no stow module")
+            return
+        end
+        arg = (arg or ""):lower():gsub("%s+$", "")
+        local show, group = arg:match("^(show)%s+(%a+)$")
+        group = group or arg
+
+        if group == "" then
+            ns.Print("what is off the screen")
+            for name, spec in pairs(Stow.GROUPS) do
+                ns.Raw(("  %-6s %-8s %s"):format(
+                    name, Stow.IsStowed(name) and "stowed" or "visible", spec.label))
+            end
+            ns.Raw("  |cffadb1b8/myui stow raid|r to hide one, "
+                   .. "|cffadb1b8/myui stow show raid|r to bring it back")
+            return
+        end
+        if not Stow.GROUPS[group] then
+            ns.Print(("no such group %q"):format(group))
+            return
+        end
+
+        if show then
+            local back, err = Stow.Restore(group)
+            if ns.db and group == "raid" then ns.db.stow.raid = false end
+            ns.Print(back and ("%d frame(s) back."):format(back) or tostring(err))
+            return
+        end
+
+        local moved, err = Stow.Group(group)
+        if not moved then
+            ns.Print(tostring(err))
+            return
+        end
+        if ns.db and group == "raid" then ns.db.stow.raid = true end
+        ns.Print(("%d frame(s) stowed -- %s"):format(moved, Stow.GROUPS[group].label))
+    end,
+
+    what         = function()
+        if ns.Outline and ns.Outline.Under then
+            ns.Outline.Under()
         else
-            ns.Print("modifier reveal: |cfff0f1f3" .. table.concat(active, " + ") .. "|r")
+            ns.Print("no diagnostics module")
         end
-        ns.Raw("  Alt and Shift are SPEC's default, but in a normal layout every "
-               .. "modifier is already bound to an ability row.")
-        ns.Raw("  |cffadb1b8/myui modifier none|r turns key detection off; then bind "
-               .. "|cfff0f1f3MyUI -> Hold to reveal|r")
-        ns.Raw("  to any free key and the same channel works without fighting your "
-               .. "keybinds.")
+    end,
+
+    center       = function(arg)
+        local Center = ns.Center
+        if not Center then
+            ns.Print("no centre module")
+            return
+        end
+        arg = (arg or ""):lower():gsub("%s+$", "")
+        if arg == "close" then
+            Center.Close()
+            ns.Print("centre closed.")
+            return
+        end
+        if arg ~= "" and not ns.Rail.HUES[arg] then
+            ns.Print(("unknown hue %q -- blue, amber, green, violet, orange, red"):format(arg))
+            return
+        end
+        Center.Open(arg ~= "" and arg or nil)
+        ns.Print(("centre open%s. Escape or the binding closes it.")
+                 :format(arg ~= "" and (", filtered to " .. arg) or ""))
+    end,
+
+    chat         = function(arg)
+        local Chat = ns.Chat
+        if not Chat then
+            ns.Print("no chat module")
+            return
+        end
+        arg = (arg or ""):lower():gsub("%s+$", "")
+
+        if arg == "hide" then
+            if not Chat.IsOverriding() then
+                ns.Print("not while the override is off -- you would have no way to type.")
+                return
+            end
+            Chat.HideLog()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = true end
+            ns.Print(("chat log stowed -- %d frame(s) out of sight."):format(Chat.StowedCount()))
+            ns.Raw("  Enter still opens ours, / still opens Blizzard's.")
+            ns.Raw("  |cffadb1b8/myui chat show|r brings the furniture back")
+            return
+        elseif arg == "show" then
+            Chat.ShowLog()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = false end
+            ns.Print("chat log back. A /reload restores Blizzard's exact layout.")
+            return
+        elseif arg == "off" then
+            Chat.Disable()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.override = false end
+            ns.Print("override cleared -- Enter opens Blizzard's chat box again.")
+            return
+        elseif arg == "on" then
+            local ok, err = Chat.Enable()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.override = true end
+            ns.Print(ok and "override installed -- Enter opens ours."
+                        or ("could not install: " .. tostring(err)))
+            return
+        end
+
+        local p = Chat.Probe()
+        ns.Print(("chat override %s"):format(Chat.IsOverriding() and "installed" or "NOT installed"))
+        if Chat.lastError then
+            ns.Raw("  |cfff26b61why|r        " .. tostring(Chat.lastError))
+        end
+        if Chat.route then
+            ns.Raw("  via        " .. tostring(Chat.route))
+        end
+        -- What this client really offers. The reference dump is 12.1.0.69497
+        -- and the live build can differ; guessing is what cost the first try.
+        ns.Raw(("  client     ChatFrameUtil %s, Set %s, Get %s, Clear %s, OpenChat %s")
+               :format(p.util and "yes" or "NO", p.set and "yes" or "NO",
+                       p.get and "yes" or "NO", p.clear and "yes" or "NO",
+                       p.open and "yes" or "NO"))
+        ns.Raw("  legacy     ChatFrame_SetChatFocusOverride "
+               .. (p.legacySet and "yes" or "NO"))
+        ns.Raw("  global     CHAT_FOCUS_OVERRIDE is "
+               .. (p.globalHeld == nil and "nil"
+                   or (p.globalHeld == Chat.box and "ours" or "someone else's")))
+        -- The question the reference source cannot answer, so we watch for it.
+        -- Expected, not a fault: ChatFrameUtil.ActivateChat drops the
+        -- override as its first line, and pressing "/" goes through it.
+        ns.Raw(("  taken back %d time(s) by ActivateChat, put back %d -- expected")
+               :format(Chat.clears or 0, Chat.reasserts or 0))
+        if Chat.displacedBy then
+            ns.Raw("  displaced by " .. tostring(Chat.displacedBy))
+        end
+        if Chat.clearedBy then
+            for line in tostring(Chat.clearedBy):gmatch("[^\n]+") do
+                if line:find("%S") then ns.Raw("    " .. line) end
+            end
+        end
+        ns.Raw("  our box    " .. (Chat.box and Chat.box:GetName() or "not built"))
+        ns.Raw("  Blizzard's " .. (function()
+            local b = Chat.SendBox()
+            return b and (b.GetName and b:GetName() or "found") or "NOT FOUND -- sending would fail"
+        end)())
+        ns.Raw("  talking to " .. Chat.Label())
+        ns.Raw(("  log        %s (%d frame(s) stowed)")
+               :format(Chat.logHidden and "hidden" or "visible", Chat.StowedCount()))
+        ns.Raw("  edit box   " .. (Chat.editBoxFreed
+               and "moved out of the chat frame, so / still works"
+               or "still inside Blizzard's chat frame"))
+        -- The flag is the reason the chat frame gets hidden and never removed.
+        ns.Raw("  slash commands " .. (Chat.SUPPORTS_SLASH and "come here"
+               or "fall through to Blizzard, which is why its frame has to stay"))
+        ns.Raw("  |cffadb1b8/myui chat off|r puts the game back exactly as it was")
+    end,
+
+    sources      = function()
+        local Sources = ns.Sources
+        if not Sources then
+            ns.Print("no sources module")
+            return
+        end
+        ns.Print("what feeds the rail -- SPEC 6 plus Round 5, six hues")
+        ns.Raw("  |cff8cc8ffblue|r   loot     |cffffd159amber|r  quests    "
+               .. "|cffa6d98cgreen|r  currency, reputation")
+        ns.Raw("  |cffd1b3ffviolet|r achievements        "
+               .. "|cfff29e73orange|r mail, bags, durability, invites")
+        ns.Raw(" ")
+        ns.Raw(("  loot at quality |cfff0f1f3%d|r and above")
+               :format(Sources.Setting("lootQuality")))
+        ns.Raw(("  durability warns at |cfff0f1f3%d%%|r")
+               :format(Sources.Setting("durability") * 100))
+        ns.Raw(("  bags warn at |cfff0f1f3%d|r free slots or fewer")
+               :format(Sources.Setting("bagFree")))
+        ns.Raw(" ")
+
+        local free = Sources.FreeBagSlots()
+        local worn = Sources.WorstDurability()
+        ns.Raw(("  reading now: %s free slots, worst durability %s"):format(
+            free and tostring(free) or "|cffadb1b8unreadable|r",
+            worn and ("%d%%"):format(worn * 100) or "|cffadb1b8unreadable|r"))
+
+        local held = {}
+        for key in pairs(Sources.latched) do
+            held[#held + 1] = key
+        end
+        table.sort(held)
+        if #held == 0 then
+            ns.Raw("  nothing latched -- every condition would speak if it became true")
+        else
+            ns.Raw("  latched (already spoken, will not repeat): |cfff26b61"
+                   .. table.concat(held, ", ") .. "|r")
+        end
     end,
     claims       = function(arg)
         local Reveal = ns.Reveal
@@ -420,18 +660,30 @@ local HANDLERS = {
                 if e.kind == "release" then
                     mark = "|cfff26b61-|r"
                 end
-                local via = ""
-                if e.via then
-                    via = " |cff73777evia " .. e.via .. "|r"
-                end
-                ns.Raw(("  %7s  %s %s %s%s"):format(
-                    when, mark, e.channel, e.frame or "|cffadb1b8(all)|r", via))
+                ns.Raw(("  %7s  %s %s %s"):format(
+                    when, mark, e.channel, e.frame or "|cffadb1b8(all)|r"))
             end
         end
     end,
     outline      = function(arg)
         local on
-        if arg == "off" then
+        if arg == "hide" then
+            if not Chat.IsOverriding() then
+                ns.Print("not while the override is off -- you would have no way to type.")
+                return
+            end
+            Chat.HideLog()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = true end
+            ns.Print(("chat log stowed -- %d frame(s) out of sight."):format(Chat.StowedCount()))
+            ns.Raw("  Enter still opens ours, / still opens Blizzard's.")
+            ns.Raw("  |cffadb1b8/myui chat show|r brings the furniture back")
+            return
+        elseif arg == "show" then
+            Chat.ShowLog()
+            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = false end
+            ns.Print("chat log back. A /reload restores Blizzard's exact layout.")
+            return
+        elseif arg == "off" then
             on = false
         elseif arg == "on" then
             on = true
@@ -494,7 +746,12 @@ end
 SLASH_MYUI1 = "/myui"
 SLASH_MYUI2 = "/mui"
 
-SlashCmdList["MYUI"] = function(input)
+-- Exposed so the panel's switches run the same path a typed command does.
+-- A second way to change state is a second thing to keep in agreement; there
+-- is only one.
+ns.Commands = ns.Commands or {}
+
+local function Run(input)
     ns.ClearOutput()
     local word, rest = (input or ""):match("^%s*(%S*)%s*(.-)%s*$")
     if word == nil or word == "" then
@@ -536,3 +793,6 @@ SlashCmdList["MYUI"] = function(input)
         ns.db.lastOutput  = ns.GetOutput()
     end
 end
+
+ns.Commands.Run = Run
+SlashCmdList["MYUI"] = Run

@@ -141,7 +141,9 @@ function M.frame(spec)
         "SetTextColor", "SetStatusBarTexture", "SetDrawLayer",
         "SetDuration", "SetFromAlpha", "SetToAlpha", "SetOffset", "SetOrder",
         "SetShadowColor", "SetShadowOffset",
-        "SetSmoothing", "ClearAllPoints",
+        "SetSmoothing", "ClearAllPoints", "SetWordWrap",
+        -- Chat.lua's edit box.
+        "SetTextInsets", "SetMaxLetters", "ClearFocus",
     }) do
         f[method] = setter(method)
     end
@@ -180,8 +182,8 @@ function M.frame(spec)
         return group
     end
 
-    f.CreateTexture    = function() return M.frame({ objectType = "Texture" }) end
-    f.CreateFontString = function() return M.frame({ objectType = "FontString" }) end
+    f.CreateTexture    = function(...) return M.frame({ objectType = "Texture" }) end
+    f.CreateFontString = function(...) return M.frame({ objectType = "FontString" }) end
 
     -- Geometry. SetSize/SetPoint are recorded like any other setter; these read
     -- the last one back so tests can assert against SPEC.md rather than against
@@ -218,10 +220,22 @@ function M.frame(spec)
     f.GetFrameStrata = function() return f.__strata or "MEDIUM" end
     f.GetFrameLevel  = function() return f.__level or 1 end
     f.GetObjectType = function() return spec.objectType or "Frame" end
+
+    -- Parentage. Chat.lua stows Blizzard's chat frames under a hidden parent
+    -- rather than hiding them, because a hidden ChatFrame1 reports IsShown()
+    -- false and ChooseBoxForSend branches on that.
+    f.__parent = spec.parent
+    f.SetParent = function(_, parent) f.__parent = parent; log("SetParent", parent) end
+    f.GetParent = function() return f.__parent end
+    f.GetPoint = function(_, i)
+        local pt = f.__point
+        if not pt then return nil end
+        return pt[1], pt[2], pt[3], pt[4], pt[5]
+    end
     f.GetName = function() return spec.name end
 
     f.scripts = {}
-    f.RegisterEvent   = function() end
+    f.RegisterEvent   = function(...) end
     f.UnregisterEvent = function() end
     f.SetScript = function(_, name, fn) f.scripts[name] = fn end
     f.HookScript = function(_, name, fn)
@@ -297,6 +311,34 @@ function M.install()
     -- fades, the 3s peek -- can be tested against a real one.
     M.time = 1000
     _G.GetTime = function() return M.time end
+
+    -- Epoch seconds, for the log. GetTime() is seconds since the client
+    -- started and resets on reload, so it cannot date a record that outlives
+    -- the session. Anchored to a real timestamp and moved by M.time, so a test
+    -- that steps the session clock steps this one too.
+    M.epoch = 1787000000
+    _G.time = function() return math.floor(M.epoch + M.time) end
+
+    -- Post-hooks. The addon uses this to find out who takes the chat focus
+    -- override back, which is a question the reference source cannot answer:
+    -- nothing in Blizzard's Interface clears it except the function itself.
+    _G.hooksecurefunc = function(a, b, c)
+        local tbl, key, fn
+        if type(a) == "table" then tbl, key, fn = a, b, c else tbl, key, fn = _G, a, b end
+        local orig = tbl[key]
+        if type(orig) ~= "function" then error("hooksecurefunc: no such function") end
+        tbl[key] = function(...)
+            local r = { orig(...) }
+            fn(...)
+            return unpk(r)
+        end
+    end
+    -- 12.1 replaced GetMouseFocus with GetMouseFoci, which returns a LIST:
+    -- several regions can sit under one pixel.
+    M.mouseFoci = {}
+    _G.GetMouseFoci = function() return M.mouseFoci end
+
+    _G.debugstack = function() return "mock stack\n  Blizzard_Something.lua:12\n" end
 
     -- A real scheduler, not a fire-immediately stub. Running every timer the
     -- instant it is scheduled would make the toast's 4s dwell untestable and,
@@ -475,10 +517,135 @@ function M.install()
     -- Fixed, so a report's text is deterministic across runs.
     _G.date = function() return "2026-08-27 12:00" end
 
+    -- -----------------------------------------------------------------------
+    -- What feeds the rail (SPEC 6, Sources.lua)
+    -- -----------------------------------------------------------------------
+    -- None of this is protected -- item quality, bag slots, durability and mail
+    -- are ordinary values, and the amended RULES says so. Modelled here because
+    -- the interesting part of Sources.lua is the FILTERING, and a filter with
+    -- nothing to filter is untested.
+    M.playerGUID   = "Player-1-DEADBEEF"
+    M.itemQuality  = {}      -- [itemID] = quality
+    M.bagFree      = 5       -- free slots across all bags
+    M.durability   = 1.0     -- worst fraction; nil means unreadable
+    M.hasMail      = false
+    M.currencies   = {}      -- [id] = name
+    M.questTitles  = {}      -- [id] = title
+    M.achievements = {}      -- [id] = name
+
+    _G.UnitGUID = function(unit)
+        if unit == "player" then return M.playerGUID end
+        return "Player-1-OTHER"
+    end
+
+    _G.C_Item = {
+        GetItemQualityByID = function(id) return M.itemQuality[id] end,
+    }
+
+    -- One backpack, so the total is whatever the test set. The addon sums over
+    -- BACKPACK_CONTAINER..NUM_TOTAL_EQUIPPED_BAG_SLOTS and does not care where
+    -- the slots came from.
+    _G.BACKPACK_CONTAINER = 0
+    _G.NUM_TOTAL_EQUIPPED_BAG_SLOTS = 4
+    _G.C_Container = {
+        GetContainerNumFreeSlots = function(bag)
+            if bag == 0 then return M.bagFree end
+            return 0
+        end,
+    }
+
+    -- Slot 1 carries the worst value and the rest read nil, which also exercises
+    -- the loop skipping slots that cannot wear out.
+    _G.GetInventoryItemDurability = function(slot)
+        if slot ~= 1 or type(M.durability) ~= "number" then return nil end
+        return M.durability * 100, 100
+    end
+
+    _G.HasNewMail = function() return M.hasMail end
+
+    _G.C_CurrencyInfo = {
+        GetCurrencyInfo = function(id)
+            local name = M.currencies[id]
+            if not name then return nil end
+            return { name = name }
+        end,
+    }
+
+    _G.C_QuestLog = {
+        GetTitleForQuestID = function(id) return M.questTitles[id] end,
+    }
+
+    _G.GetAchievementInfo = function(id) return id, M.achievements[id] end
+
+    -- The localized format strings the loot filter falls back to when a message
+    -- arrives with no GUID. Real values from enUS.
+    _G.LOOT_ITEM_SELF          = "You receive loot: %s."
+    _G.LOOT_ITEM_SELF_MULTIPLE = "You receive loot: %sx%d."
+    _G.LOOT_ITEM_PUSHED_SELF   = "You receive item: %s."
+    -- Several forms, because the first version of the reader knew only the
+    -- plain one and drew the fallback "Reputation" in game. The bonus form is
+    -- here specifically because its trailing %.1f broke the naive escaper.
+    _G.FACTION_STANDING_INCREASED = "Your reputation with %s has increased by %d."
+    _G.FACTION_STANDING_INCREASED_ACH_BONUS =
+        "Your reputation with %s has increased by %d.  (+%.1f bonus from achievement)"
+    _G.FACTION_STANDING_INCREASED_ACCOUNT_WIDE =
+        "Your account-wide reputation with %s has increased by %d."
+    _G.FACTION_STANDING_INCREASED_GENERIC = "Reputation with %s increased."
+
+    -- The edit box Blizzard actually sends through. SendText is the mixin
+    -- method that parses the text, resolves the chat type and routes it; the
+    -- whole point of the override is that we never reimplement any of that.
+    M.sent = {}
+    M.chatType = "SAY"
+    M.tellTarget = nil
+    local sendBox = M.frame({ name = "ChatFrame1EditBox" })
+    sendBox.SendText = function(self, addHistory)
+        local calls = self.__calls
+        for i = #calls, 1, -1 do
+            if calls[i].method == "SetText" and calls[i][1] ~= "" then
+                M.sent[#M.sent + 1] = { text = calls[i][1], history = addHistory }
+                return
+            end
+        end
+    end
+    sendBox.GetChatType   = function() return M.chatType end
+    sendBox.GetTellTarget = function() return M.tellTarget end
+    M.sendBox = sendBox
+    _G.DEFAULT_CHAT_FRAME.editBox = sendBox
+
+    -- The chat frames and their furniture, by the names Chat.lua stows.
+    _G.NUM_CHAT_WINDOWS = 2
+    for i = 1, 2 do
+        _G["ChatFrame" .. i]             = M.frame({ name = "ChatFrame" .. i, parent = _G.UIParent, shown = true })
+        _G["ChatFrame" .. i .. "Tab"]    = M.frame({ name = "ChatFrame" .. i .. "Tab", parent = _G.UIParent })
+        _G["ChatFrame" .. i .. "ButtonFrame"] = M.frame({ name = "ChatFrame" .. i .. "ButtonFrame", parent = _G.UIParent })
+    end
+    -- FOUND IN GAME: 221x361 at the left edge, exactly where the rail lives.
+    _G.Minimap = M.frame({ name = "Minimap", parent = _G.UIParent, shown = true })
+    _G.Minimap.GetCenter = function() return 1400, 800 end
+
+    _G.CompactRaidFrameManager = M.frame({ name = "CompactRaidFrameManager",
+                                           parent = _G.UIParent, shown = true })
+    for _, name in ipairs({ "GeneralDockManager", "ChatFrameMenuButton",
+                            "QuickJoinToastButton", "ChatFrameChannelButton" }) do
+        _G[name] = M.frame({ name = name, parent = _G.UIParent })
+    end
+    -- Declared inside FloatingChatFrameTemplate, so it starts life as a child
+    -- of the chat frame. That parentage is the whole trap.
+    sendBox.__parent = _G.ChatFrame1
+    _G.ChatFrame1EditBox = sendBox
+    _G.ChatFrame1.editBox = sendBox
+
     -- ChatFrame_OpenChat is deprecated on 12.1 and aliased to this.
     M.chatOpened = {}
     _G.ChatFrameUtil = {
         OpenChat = function(text) M.chatOpened[#M.chatOpened + 1] = text end,
+        ChooseBoxForSend = function() return sendBox end,
+        -- ChatFrameUtil.lua:104-114. The override is a real extension point,
+        -- and OpenChat consults it before anything else.
+        SetChatFocusOverride   = function(box) M.chatFocusOverride = box end,
+        GetChatFocusOverride   = function() return M.chatFocusOverride end,
+        ClearChatFocusOverride = function() M.chatFocusOverride = nil end,
     }
 end
 

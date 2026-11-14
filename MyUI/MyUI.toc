@@ -5,11 +5,14 @@
 ## Version: 0.4.0-phase3
 ## X-License: MIT
 ## SavedVariables: MyUIDB
+## SavedVariablesPerCharacter: MyUICharDB
 ## X-Phase: 3
 ## X-Retail-Only: true
 
 Compat.lua
 Core.lua
+Log.lua
+Stow.lua
 Scale.lua
 Palette.lua
 Guard.lua
@@ -18,6 +21,10 @@ Frames.lua
 Reveal.lua
 Peek.lua
 Rail.lua
+Center.lua
+Panel.lua
+Sources.lua
+Chat.lua
 Outline.lua
 Testing.lua
 Rules.lua

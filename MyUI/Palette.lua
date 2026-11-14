@@ -1,10 +1,21 @@
 -- MyUI :: Palette.lua
 -- SPEC.md 7, complete and closed.
 --
--- "Fourteen colours, all RGBA float. Nothing outside this list." The handoff is
--- explicit that the addon must not introduce a fifteenth, so this table is the
+-- "Thirteen colours, all RGBA float. Nothing outside this list." The handoff is
+-- explicit that the addon must not introduce a fourteenth, so this table is the
 -- whole vocabulary and a test asserts its size. Curve intermediates from
 -- SPEC.md 3 are interpolation stops, not palette entries, and live in Frames.
+--
+-- THIRTEEN, NOT FOURTEEN, since the amended SPEC 7. Text secondary and text
+-- tertiary were rgba(173,177,184,1) and rgba(115,119,126,1); the tertiary value
+-- tested unreadable over ordinary terrain and the amendment lifts it to the
+-- secondary one -- at which point the two entries are the same colour, so they
+-- collapse into a single textDim. They never appeared in the same row, so the
+-- two-tier hierarchy was notional and nothing is lost.
+--
+-- rgba(115,119,126,1) is no longer a palette entry at all. It survives only as
+-- the /myui contrast normal debug affordance in Frames.lua, which is the one
+-- place in the addon that draws a colour this table does not hold.
 
 local ADDON, ns = ...
 
@@ -19,8 +30,7 @@ end
 Palette.colors = {
     fill           = rgba(240, 241, 243, 0.92),   -- Fill / primary
     textPrimary    = rgba(240, 241, 243, 1),
-    textSecondary  = rgba(173, 177, 184, 1),
-    textTertiary   = rgba(115, 119, 126, 1),
+    textDim        = rgba(173, 177, 184, 1),
     trough         = rgba(255, 255, 255, 0.14),
     fillDim        = rgba(255, 255, 255, 0.25),
     tickDark       = rgba(0, 0, 0, 0.55),
@@ -33,7 +43,7 @@ Palette.colors = {
     notifOrange    = rgba(242, 158, 115, 1),
 }
 
-Palette.COUNT = 14
+Palette.COUNT = 13
 
 --- Unpack a palette entry for a SetColorTexture or SetVertexColor call.
 function Palette.Get(name)

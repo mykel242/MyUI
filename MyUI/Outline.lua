@@ -84,3 +84,89 @@ end
 function Outline.IsShown()
     return Outline.shown == true
 end
+
+-- ---------------------------------------------------------------------------
+-- What is that thing
+-- ---------------------------------------------------------------------------
+-- Same reason as the boxes above: the offline suite knows what WE drew and
+-- nothing about what the client put next to it. Something appeared along the
+-- left edge that the design never accounted for, and naming it from a
+-- screenshot is guesswork -- this asks the client.
+--
+-- A binding rather than a command, because you cannot hover a thing and type
+-- at the same time.
+
+local function Describe(region)
+    if type(region) ~= "table" then
+        return nil
+    end
+    local name = (type(region.GetName) == "function" and region:GetName()) or "<unnamed>"
+    local kind = (type(region.GetObjectType) == "function" and region:GetObjectType()) or "?"
+    local w, h = 0, 0
+    if type(region.GetSize) == "function" then
+        local ok, a, b = pcall(region.GetSize, region)
+        if ok then w, h = a or 0, b or 0 end
+    end
+    local strata = (type(region.GetFrameStrata) == "function" and region:GetFrameStrata()) or "-"
+    return ("%s  (%s, %dx%d, %s)"):format(name, kind, math.floor(w), math.floor(h), tostring(strata))
+end
+
+local function Ancestry(region, depth)
+    local out, seen = {}, 0
+    local cur = region
+    while cur and seen < (depth or 4) do
+        if type(cur.GetParent) ~= "function" then break end
+        cur = cur:GetParent()
+        if not cur then break end
+        out[#out + 1] = (type(cur.GetName) == "function" and cur:GetName()) or "<unnamed>"
+        seen = seen + 1
+    end
+    return out
+end
+
+--- Name whatever is under the cursor.
+function Outline.Under()
+    -- 12.1 replaced GetMouseFocus with GetMouseFoci, which returns a list:
+    -- several regions can be under one pixel, and the top one is not always
+    -- the interesting one.
+    local foci
+    if type(_G.GetMouseFoci) == "function" then
+        local ok, result = pcall(_G.GetMouseFoci)
+        if ok then
+            foci = type(result) == "table" and result or { result }
+        end
+    end
+    if not foci and type(_G.GetMouseFocus) == "function" then
+        local ok, result = pcall(_G.GetMouseFocus)
+        if ok and result then foci = { result } end
+    end
+
+    if not foci or #foci == 0 then
+        ns.Print("nothing under the cursor takes the mouse.")
+        ns.Raw("  Which is itself an answer: a frame that ignores the mouse is "
+               .. "not clickable, so it is decoration or it belongs to the world.")
+        return {}
+    end
+
+    ns.Print(("%d thing(s) under the cursor, nearest first"):format(#foci))
+    local named = {}
+    for i, region in ipairs(foci) do
+        local line = Describe(region)
+        if line then
+            named[#named + 1] = line
+            ns.Raw("  " .. line)
+            local up = Ancestry(region, 3)
+            if #up > 0 then
+                ns.Raw("      inside " .. table.concat(up, " < "))
+            end
+        end
+    end
+    return named
+end
+
+function MyUI_What()
+    Outline.Under()
+end
+
+_G.BINDING_NAME_MYUI_WHAT = "Name what is under the cursor"
+

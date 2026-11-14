@@ -4,16 +4,43 @@
          which does not know the <Binding> element and reports every attribute
          on it as unrecognised, so the bindings never register at all. -->
 
-    <!-- runOnUp gives us both edges of the key, with keystate telling us which.
-         Blizzard's own MOVEFORWARD and TOGGLEPINGLISTENER use this exact shape.
-         It is what lets the held reveal be ANY key rather than a modifier: Alt,
-         Ctrl and Shift are all commonly bound to ability rows, so a HUD keyed
-         to them flashes on every modified cast. -->
-    <Binding name="MYUI_HOLD" runOnUp="true" header="MYUI" category="MyUI">
-        MyUI_Hold(keystate == "down")
+    <!-- NOTE FOR ANYONE EDITING THIS FILE: XML forbids a double hyphen inside a
+         comment. Every other file in this addon uses one as an em dash, and one
+         that reaches here makes the whole file "not well-formed", which
+         silently unregisters every binding. Use a comma or a semicolon.
+
+         MYUI_HOLD lived here until the amended SPEC 4 cut the modifier channel:
+         it was the escape hatch for a HUD keyed to Alt or Shift, and the
+         amendment removed the thing it was an escape from.
+
+         Keeping the shape it used, because peek is now the only deliberate
+         summon and PLAN Phase 6 asks whether it should stay a tap or become a
+         hold. runOnUp="true" gives both edges of the key with keystate telling
+         them apart, which is what Blizzard's own MOVEFORWARD and
+         TOGGLEPINGLISTENER do. -->
+    <Binding name="MYUI_PEEK" header="MYUI" category="MyUI">
+        MyUI_Peek()
     </Binding>
 
-    <Binding name="MYUI_PEEK" category="MyUI">
-        MyUI_Peek()
+    <!-- Reply. Opens our edit box already holding "/r ", which Blizzard's own
+         parser turns into a whisper to whoever last messaged you. The whole
+         point of replacing the chat log is that a raid lead or a friend can
+         still reach you; without this the only way to answer is to remember a
+         slash command, which is not an affordance. -->
+    <Binding name="MYUI_REPLY" category="MyUI">
+        MyUI_Reply()
+    </Binding>
+
+    <!-- The notification centre. A key rather than a click on the rail: the
+         rail gave up its whole mouse surface so the left edge of the screen
+         passes clicks through to the world, and a binding costs no pixels. -->
+    <Binding name="MYUI_CENTER" category="MyUI">
+        MyUI_Center()
+    </Binding>
+
+    <!-- Diagnostic. Names whatever is under the cursor, because you cannot
+         hover a mystery frame and type a slash command at the same time. -->
+    <Binding name="MYUI_WHAT" category="MyUI">
+        MyUI_What()
     </Binding>
 </Bindings>
