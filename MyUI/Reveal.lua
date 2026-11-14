@@ -96,7 +96,11 @@ Reveal.PRECEDENCE = { "debug", "combat", "target", "whisper", "peek", "cursor" }
 -- and the rest are inferred. Flagged in STATUS.
 -- nil means every registered frame.
 local SCOPE = {
-    combat = { SelfStack = true, Cooldowns = true },
+    -- R3b: the adopted bars come back in combat like the Edit Mode bars do,
+    -- and the group frames with them.
+    combat = { SelfStack = true, Cooldowns = true,
+               MainBar = true, StanceBar = true, PetBar = true,
+               Party = true, CompactParty = true, Raid = true },
     target = { TargetStrip = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true },
 }

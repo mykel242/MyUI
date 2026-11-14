@@ -413,6 +413,14 @@ T.Suite("myui-clear", {
                      ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
           end,
           teardown = function(api) api.ns().Reveal.Release("whisper") end },
+        { id = "combat-reveals-bars", shot = false,
+          what = "Combat brings back the adopted bars and group frames, not chat or the minimap.",
+          setup = function(api) api.ns().Reveal.Claim("combat") end,
+          check = function(api)
+              local main, chat = Target(api, "MainBar"), Target(api, "Chat")
+              return main == 1 and chat == 0, ("main bar %s, chat %s"):format(tostring(main), tostring(chat))
+          end,
+          teardown = function(api) api.ns().Reveal.Release("combat") end },
         { id = "units-hidden", shot = false,
           what = "Player, target and focus frames unregistered and hidden (R3b ruling).",
           check = function(api)

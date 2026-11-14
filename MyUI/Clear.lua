@@ -45,6 +45,20 @@ Clear.ADOPT = {
     { "Buffs",    "BuffFrame" },
     { "Debuffs",  "DebuffFrame" },
     { "CastBar",  "PlayerCastingBarFrame" },
+    -- R3b, second ruling: what the layout could not clear. Bar 1 and the
+    -- stance and pet bars have no Edit Mode visibility setting; they are
+    -- adopted and, like the other bars, revealed in combat (Reveal's combat
+    -- scope). The minimap draws its arrow and blips through its cluster's
+    -- alpha, so the map itself is adopted too.
+    { "MainBar",    "MainActionBar" },
+    { "StanceBar",  "StanceBar" },
+    { "PetBar",     "PetActionBar" },
+    { "MicroMenu",  "MicroMenuContainer" },
+    { "MinimapMap", "Minimap" },
+    -- Party and raid frames: adopted, revealed in combat.
+    { "Party",      "PartyFrame" },
+    { "CompactParty", "CompactPartyFrame" },
+    { "Raid",       "CompactRaidFrameContainer" },
 }
 
 Clear.WHISPER_HOLD = 8.0   -- SPEC 11: "holds for 8s"

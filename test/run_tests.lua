@@ -2724,8 +2724,12 @@ do
     check("  and they settle back to 0", Registry.Get("Minimap").target == 0)
 
     Reveal.Claim("combat")
-    check("combat does not reveal them (it is scoped to SelfStack and Cooldowns)",
-          Registry.Get("Chat").target == 0 and Registry.Get("SelfStack").target == 1)
+    check("combat does not reveal chat or the minimap",
+          Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0
+          and Registry.Get("SelfStack").target == 1)
+    check("  but does bring back the adopted bars and group frames, like the Edit Mode bars",
+          Registry.Get("MainBar").target == 1 and Registry.Get("Party").target == 1
+          and Registry.Get("Raid").target == 1)
     Reveal.Release("combat")
 
     Clear.OnWhisper()

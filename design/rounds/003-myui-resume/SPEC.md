@@ -382,7 +382,7 @@ summon is lost. Chat additionally reveals on an incoming whisper and holds for 8
 player already turns off in Edit Mode, and MyUI's layout does it for them.~~ **Corrected in R3b:**
 Edit Mode's "Target and Focus", "Cast Bar" and "Buffs and Debuffs" settings only preview those
 frames while Edit Mode is open; they hide nothing in play (API-NOTES § 13). Each is handled
-in the table below. Party and raid frames are not yet decided.
+in the table below.
 
 **Combat lockdown is the whole risk here.** Protected frames may only be hidden or shown out
 of combat. All filtering and layout activation happens on `PLAYER_ENTERING_WORLD` and on
@@ -403,6 +403,9 @@ be summoned. Never for a protected frame.
 | Player, target, focus frames | **Unregistered and hidden** (`UnregisterAllEvents` + `Hide`), out of combat only; a post-hook answers any later `Show` with a `Hide`. Restored by `/myui restore` plus `/reload` (R3b ruling) |
 | Action bars | The `MyUI` Edit Mode layout sets every bar with a visibility setting to **in combat only** (R3b ruling) |
 | Buffs, debuffs, player cast bar | **Adopted** (R3b ruling). The cast bar sets its own alpha when a cast starts, so it shows while casting |
+| Main action bar, stance and pet bars | **Adopted**, revealed in combat like the Edit Mode bars (they have no visibility setting) |
+| Micro menu; the minimap's own map (its arrow and blips ignore the cluster's alpha) | **Adopted** |
+| Party and raid frames | **Adopted**, revealed in combat (R3b ruling) |
 | Chat log, tabs, dock, buttons | Adopted now; **stowed** once MyUI's chat view exists. The edit box is freed first |
 | Raid manager tab (`CompactRaidFrameManager`) | **Stowed**, queued out of combat |
 | Minimap, bags | Adopted until replaced; decided when built |
