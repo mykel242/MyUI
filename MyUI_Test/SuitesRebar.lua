@@ -34,7 +34,7 @@ end
 -- border meets the edge, and one interior intersection (x 10/16, y 4/16),
 -- chosen clear of the chat, the player frame and the minimap.
 local GRID_REGIONS = {
-    { "Readout",      0.25, 0.000, 0.50, 0.025 },
+    { "Readout",      0.30, 0.000, 0.40, 0.025 },   -- clear of the buff tray at right
     { "TopLeft",      0.00, 0.000, 0.04, 0.060 },
     { "Intersection", 0.61, 0.235, 0.03, 0.030 },
 }
