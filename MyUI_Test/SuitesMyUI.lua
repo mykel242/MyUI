@@ -431,8 +431,16 @@ T.Suite("myui-clear", {
               ns.Registry.Each(function(e) mine[e.frame] = true end)
               local out = {}
               for _, f in ipairs({ UIParent:GetChildren() }) do
-                  local ok, vis, alpha = pcall(function() return f:IsVisible(), f:GetEffectiveAlpha() end)
-                  local name = f.GetName and f:GetName()
+                  -- Forbidden frames (Blizzard's secure store and the like)
+                  -- refuse every method from addon code; skip them.
+                  local forbidden = f.IsForbidden and f:IsForbidden()
+                  local ok, vis, alpha = false, nil, nil
+                  local name
+                  if not forbidden then
+                      ok, vis, alpha = pcall(function() return f:IsVisible(), f:GetEffectiveAlpha() end)
+                      local okName, n = pcall(f.GetName, f)
+                      name = okName and n or nil
+                  end
                   if ok and vis and type(alpha) == "number" and alpha > 0.01 and not mine[f]
                      and not (name and (name:find("^MyUI") or name == "MyUITestBackdrop")) then
                       local l, b, w, h = f:GetRect()
