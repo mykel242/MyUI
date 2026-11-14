@@ -29,6 +29,16 @@ end
 -- Runs a command and reports whether it raised. Rebar's own dispatcher prints
 -- errors rather than raising, so a clean pcall is necessary, not sufficient;
 -- the shot or the saved output carries the rest.
+-- The grid covers the screen, so it is compared in three fixed boxes rather
+-- than as one full-screen rect: the readout, the top-left corner where the
+-- border meets the edge, and one interior intersection (x 10/16, y 4/16),
+-- chosen clear of the chat, the player frame and the minimap.
+local GRID_REGIONS = {
+    { "Readout",      0.25, 0.000, 0.50, 0.025 },
+    { "TopLeft",      0.00, 0.000, 0.04, 0.060 },
+    { "Intersection", 0.61, 0.235, 0.03, 0.030 },
+}
+
 local function Runs(api, text)
     local ok, err = pcall(api.rebar, text)
     if not ok then return false, tostring(err) end
@@ -70,7 +80,7 @@ T.Suite("rebar", {
           what = "16 divisions: single-pixel interior lines, 3px gold border flush with "
               .. "the usable rect, readout at the top saying pixel-perfect in green.",
           setup = function(api) GridOff(api); api.rebar("grid border 3"); api.rebar("grid 16") end,
-          frames = { "RebarGrid" },
+          frames = {}, regions = GRID_REGIONS,
           check = function()
               return GridShown(), GridShown() and "grid shown" or "grid not shown"
           end },
@@ -79,17 +89,17 @@ T.Suite("rebar", {
           what = "12 divisions: the cell readout shows the width in amber and suggests "
               .. "a better count.",
           setup = function(api) api.rebar("grid 12") end,
-          frames = { "RebarGrid" } },
+          frames = {}, regions = GRID_REGIONS },
 
         { id = "grid-border-1",
           what = "16 divisions with a one-pixel border.",
           setup = function(api) api.rebar("grid 16"); api.rebar("grid border 1") end,
-          frames = { "RebarGrid" } },
+          frames = {}, regions = GRID_REGIONS },
 
         { id = "grid-off",
           what = "Grid toggled off: no lines, no readout, no dimming left behind.",
           setup = function(api) GridOff(api) end,
-          frames = { "RebarGrid" },
+          frames = {}, regions = GRID_REGIONS,
           check = function()
               return not GridShown(), GridShown() and "still shown" or "hidden"
           end },

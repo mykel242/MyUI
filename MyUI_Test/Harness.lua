@@ -43,6 +43,7 @@ local SHOT_GAP = 1.2
 --       setup   = function(api) end,
 --       wait    = seconds,                      -- default DEFAULT_WAIT
 --       frames  = { "GlobalName", ... } or function(api) return {name=frame,...} end,
+--       regions = { { "name", x, y, w, h }, ... },  -- fixed boxes, normalised, top-left
 --       check   = function(api) return ok, detail end,  -- optional
 --       shot    = false,                        -- check-only test
 --       teardown= function(api) end,
@@ -267,6 +268,13 @@ local function FramesFor(test)
     table.sort(list, function(a, b) return a[1] < b[1] end)
     local out = {}
     for _, pair in ipairs(list) do out[#out + 1] = Describe(pair[1], pair[2]) end
+    -- Fixed screen regions, for things that cover the whole screen (Rebar's
+    -- grid): diffing a full-screen rect would diff -- and approve -- the
+    -- world, the chat and the player frame along with it.
+    for _, r in ipairs(test.regions or {}) do
+        out[#out + 1] = { name = r[1], x = r[2], y = r[3], w = r[4], h = r[5],
+                          visible = true, region = true }
+    end
     return out
 end
 

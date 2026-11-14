@@ -244,9 +244,17 @@ T.Suite("myui-p2", {
 -- Phase 3 -- the rail
 -- ---------------------------------------------------------------------------
 
+-- The Rail frame's rect is the dot column only. Row labels, ages and the
+-- "+N" count hang off it to the right, so they are listed separately or the
+-- diff would never see them.
 local function RailFrames(api)
     local f = api.registryFrames()
     f.RailToast = _G.MyUIRailToast
+    local Rail = api.ns().Rail
+    for i, slot in ipairs(Rail.slots or {}) do
+        if slot.text then f[("RailRow%dText"):format(i)] = slot.text end
+    end
+    if Rail.overflow then f.RailOverflow = Rail.overflow end
     return f
 end
 
