@@ -26,7 +26,8 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
   Rulings in `design/current/DECISIONS-003.md` and SPEC § 7 / § 11. Inventory: `R3-INVENTORY.md`.
 - Harness: 58/58 frames pass at UI scale 1.0 (laptop); `pixel-perfect` fails at 2.91 until R4.
 - UI scale moved 0.8 → 1.0 by hand: 0.8 was unreadable on the laptop. R4 sets it per screen.
-- Next: **R3b** (SPEC § 11's clearing, pulled forward), then R4.
+- Next: **R3b** (SPEC § 11's clearing, pulled forward), then **Phase 4**, then R4, then R5
+  (reordered 2026-11-14: R3b hides the unit frames, and only Phase 4 puts health back).
 
 ### R2 — capture harness (2026-11-14)
 
