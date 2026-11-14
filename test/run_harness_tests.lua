@@ -77,23 +77,24 @@ check("suites registered", #T.suites >= 5, #T.suites)
 -- A queued run, start to finish
 -- ---------------------------------------------------------------------------
 
-print("== Queued run")
-_G.MyUITestDB = { queued = { suites = T.SuiteNames(), at = 0 } }
-for i = myuiFrames + 1, #mock.created do
-    mock.created[i]:Fire("PLAYER_ENTERING_WORLD", false, true)
-end
-check("the queue is cleared before anything runs", _G.MyUITestDB.queued == nil)
+print("== A run, start to finish")
+_G.MyUITestDB = {}
+_G.MyUI_Test_Run()            -- the key
 
 local guard = 0
-while reloads == 0 and guard < 4000 do
+local function current() return _G.MyUITestDB.runs and _G.MyUITestDB.runs[1] end
+while not (current() and current().finished) and guard < 4000 do
     mock.advance(ns, 0.05)
     guard = guard + 1
 end
+check("the run does not try to reload itself (blocked on 12.1.5)", reloads == 0, reloads)
+check("it asks for the saving press instead", _G.MyUITestPrompt and _G.MyUITestPrompt:IsShown())
+_G.MyUI_Test_Run()            -- the key again
+check("the second press reloads, which saves", reloads == 1, reloads)
 
 local run = _G.MyUITestDB.runs and _G.MyUITestDB.runs[1]
 check("a run was recorded", run ~= nil)
-check("it finished and asked for the saving reload", run and run.finished and reloads == 1,
-      run and ("finished=%s reloads=%d"):format(tostring(run.finished), reloads))
+check("it finished", run and run.finished)
 check("no harness errors", run and #run.errors == 0, run and table.concat(run.errors, " | "))
 
 local expected = 0

@@ -7,12 +7,16 @@
 -- anything but itself.
 --
 -- The flow, end to end:
---   1. The run key queues every suite in SavedVariables and reloads.
---   2. On load the queue is picked up, cleared (so a crash cannot loop), and
---      the suites run one test at a time, each ending in Screenshot().
+--   1. The run key starts every suite in this session.
+--   2. The suites run one test at a time, each ending in Screenshot().
 --   3. Every shot's test name, time and frame rectangles go in a manifest.
---   4. When the last shot lands, the harness reloads once more. That reload is
---      what flushes the manifest to disk; tools/watch_shots.py is waiting on it.
+--   4. The run key again (or /reload) reloads, which is what writes the
+--      manifest to disk; tools/watch_shots.py is waiting on it.
+--
+-- Why two presses: on 12.1.5 ReloadUI() is blocked unless a key or click
+-- started it. The first in-game runs called it from the run's last timer and
+-- got ADDON_ACTION_BLOCKED every time -- the saves that did happen were manual
+-- reloads. Nothing else writes SavedVariables, so the save needs a press.
 
 local ADDON, T = ...
 MyUI_Test = T
@@ -20,7 +24,7 @@ MyUI_Test = T
 T.suites = {}
 
 local MAX_RUNS = 5          -- manifests kept in SavedVariables
-local SETTLE = 3.0          -- seconds after load before the first test
+local SETTLE = 1.0          -- seconds after the key before the first test
 local DEFAULT_WAIT = 0.6    -- longer than MyUI's 260ms fade-out, with margin
 local SHOT_TIMEOUT = 10
 -- Screenshot file names carry the time to the second. Two shots in the same
@@ -450,12 +454,34 @@ local function RunSuites(selected)
     run.finishedAt = time()
     local failed = 0
     for _, c in ipairs(run.checks) do if not c.ok then failed = failed + 1 end end
-    Print(("done: %d shots, %d checks (%d failed), %d errors -- reloading to save"):format(
+    Print(("done: %d shots, %d checks (%d failed), %d errors"):format(
         #run.shots, #run.checks, failed, #run.errors))
+    T.unsaved = true
+    T.SavePrompt(true)
+end
 
-    -- The reload is what writes the manifest to disk.
-    Wait(1.5)
-    ReloadUI()
+-- A plain, centred notice. Shown after the last shot, so never in one.
+local prompt
+function T.SavePrompt(on)
+    if on and not prompt then
+        prompt = CreateFrame("Frame", "MyUITestPrompt", UIParent)
+        prompt:SetSize(700, 40)
+        prompt:SetPoint("TOP", UIParent, "TOP", 0, -140)
+        prompt:SetFrameStrata("DIALOG")
+        local bg = prompt:CreateTexture(nil, "BACKGROUND")
+        bg:SetAllPoints()
+        bg:SetColorTexture(0, 0, 0, 0.8)
+        prompt.text = prompt:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
+        prompt.text:SetPoint("CENTER")
+    end
+    if prompt then
+        if on then
+            prompt.text:SetText("MyUI_Test: run done -- press the run key again (or /reload) to save it")
+            prompt:Show()
+        else
+            prompt:Hide()
+        end
+    end
 end
 
 function T.SuiteNames()
@@ -483,38 +509,17 @@ function T.Start(selected)
     Resume()
 end
 
---- Queue a run and reload: the run key. A clean UI is the baseline, so every
--- run starts from a fresh load rather than from whatever state was on screen.
-function T.Queue(selected)
-    local db = DB()
-    db.queued = { suites = selected or T.SuiteNames(), at = time() }
-    ReloadUI()
-end
-
+--- The run key: start a run, or save the one that just finished.
 function MyUI_Test_Run()
-    T.Queue(nil)
+    if T.unsaved then
+        ReloadUI()          -- allowed here: a key press started it
+        return
+    end
+    T.Start(T.SuiteNames())
 end
 
 _G.BINDING_HEADER_MYUITEST = "MyUI Test"
-_G.BINDING_NAME_MYUI_TEST_RUN = "Run every suite (reloads)"
-
--- ---------------------------------------------------------------------------
--- Load
--- ---------------------------------------------------------------------------
-
-local loader = CreateFrame("Frame")
-loader:RegisterEvent("PLAYER_ENTERING_WORLD")
-loader:SetScript("OnEvent", function(self, event)
-    self:UnregisterEvent(event)
-    local db = DB()
-    local queued = db.queued
-    if queued then
-        -- Cleared before anything runs: if a test crashes the client, the next
-        -- load must not start the same run again.
-        db.queued = nil
-        T.Start(queued.suites)
-    end
-end)
+_G.BINDING_NAME_MYUI_TEST_RUN = "Run every suite / save the run"
 
 -- ---------------------------------------------------------------------------
 -- Slash: /myuitest [run [suite ...] | list | last]
@@ -526,7 +531,9 @@ SlashCmdList["MYUITEST"] = function(input)
     for w in (input or ""):gmatch("%S+") do words[#words + 1] = w end
     local cmd = table.remove(words, 1) or "help"
     if cmd == "run" then
-        T.Queue(#words > 0 and words or nil)
+        T.Start(#words > 0 and words or T.SuiteNames())
+    elseif cmd == "save" then
+        ReloadUI()
     elseif cmd == "list" then
         for _, s in ipairs(T.suites) do
             Print(("%s -- %s (%d tests)"):format(s.name, s.title or "", #s.tests))
@@ -537,6 +544,6 @@ SlashCmdList["MYUITEST"] = function(input)
         Print(("%s: %d shots, %d checks, %d errors, finished %s"):format(
             r.id, #r.shots, #r.checks, #r.errors, tostring(r.finished)))
     else
-        Print("/myuitest run [suite ...] | list | last -- or bind MyUI Test > Run every suite")
+        Print("/myuitest run [suite ...] | save | list | last -- or bind MyUI > Run every suite / save the run")
     end
 end
