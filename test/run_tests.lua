@@ -64,8 +64,10 @@ check("TOC saves to MyUIDB", toc.SavedVariables == "MyUIDB", toc.SavedVariables)
 -- playing. Two files, two natures.
 check("  and the log per character",
       toc.SavedVariablesPerCharacter == "MyUICharDB", toc.SavedVariablesPerCharacter)
-check("TOC version carries the phase suffix",
-      toc.Version:match("%-phase(%d+)$") == toc["X-Phase"],
+-- Round 003's Resume track tags as -rN (v0.5.0-r3) while X-Phase stays the
+-- last delivered phase; a phase build still carries -phaseN.
+check("TOC version carries the phase or resume-step suffix",
+      toc.Version:match("%-phase(%d+)$") == toc["X-Phase"] or toc.Version:match("%-r%d+$") ~= nil,
       toc.Version .. " vs X-Phase " .. tostring(toc["X-Phase"]))
 check("  and the addon agrees with it",
       tonumber(toc["X-Phase"]) == ns.phase, toc["X-Phase"] .. " vs " .. tostring(ns.phase))
