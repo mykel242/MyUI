@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-27 · `0.1.0-phase0` · 81 addon / 15 lint checks, all green
 
-Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1.0.69497**.
+Target: WoW Midnight 12.1.5, TOC `120105`. Reference source read at build **12.1.5.70783** (R1 diffed it against 12.1.0.69497).
 
 ---
 

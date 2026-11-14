@@ -270,7 +270,7 @@ function M.install()
         AddOnRestrictionState = { Inactive = 0, Activating = 1, Active = 2 },
     }
 
-    _G.GetBuildInfo = function() return "12.1.0", "69497", "Aug 11 2026", 120100 end
+    _G.GetBuildInfo = function() return "12.1.5", "70783", "Nov 2026", 120105 end
     _G.InCombatLockdown = function() return false end
     -- Reads the real TOC once loadAddon has parsed it. Hardcoding a version
     -- here meant the acceptance report printed the previous phase's number.

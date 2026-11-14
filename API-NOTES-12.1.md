@@ -1,7 +1,8 @@
 # 12.1 ground truth for MyUI
 
 Verified against `Gethe/wow-ui-source` tag 12.1.0, build **12.1.0.69497**, read from
-`Interface/AddOns/Blizzard_APIDocumentationGenerated/`. Nothing here is recalled; every
+`Interface/AddOns/Blizzard_APIDocumentationGenerated/`. Re-checked against **12.1.5.70783**
+(the live client, 2026-11-14) in R1 — see § 11 for what changed. Nothing here is recalled; every
 claim cites a file.
 
 Companion to `../Rebar/API-NOTES-12.1.md`, which covers frame walking, viewport and Edit
@@ -426,3 +427,66 @@ is the only one of the four that does.
 
 `Interface/AddOns/Blizzard_CooldownViewer` (and `Blizzard_CooldownBroadcaster`) exist.
 Not examined — Phase 7 / v2.
+
+## 11. Patch check: 12.1.0.69497 → 12.1.5.70783 (R1, 2026-11-14)
+
+The client patched during the August–November pause. `Rebar/reference/wow-ui-source` is
+now tag 12.1.5 (build matches the client exactly); 12.1.0 is kept beside it as
+`wow-ui-source-12.1.0` for diffing.
+
+**Method.** Every file in `Blizzard_APIDocumentationGenerated` was loaded and flattened to
+one normalised line per function, event, callback and table, then the two builds were
+diffed: **10 removed, 142 added, 151 changed**. Those were intersected with the API surface
+actually in use — every widget method, `C_` call, global function, event string and enum
+in MyUI (`main` and `wip/aug28`) and the Rebar addon — plus every API named in this file
+and in `../Rebar/API-NOTES-12.1.md`. Blizzard frames and functions we reference by name
+were checked for removal and their defining files diffed.
+
+### Result: nothing we call changed
+
+- No API MyUI or Rebar calls was removed, and none changed signature, return types or
+  secrecy flags. All 65 events we register exist with unchanged payloads.
+- The three sanctioned sinks in `Guard.lua` (`SetAlpha`, `SetVertexColor`, `SetValue`)
+  are unchanged, down to the cited line numbers.
+- `Blizzard_EditMode` is byte-identical — nothing for Rebar. `LowHealthFrame`'s source is
+  unchanged (§ 4). `SetRolesets` and `IsRolesetFiltered` are unchanged (§ 7).
+- `ColorCurveObject`, reverse fill, `UnitHealthPercent`, `UnitHealPredictionCalculator`
+  and `C_Secrets` are unchanged (§ 1, 3, 8, 9).
+
+### Changes that touch our surface — no action now
+
+1. **Forbidden-aspect checks on 56 widget methods.** `ChecksForbiddenAspects` is new on,
+   among ours, `Texture:SetColorTexture`, `AnimationGroup:CreateAnimation`,
+   `Animation/AnimationGroup:IsPlaying` and `Animation:SetParent`. Four aspects are new:
+   `SetTexture`, `QueryRotation`, `QueryAnimationProgress`, `AddAnimations`. A check only
+   bites on an object carrying that aspect; MyUI calls these on its own objects only. If
+   we ever call them on a Blizzard object, check `HasAnyForbiddenAspects()` first.
+2. **`C_Roleset.ApplyRolesetFilters`** is now `HasRestrictions`: "Blocked for tainted
+   callers while in combat lockdown." Consistent with RULES (screen-clearing is
+   out-of-combat only); worth knowing for § 7 and SPEC § 11.
+
+### Heads-up for later phases (not yet used)
+
+3. **Cooldown frames:** `SetCooldown`, `SetCooldownDuration`,
+   `SetCooldownFromDurationObject`, `SetCooldownFromExpirationTime`, `SetCooldownUNIX`
+   and `Clear` are now `IsProtectedFunction`. That is the same flag `Show`/`SetPoint`
+   carry — restricted on protected frames in combat — so MyUI's own insecure cooldown
+   cells (SPEC § 5, Phase 7) should be unaffected. **Verify in Phase 7.** Duration
+   arguments are retyped `DurationSeconds` → `Seconds` (same value, new name).
+   `Blizzard_CooldownViewer` changed in five files; re-read it before Phase 7.
+4. **`UNIT_COMBAT`'s `amount` is now `SecretValue`.** Forward it; never inspect it.
+5. `UnitCastingInfo` / `UnitChannelInfo` and the `UNIT_SPELLCAST_*` events type
+   `castBarID` as `UnitCastBarID` rather than `number`.
+
+### FrameXML changes that matter for the replacements (SPEC § 10–13)
+
+6. **Chat:** chat tabs, the menu button and the voice buttons gained looping
+   `FlashAnim` alpha animations (`FloatingChatFrame.xml`, `FloatingChatFrameVoiceChat.xml`).
+   They animate child textures, not the tab itself, but check in R5 that the Chat
+   module's quieting does not fight them.
+7. **Minimap:** `MinimapCluster` gained a `PlayerCoords` child (`MinimapPlayerCoordsMixin`,
+   below the map). One more element for § 10 to clear.
+8. **Lua library:** new `math.clamp/lerp/round/sign/...`, `table.count/keys/values/contains`,
+   `string.contains`; FrameXML's `Round`, `Clamp`, `Lerp` are now aliases of them.
+   `C_TableUtil` and `C_StringUtil.trim` were removed. MyUI uses none of these — and the
+   test mock does not provide them, so do not start without shimming the mock.

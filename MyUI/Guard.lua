@@ -23,7 +23,8 @@ local RULES = "see RULES.md -- forwarding a secret is legal, inspecting one is n
 -- ---------------------------------------------------------------------------
 -- Which widget setters actually accept a secret from a tainted (addon) caller
 -- is NOT uniform, and the obvious-looking call is often the one that refuses.
--- Verified against Blizzard_APIDocumentationGenerated on build 12.1.0.69497;
+-- Verified against Blizzard_APIDocumentationGenerated on build 12.1.0.69497,
+-- re-checked unchanged (flags and line numbers) on 12.1.5.70783 in R1;
 -- see API-NOTES-12.1.md § 2. Anything not listed here is refused, because an
 -- unverified sink is a guess and this file does not guess.
 
