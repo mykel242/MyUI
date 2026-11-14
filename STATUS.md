@@ -14,7 +14,7 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
 - The ~3,700 lines left uncommitted at the 2026-08-28 pause are on branch `wip/aug28`,
   committed exactly as found. Reconciled in R3, not before.
 - **That work cites a "Round 5"** (`Log.lua`, `Center.lua`, `Rail.lua`, `Commands.lua`,
-  `test/run_tests.lua`). It lives in `design/rounds/000 - rebar proposal 2` and was never
+  `test/run_tests.lua`). It lives in `design/rounds/000 - rebar proposal 2` (local only, gitignored: it has personal and third-party screenshots) and was never
   taken in through `./rebar intake`. **It is not part of the spec — do not build from it.**
   Round 003 supersedes it (the rail is cut).
 - `wip/aug28`'s copies of `STATUS.md`, `CONTINUATION.md` and `README.md` still name

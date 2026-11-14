@@ -2,3 +2,6 @@
 reference/
 *.zip
 __pycache__/
+# Round "000" (the un-intaken Round 5) holds a screenshot with character and
+# guild names and third-party design shots. Kept locally, never published.
+design/rounds/000 - rebar proposal 2/
