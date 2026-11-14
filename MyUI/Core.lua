@@ -5,7 +5,7 @@ local ADDON, ns = ...
 
 ns.name    = ADDON
 ns.version = C_AddOns and C_AddOns.GetAddOnMetadata
-             and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "0.4.0-phase3"
+             and C_AddOns.GetAddOnMetadata(ADDON, "Version") or "0.5.0-r3"
 ns.phase   = 3
 
 -- Bump on any change to the stored shape, and add the matching migration.
@@ -213,23 +213,24 @@ loader:SetScript("OnEvent", function(self, event, addon)
         self:UnregisterEvent("PLAYER_LOGIN")
 
         -- ORDERED, not a pairs() over a table. Login order is a real
-        -- dependency: Frames creates what Registry hands out, and Rail cannot
-        -- find its container until Frames has built it. With pairs() that
+        -- dependency: Frames creates what Registry hands out, and the history
+        -- cannot open at the toast anchor until Toast has built it. With pairs() that
         -- worked or failed depending on Lua's internal table layout, which is
         -- the worst kind of bug -- it passes until it doesn't.
         for _, step in ipairs({
             { "registry",     ns.Registry },
             { "frames",       ns.Frames   },
             { "reveal engine", ns.Reveal  },
-            { "rail",         ns.Rail     },
-            -- Last: every source posts to the rail, so the rail has to exist
-            -- before one can fire. Login primes three latched conditions.
-            { "rail sources", ns.Sources  },
-            -- The centre reads the log and borrows the rail's hues, so both
-            -- have to exist first.
+            -- The toast anchor, before anything can notify.
+            { "toasts",       ns.Toast    },
+            -- Every source posts a toast, so toasts have to exist before one
+            -- can fire. Login primes three latched conditions.
+            { "sources",      ns.Sources  },
+            -- The history opens at the toast anchor and borrows the toasts'
+            -- hues, so both have to exist first.
             { "centre",       ns.Center   },
             { "panel",        ns.Panel    },
-            -- After the rail: the box borrows Frames' font and the palette,
+            -- Last: the box borrows Frames' font and the palette,
             -- and nothing else depends on it existing.
             { "chat override", ns.Chat   },
         }) do

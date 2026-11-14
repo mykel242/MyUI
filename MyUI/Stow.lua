@@ -101,14 +101,40 @@ local function Resolve(name)
 end
 Stow.Resolve = Resolve
 
---- Stow a whole group. Returns how many moved, or nil plus a reason.
+-- RULES: a protected system is never touched in combat -- queue on
+-- InCombatLockdown() and flush on PLAYER_REGEN_ENABLED. (The Aug 28 version
+-- refused instead, which left a raid tab on screen until you asked again.)
+-- Only the latest request per group is kept: stow-then-restore in one fight
+-- ends restored.
+Stow.pending = {}
+
+local function Queue(name, action)
+    Stow.pending[name] = action
+    if not Stow.waiter then
+        local w = CreateFrame("Frame")
+        w:SetScript("OnEvent", function(self)
+            self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+            local todo = Stow.pending
+            Stow.pending = {}
+            for group, act in pairs(todo) do
+                if act == "stow" then Stow.Group(group) else Stow.Restore(group) end
+            end
+        end)
+        Stow.waiter = w
+    end
+    Stow.waiter:RegisterEvent("PLAYER_REGEN_ENABLED")
+end
+
+--- Stow a whole group. Returns how many moved, 0 plus a note if it was queued
+-- until combat ends, or nil plus a reason.
 function Stow.Group(name)
     local spec = Stow.GROUPS[name]
     if not spec then
         return nil, ("no such group %q"):format(tostring(name))
     end
     if spec.combatUnsafe and InCombat() then
-        return nil, "not during combat -- " .. spec.label
+        Queue(name, "stow")
+        return 0, "queued until combat ends -- " .. spec.label
                  .. " belongs to a protected system"
     end
     local moved = 0
@@ -127,7 +153,8 @@ function Stow.Restore(name)
         return nil, ("no such group %q"):format(tostring(name))
     end
     if spec and spec.combatUnsafe and InCombat() then
-        return nil, "not during combat"
+        Queue(name, "restore")
+        return 0, "queued until combat ends"
     end
     local back = 0
     for frame, entry in pairs(Stow.stash) do

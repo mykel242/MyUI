@@ -1,5 +1,5 @@
 -- MyUI :: Sources.lua
--- SPEC.md 6, "What feeds the rail". Seven sources, five hues.
+-- SPEC.md 6, "What feeds it". Round 002's seven sources plus whispers, five hues.
 --
 -- Phase 3 shipped /myui notify as the source and flagged the real ones as an
 -- open design question (C1). The amendment answers it with an event table, and
@@ -109,7 +109,7 @@ local function Latch(key, active, kind, name)
     if active then
         if not Sources.latched[key] then
             Sources.latched[key] = true
-            ns.Rail.Add(kind, name)
+            ns.Toast.Add(kind, name)
             return true
         end
     else
@@ -145,11 +145,11 @@ local function Burst(key, kind, name, count)
 
     if b and b.item and (now - b.at) < Sources.QUIET then
         b.at = now
-        ns.Rail.Bump(b.item, count)
+        ns.Toast.Bump(b.item, count)
         return false
     end
 
-    local item = ns.Rail.Add(kind, name, count)
+    local item = ns.Toast.Add(kind, name, count)
     bursts[key] = { at = now, item = item }
     return true
 end
@@ -244,7 +244,7 @@ local function OnLoot(text, guid)
     if not Sources.LootPasses(id) then
         return
     end
-    ns.Rail.Add("blue", name, count)
+    ns.Toast.Add("blue", name, count)
 end
 
 local function OnRollWon(link, quantity)
@@ -252,7 +252,7 @@ local function OnRollWon(link, quantity)
     if not name then
         return
     end
-    ns.Rail.Add("blue", name, tonumber(quantity) or count)
+    ns.Toast.Add("blue", name, tonumber(quantity) or count)
 end
 
 -- ---------------------------------------------------------------------------
@@ -432,10 +432,36 @@ local function OnMail()
     if has == nil then
         -- The event itself is the signal when the reader is unavailable. It
         -- only fires on a change, so this is still one row, not a stream.
-        ns.Rail.Add("orange", "Mail")
+        ns.Toast.Add("orange", "Mail")
         return
     end
     Latch("mail", has and true or false, "orange", "Mail")
+end
+
+-- ---------------------------------------------------------------------------
+-- Violet -- whispers
+-- ---------------------------------------------------------------------------
+-- The ONE source here whose payload can be protected: CHAT_MSG_WHISPER and
+-- CHAT_MSG_BN_WHISPER are SecretInChatMessagingLockdown (ChatInfoDocumentation,
+-- 12.1.5), so in an encounter the sender arrives secret. Asking whether it is
+-- secret is introspection, not inspection; past that it is never compared,
+-- concatenated or written to the log. A secret sender toasts as "Whisper",
+-- and the message text is never read at all -- chat shows it, not a toast.
+--
+-- sub carries what a click needs to answer: a character name for /w. A
+-- Battle.net sender is an encoded string that /w cannot take, so it carries
+-- nothing and the click falls back to /r.
+
+function Sources.WhisperName(sender)
+    if sender == nil or ns.Compat.IsSecret(sender) or type(sender) ~= "string" or sender == "" then
+        return nil
+    end
+    return sender
+end
+
+local function OnWhisper(sender, isCharacter)
+    local name = Sources.WhisperName(sender)
+    ns.Toast.Add("violet", name or "Whisper", 1, (isCharacter and name) or nil)
 end
 
 -- ---------------------------------------------------------------------------
@@ -454,24 +480,29 @@ Sources.EVENTS = {
 
     -- amber
     QUEST_ACCEPTED = function(questID)
-        ns.Rail.Add("amber", QuestName(questID, "Quest accepted"))
+        ns.Toast.Add("amber", QuestName(questID, "Quest accepted"))
     end,
     QUEST_TURNED_IN = function(questID)
-        ns.Rail.Add("amber", QuestName(questID, "Quest complete"))
+        ns.Toast.Add("amber", QuestName(questID, "Quest complete"))
     end,
     -- green
     CURRENCY_DISPLAY_UPDATE = OnCurrency,
     CHAT_MSG_COMBAT_FACTION_CHANGE = OnReputation,
 
-    -- violet
+    -- Achievements moved to amber in round 003, beside quest completion, so
+    -- violet could take whispers without a fourteenth colour (D1).
     ACHIEVEMENT_EARNED = function(achievementID)
         local _, name = API("GetAchievementInfo", achievementID)
-        ns.Rail.Add("violet", type(name) == "string" and name or "Achievement")
+        ns.Toast.Add("amber", type(name) == "string" and name or "Achievement")
     end,
 
-    -- red
-    PLAYER_DEAD = function()
-        Burst("death", "red", "You died")
+    -- violet: whispers. The Aug 28 "You died" row (red, the sixth hue) is
+    -- dropped in round 003.
+    CHAT_MSG_WHISPER = function(_, sender)
+        OnWhisper(sender, true)
+    end,
+    CHAT_MSG_BN_WHISPER = function(_, sender)
+        OnWhisper(sender, false)
     end,
 
     -- orange
@@ -479,10 +510,10 @@ Sources.EVENTS = {
     BAG_UPDATE_DELAYED           = OnBagUpdate,
     UPDATE_INVENTORY_DURABILITY  = OnDurability,
     PARTY_INVITE_REQUEST = function(name)
-        ns.Rail.Add("orange", ("Party: %s"):format(tostring(name or "?")))
+        ns.Toast.Add("orange", ("Party: %s"):format(tostring(name or "?")))
     end,
     GUILD_INVITE_REQUEST = function(inviter, guildName)
-        ns.Rail.Add("orange", ("Guild: %s"):format(tostring(guildName or inviter or "?")))
+        ns.Toast.Add("orange", ("Guild: %s"):format(tostring(guildName or inviter or "?")))
     end,
 }
 

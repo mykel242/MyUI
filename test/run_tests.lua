@@ -72,7 +72,7 @@ check("  and the addon agrees with it",
 check("  and reports the TOC version, not a stale one",
       ns.version == toc.Version, ns.version .. " vs " .. tostring(toc.Version))
 for _, mod in ipairs({ "Compat", "Scale", "Palette", "Guard", "Registry",
-                       "Frames", "Reveal", "Peek", "Rail", "Outline", "Testing",
+                       "Frames", "Reveal", "Peek", "Toast", "Log", "Center", "Sources", "Outline", "Testing",
                        "Rules", "Copy" }) do
     check("  ns." .. mod .. " exists", ns[mod] ~= nil)
 end
@@ -310,14 +310,13 @@ end)())
 section("Frames -- SPEC 2 anchors")
 -- ---------------------------------------------------------------------------
 
-check("all four SPEC 2 frames registered", Registry.Count() == 4, Registry.Count())
+check("the three SPEC 2 frames registered (the rail is cut)", Registry.Count() == 3, Registry.Count())
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
     { "SelfStack",   0.35, 240, 20, "BOTTOM",   0,  214 },
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
     { "TargetStrip", 0,    400, 49, "TOP",      0,  -20 },
-    { "Rail",        1,     10, 440, "LEFT",   20,    0 },
 }
 
 for _, e in ipairs(EXPECTED) do
@@ -371,7 +370,7 @@ check("ticks are one physical pixel wide",
       near(stack.tick20:GetWidth(), Scale.Hairline()))
 
 -- ---------------------------------------------------------------------------
-section("Frames -- TargetStrip and Rail")
+section("Frames -- TargetStrip")
 -- ---------------------------------------------------------------------------
 
 local strip = Registry.Get("TargetStrip").frame
@@ -384,10 +383,7 @@ check("cast indicator is a 3 x 6 tick", near(strip.cast:GetWidth(), Scale.U(3))
 local _, _, _, _, tcy = strip.cast:GetPoint(1)
 check("  9 below the bar", near(tcy, -Scale.U(9)), tcy)
 
-local rail = Registry.Get("Rail").frame
-check("rail hairline is 440 tall", near(rail.hairline:GetHeight(), Scale.U(440)))
-check("  and one physical pixel wide", near(rail.hairline:GetWidth(), Scale.Hairline()))
-check("no dots yet -- SPEC 6 is Phase 3", rail.dots == nil)
+check("the rail is gone (round 003)", Registry.Get("Rail") == nil and ns.Rail == nil)
 
 -- ---------------------------------------------------------------------------
 section("Debug toggle")
@@ -594,8 +590,7 @@ check("  leaving the self stack at rest", stackEntry.target == 0.35)
 Reveal.Release("target")
 
 Reveal.Claim("peek")
-check("peek claims everything", stackEntry.target == 1 and stripEntry.target == 1
-      and Registry.Get("Rail").target == 1)
+check("peek claims everything", stackEntry.target == 1 and stripEntry.target == 1)
 Reveal.Release("peek")
 clearClaims()
 
@@ -960,195 +955,6 @@ check("releasing it returns every frame to resting",
       stackEntry.target == 0.35 and stripEntry.target == 0)
 
 -- ---------------------------------------------------------------------------
-section("Rail -- notifications")
--- ---------------------------------------------------------------------------
--- SPEC 6. The rail touches no protected data, which is why PLAN puts it ahead
--- of the bars: it exercises the reveal engine hard with no taint risk at all.
-
-local Rail = ns.Rail
-
--- Login order is a real dependency, and it used to be a pairs() over a table.
-check("the rail built at login", Rail.slots ~= nil and #Rail.slots == Rail.SLOTS)
-check("  which means Frames ran before it", Registry.Get("Rail") ~= nil)
-
-Rail.Clear()
-check("an unknown type is refused", select(1, Rail.Add("puce", "x")) == nil)
-check("  naming the ones that exist",
-      select(2, Rail.Add("puce", "x")):find("violet", 1, true) ~= nil)
-
-Rail.Clear()
-Rail.Add("blue", "First", 1)
-Rail.Add("amber", "Second", 3)
-check("newest goes to the top", Rail.items[1].name == "Second")
-check("  carrying its count", Rail.items[1].count == 3)
-check("slot one shows name and count", Rail.slots[1].name:GetText() == "Second x3")
-check("  and an age", Rail.slots[1].age:GetText() == "0s")
-check("a count of one is not written out", (function()
-    Rail.Add("green", "Single", 1)
-    return Rail.slots[1].name:GetText() == "Single"
-end)())
-
--- SPEC 6: the two newest carry text; older items are the dot alone at 0.4.
-Rail.Clear()
-for i = 1, 5 do Rail.Add("blue", "Item " .. i) end
--- SPEC 6 describes the rows "at rest", so settle the toast first: while one is
--- speaking, the row it stands in for is deliberately not drawn.
-Rail.Collapse()
-Rail.slots[1].fade:Finish()
-Rail.toastFrame.collapse:Finish()
-check("exactly two rows carry text", (function()
-    local withText = 0
-    for i = 1, Rail.SLOTS do
-        if Rail.RowVisible(i) then withText = withText + 1 end
-    end
-    return withText == Rail.NAMED
-end)())
-check("  the newest two", Rail.slots[1].name:GetText() == "Item 5"
-      and Rail.slots[2].name:GetText() == "Item 4")
-check("older dots sit at 0.4", Compat.Get(Rail.slots[3].dot, "GetAlpha") == Rail.OLD_ALPHA,
-      Compat.Get(Rail.slots[3].dot, "GetAlpha"))
-check("  while the named ones are full", Compat.Get(Rail.slots[1].dot, "GetAlpha") == 1)
-check("empty slots are hidden", not Rail.slots[6]:IsShown())
-
--- FOUND IN GAME: "Chunk of Companion Experience" ran through the age and drew
--- on top of it. SPEC 6 never says what happens when a name is longer than the
--- row, so the name is bounded by the age rather than the row -- the age's own
--- width varies between "9s" and "23h" -- and wraps to an ellipsis instead of a
--- second line. Offline this can only check the mechanism; the acceptance script
--- asks whether it actually reads.
-check("a row name is bounded on both sides, so it has a real width", (function()
-    local anchors = {}
-    for _, c in ipairs(Rail.slots[1].name.__calls) do
-        if c.method == "SetPoint" then anchors[c[1]] = c[2] end
-    end
-    return anchors.LEFT ~= nil and anchors.RIGHT ~= nil, "LEFT and RIGHT both needed"
-end)())
-check("  and the right edge yields to the age, not to the row", (function()
-    for _, c in ipairs(Rail.slots[1].name.__calls) do
-        if c.method == "SetPoint" and c[1] == "RIGHT" then
-            return c[2] == Rail.slots[1].age, "anchored to the wrong thing"
-        end
-    end
-    return false, "no RIGHT anchor"
-end)())
-check("  with word wrap off, so it ellipsises instead of wrapping", (function()
-    for _, c in ipairs(Rail.slots[1].name.__calls) do
-        if c.method == "SetWordWrap" then return c[1] == false end
-    end
-    return false, "never set"
-end)())
-check("the toast is bounded too, so a long name stops at its edge", (function()
-    local sawRight, sawWrap = false, false
-    for _, c in ipairs(Rail.toastFrame.label.__calls) do
-        if c.method == "SetPoint" and c[1] == "RIGHT" then sawRight = true end
-        if c.method == "SetWordWrap" and c[1] == false then sawWrap = true end
-    end
-    return sawRight and sawWrap
-end)())
-
--- SPEC 6 (amended): the 1px dark edge that keeps a 0.4 dot legible over sand
--- and firelight. Attached to the "older items" line, so the newest two do not
--- get one -- their dots are at full alpha and the reason for the edge does not
--- apply to them.
-check("a dim dot carries a dark edge", Rail.slots[3].edge.TOP:IsShown())
-check("  on all four sides", (function()
-    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
-        if not Rail.slots[3].edge[side]:IsShown() then return false, side end
-    end
-    return true
-end)())
-check("  in tickDark, introducing no new colour", (function()
-    for _, c in ipairs(Rail.slots[3].edge.TOP.__calls) do
-        if c.method == "SetColorTexture" then
-            return c[1] == 0 and c[2] == 0 and near(c[4], 0.55)
-        end
-    end
-    return false, "never coloured"
-end)())
-check("  and the full-alpha dots do not", not Rail.slots[1].edge.TOP:IsShown())
-
--- The amendment's implementation note, and the whole point of it: "draw the
--- edge as a sibling texture at constant alpha, never as a child of the dot --
--- a child inherits the dot's 0.4 and the edge vanishes exactly when it is
--- needed." Two checks, because each catches a different way of getting it wrong.
-check("the edge never has an alpha set on it", (function()
-    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
-        for _, c in ipairs(Rail.slots[3].edge[side].__calls) do
-            if c.method == "SetAlpha" then return false, side end
-        end
-    end
-    return true
-end)())
-check("  and is not created on the dot", (function()
-    local src = assert(io.open("../MyUI/Rail.lua")):read("*a")
-    return src:find("dot:CreateTexture", 1, true) == nil
-end)())
-
--- Round 5 killed the cap and the "+N more" square: "you were right, the cap
--- was arbitrary". Twelve arrive, twelve are drawn.
-Rail.Clear()
-for i = 1, 12 do Rail.Add("amber", "Twelve " .. i) end
-check("nothing is hidden behind a count", (function()
-    local shown = 0
-    for i = 1, Rail.SLOTS do
-        if Rail.slots[i]:IsShown() then shown = shown + 1 end
-    end
-    return shown == 12, shown
-end)())
-check("  and the rail has no overflow marker at all", Rail.overflow == nil)
-
--- "Pitch drops 26 -> 20 -> 8 as the live count rises."
-check("the pitch tightens as the rail fills", Rail.Pitch(12) < Rail.Pitch(3),
-      Rail.Pitch(12) .. " vs " .. Rail.Pitch(3))
-check("  loosest when quiet", Rail.Pitch(3) == Rail.SPACING, Rail.Pitch(3))
-check("  and bottoms out rather than going to zero", Rail.Pitch(400) == Rail.PITCH_MIN,
-      Rail.Pitch(400))
-
--- "Alpha is the clock. A dot enters at 0.40 and decays to zero over 5 minutes."
-check("a fresh dot enters at the old-items alpha", Rail.Fade(0) == Rail.OLD_ALPHA, Rail.Fade(0))
-check("  is dimmer halfway through", Rail.Fade(Rail.DECAY / 2) < Rail.OLD_ALPHA)
-check("  and reaches zero at the end of the decay", Rail.Fade(Rail.DECAY) == 0)
-check("  never going negative past it", Rail.Fade(Rail.DECAY * 10) == 0)
-
--- Dots leave by ageing out. This is only honest because the log has them.
-check("dots age out of the rail", (function()
-    Rail.Clear()
-    Rail.Add("blue", "Old")
-    mock.time = mock.time + Rail.DECAY + 1
-    Rail.Refresh()
-    return #Rail.items == 0, #Rail.items
-end)())
-check("  and the log still has it", ns.Log.Count("blue") > 0)
-
--- SLOTS is an allocation bound, not the cap coming back: WoW cannot destroy a
--- frame, so an unbounded rail is a pool that only ever grows.
-check("the pool has a ceiling", (function()
-    Rail.Clear()
-    for i = 1, Rail.SLOTS + 10 do Rail.Add("violet", "Flood " .. i) end
-    return #Rail.items == Rail.SLOTS, #Rail.items
-end)())
-check("  and everything past it is still in the log",
-      ns.Log.Count("violet") >= Rail.SLOTS + 10, ns.Log.Count("violet"))
-
--- Hues come from the palette, so the rail cannot introduce a fifteenth colour.
-check("every notification type maps to a palette entry", (function()
-    for kind, name in pairs(Rail.HUES) do
-        if ns.Palette.colors[name] == nil then return false, kind end
-    end
-    return true
-end)())
-check("  and there are six of them", (function()
-    local n = 0
-    for _ in pairs(Rail.HUES) do n = n + 1 end
-    return n == 6, n
-end)())
--- Round 5's sixth hue cost nothing: it is the danger red the low-health bar
--- already uses, at the same rgba. If this ever stops being true the palette
--- has grown a colour nobody asked for.
-check("  and the sixth is the palette's existing danger red",
-      Rail.HUES.red == "danger")
-
--- ---------------------------------------------------------------------------
 section("Text legibility")
 -- ---------------------------------------------------------------------------
 -- SPEC 7's palette is light-on-dark. Over bright scenery -- sand, firelight --
@@ -1232,7 +1038,7 @@ check("  and there are strings from more than one module to reach",
 -- Structural: a FontString created outside the helper would silently miss the
 -- treatment, and the miss would only ever show up on a bright backdrop.
 check("no module creates a FontString outside Frames.Text", (function()
-    for _, name in ipairs({ "Frames", "Rail", "Peek" }) do
+    for _, name in ipairs({ "Frames", "Toast", "Center", "Peek" }) do
         local f = assert(io.open("../MyUI/" .. name .. ".lua"))
         local src = f:read("*a")
         f:close()
@@ -1251,131 +1057,117 @@ check("no module creates a FontString outside Frames.Text", (function()
 end)())
 
 -- ---------------------------------------------------------------------------
-section("Rail -- age")
+section("Toasts -- SPEC 6, round 003")
 -- ---------------------------------------------------------------------------
+-- The rail is cut; its toast survives at ToastAnchor. One toast per event,
+-- never a stream, and the log is written before anything speaks.
 
-check("seconds under a minute", Rail.FormatAge(0) == "0s" and Rail.FormatAge(59) == "59s")
-check("minutes after that", Rail.FormatAge(60) == "1m" and Rail.FormatAge(3599) == "59m")
-check("hours after that", Rail.FormatAge(3600) == "1h")
-check("nonsense is not rendered as a number", Rail.FormatAge(nil) == "?")
+local Toast = ns.Toast
 
-Rail.Clear()
-Rail.Add("blue", "Ageing")
-check("a new item reads as 0s", Rail.slots[1].age:GetText() == "0s")
-mock.advance(ns, 5, 1)
-check("the age ticks over on its own timer", Rail.slots[1].age:GetText() == "5s",
-      Rail.slots[1].age:GetText())
-
--- ---------------------------------------------------------------------------
-section("Rail -- toast lifecycle")
--- ---------------------------------------------------------------------------
--- SPEC 8: slide + fade 180ms in, 4s dwell, 200ms to collapse.
-
-Rail.Clear()
-check("nothing is toasting at rest", not Rail.IsToasting())
-
-Rail.Add("blue", "Spoken")
-check("an arrival speaks", Rail.IsToasting())
-check("  showing the toast", Rail.toastFrame:IsShown())
-check("  with the item's text", Rail.toastFrame.label:GetText() == "Spoken")
-check("  playing the entrance", Rail.toastFrame.entrance:IsPlaying())
-
--- The bug this section exists to prevent: the toast used to carry its own dot
--- and its own copy of the text, anchored over the first row, so while it was up
--- you saw the same notification twice, overlapping itself. Every earlier test
--- passed, because none of them asked what the ROW was doing meanwhile.
-check("the toast draws no dot of its own", Rail.toastFrame.dot == nil)
-check("  borrowing the first slot's instead", (function()
-    local p = { Rail.toastFrame:GetPoint(1) }
-    return p[2] == Rail.slots[1].dot
+check("the anchor was built at login", Toast.Anchor() ~= nil)
+check("  and is not in the reveal registry (nothing to reveal at rest)",
+      Registry.Get("ToastAnchor") == nil)
+check("five hues, all palette entries, no red", (function()
+    local n = 0
+    for _, colour in pairs(Toast.HUES) do
+        n = n + 1
+        if not ns.Palette.colors[colour] then return false, colour end
+    end
+    return n == 5 and Toast.HUES.red == nil, n
 end)())
-check("the row it stands in for is not drawn underneath it",
-      not Rail.RowVisible(1))
-check("  though the dot stays, since the toast collapses into it",
-      Rail.slots[1].dot ~= nil and Rail.slots[1]:IsShown())
-check("  and the second row is unaffected", (function()
-    Rail.Add("amber", "Older")
-    Rail.Add("green", "Newest")
-    return Rail.RowVisible(2)
+check("an unknown hue is refused", select(1, Toast.Add("puce", "x")) == nil)
+
+Toast.Clear()
+ns.Log.Clear()
+local spoken = Toast.Add("blue", "Hearthstone")
+check("a toast speaks", Toast.IsSpeaking() and Toast.live[1] == spoken)
+check("  and is in the log first", ns.Log.db.entries[1].name == "Hearthstone")
+check("  painted: name and an age", (function()
+    local f = Toast.pool[1]
+    return f.item == spoken and f.name:GetText() == "Hearthstone" and f.age:GetText() == "0s"
 end)())
 
--- The changeover has to be a cross-fade. Revealing the row only after the
--- toast finished fading left a gap where neither was drawn, which reads as the
--- text blinking once, four seconds after the notification.
-Rail.Collapse()
-check("the row is drawn the instant the collapse begins", Rail.RowVisible(1))
-check("  starting transparent so the two cross-fade",
-      Compat.Get(Rail.slots[1].text, "GetAlpha") == 0,
-      Compat.Get(Rail.slots[1].text, "GetAlpha"))
-check("  fading in over the same 200ms the toast fades out",
-      Rail.slots[1].fade:IsPlaying())
-Rail.slots[1].fade:Finish()
-check("  and settling at full", Compat.Get(Rail.slots[1].text, "GetAlpha") == 1)
-Rail.toastFrame.collapse:Finish()
-check("the row remains once the toast has collapsed into it",
-      Rail.RowVisible(1))
-check("  carrying the same text the toast had",
-      Rail.slots[1].name:GetText() == "Newest")
+mock.advance(ns, Toast.DWELL + 0.1)
+check("it leaves on its own after the 4s dwell", not Toast.IsSpeaking())
 
--- The slide has to come FROM somewhere. A Translation snaps back to its anchor
--- when it finishes, so animating toward the anchor would slide right and then
--- jump left.
-Rail.Add("violet", "Sliding")
-local startX = select(4, Rail.toastFrame:GetPoint(1))
-Rail.toastFrame.entrance:Finish()
-local restX = select(4, Rail.toastFrame:GetPoint(1))
-check("the toast starts left of where it settles", startX < restX,
-      tostring(startX) .. " -> " .. tostring(restX))
-Rail.Collapse()
-Rail.toastFrame.collapse:Finish()
+Toast.Clear()
+for i = 1, Toast.CAP + 2 do Toast.Add("amber", "Burst " .. i) end
+check("past the cap, the oldest leave at once", #Toast.live == Toast.CAP, #Toast.live)
+check("  newest at the anchor", Toast.live[1].name == ("Burst " .. (Toast.CAP + 2)))
+check("  and every one of them is in the log", ns.Log.Count("amber") >= Toast.CAP + 2)
 
-Rail.Clear()
-Rail.Add("blue", "Spoken")
+Toast.Clear()
+local rolling = Toast.Add("green", "Conquest", 10)
+local before = ns.Log.Count()
+Toast.Bump(rolling, 5)
+check("a bump rolls into the toast it owns", rolling.count == 15 and #Toast.live == 1)
+check("  and is logged", ns.Log.Count() == before + 1)
 
-mock.advance(ns, 3.9, 4)
-check("it is still up before the dwell runs out", Rail.IsToasting())
-mock.advance(ns, 0.2, 1)
-check("and collapses after 4s", not Rail.IsToasting())
-check("  by playing the collapse, not by vanishing",
-      Rail.toastFrame.collapse:IsPlaying())
-Rail.toastFrame.collapse:Finish()
-check("  and hides when that finishes", not Rail.toastFrame:IsShown())
-
--- "speaks once": a second arrival takes the slot rather than queueing behind it.
-Rail.Add("amber", "First")
-mock.advance(ns, 1, 1)
-Rail.Add("green", "Second")
-check("a newer arrival takes over the toast",
-      Rail.toastFrame.label:GetText() == "Second")
-check("  and restarts the dwell rather than inheriting it", (function()
-    mock.advance(ns, 3.5, 4)
-    return Rail.IsToasting()
-end)())
-mock.advance(ns, 0.7, 1)
-check("  then collapses on its own clock", not Rail.IsToasting())
-
--- SPEC 6: "after 4s OR on dismissal".
-Rail.toastFrame.collapse:Finish()
-Rail.Add("orange", "Dismissed")
-check("dismissal collapses early", Rail.Collapse() == true)
-check("  and there is nothing left to dismiss", Rail.Collapse() == false)
--- Click-to-dismiss is gone. SPEC 8 asks for "4s or on dismissal" and never
--- says the dismissal is a click, so the mechanism stays and the mouse surface
--- goes. What that buys is worth more than the gesture: the rail sits on the
--- left edge of the screen, and nothing there eats a world click.
-check("the toast takes no mouse input", Rail.toastFrame.scripts.OnMouseDown == nil)
-check("  and nothing in the rail enables the mouse at all", (function()
-    local src = assert(io.open("../MyUI/Rail.lua")):read("*a")
-    return src:find("EnableMouse", 1, true) == nil
+check("dismiss leaves now", (function()
+    Toast.Clear()
+    Toast.Add("orange", "Mail")
+    Toast.Dismiss()
+    return not Toast.IsSpeaking()
 end)())
 
-Rail.toastFrame.collapse:Finish()
-Rail.Clear()
-check("clearing empties the rail", #Rail.items == 0 and not Rail.slots[1]:IsShown())
-check("  and no row text survives it", not Rail.RowVisible(1))
+-- SPEC 6: "A toast can be interacted with." SPEC 14: a whisper toast opens
+-- chat at that conversation.
+do
+    local opened
+    local realOpen = ns.Chat.Open
+    ns.Chat.Open = function(prefill) opened = prefill end
+    Toast.Clear()
+    check("clicking a whisper opens chat at /w and the sender", (function()
+        local it = Toast.Add("violet", "Friend-Realm", 1, "Friend-Realm")
+        Toast.Activate(it)
+        return opened == "/w Friend-Realm ", opened
+    end)())
+    check("  a whisper with no name to answer falls back to /r", (function()
+        local it = Toast.Add("violet", "Whisper")
+        Toast.Activate(it)
+        return opened == "/r ", opened
+    end)())
+    ns.Chat.Open = realOpen
+end
+check("clicking anything else opens the history at its hue", (function()
+    local it = Toast.Add("amber", "Quest complete")
+    local how = Toast.Activate(it)
+    local ok = how == "history" and ns.Center.IsOpen() and ns.Center.filter == "amber"
+    ns.Center.Close()
+    ns.Center.Filter(nil)
+    return ok, how
+end)())
+check("right click dismisses", (function()
+    Toast.Clear()
+    local it = Toast.Add("blue", "Gone")
+    local f = Toast.pool[1]
+    for _, frame in ipairs(Toast.pool) do if frame.item == it then f = frame end end
+    f.scripts.OnMouseUp(f, "RightButton")
+    return not Toast.IsSpeaking()
+end)())
+Toast.Clear()
+
+-- What the sources posted, newest first. The rail used to be this list; now a
+-- toast is the announcement and the log the record, so the tests watch what
+-- reached Toast.Add -- one entry per announcement, a burst rolling into its own.
+local Feed = { items = {} }
+do
+    local realAdd = ns.Toast.Add
+    ns.Toast.Add = function(...)
+        local item, why = realAdd(...)
+        if item then table.insert(Feed.items, 1, item) end
+        return item, why
+    end
+end
+function Feed.Clear()
+    for i = #Feed.items, 1, -1 do Feed.items[i] = nil end
+    ns.Toast.Clear()
+end
+function Feed.Add(...) return ns.Toast.Add(...) end
+function Feed.Bump(item, count) return ns.Toast.Bump(item, count) end
 
 -- ---------------------------------------------------------------------------
-section("Rail -- what feeds it")
+section("Sources -- what feeds it")
 -- ---------------------------------------------------------------------------
 -- SPEC 6's event table, wired up. C1 -- "what produces a notification?" -- was
 -- the biggest thing the spec left open, and Phase 3 shipped /myui notify rather
@@ -1397,7 +1189,7 @@ check("every event SPEC 6 names is wired, and only those", (function()
         "CHAT_MSG_LOOT", "LOOT_ITEM_ROLL_WON",
         "QUEST_ACCEPTED", "QUEST_TURNED_IN",
         "CURRENCY_DISPLAY_UPDATE", "CHAT_MSG_COMBAT_FACTION_CHANGE",
-        "ACHIEVEMENT_EARNED", "PLAYER_DEAD",
+        "ACHIEVEMENT_EARNED", "CHAT_MSG_WHISPER", "CHAT_MSG_BN_WHISPER",
         "UPDATE_PENDING_MAIL", "BAG_UPDATE_DELAYED", "UPDATE_INVENTORY_DURABILITY",
         "PARTY_INVITE_REQUEST", "GUILD_INVITE_REQUEST",
     }
@@ -1413,9 +1205,9 @@ check("every event SPEC 6 names is wired, and only those", (function()
 end)())
 
 local function fire(event, ...)
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire(event, ...)
-    return Rail.items[1]
+    return Feed.items[1]
 end
 
 -- --- blue: loot ------------------------------------------------------------
@@ -1431,41 +1223,41 @@ check("  with the count read after the link, not out of the name",
       got and got.count == 3, got and got.count)
 
 check("somebody else's loot is ignored", (function()
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("CHAT_MSG_LOOT", EPIC, nil, nil, nil, nil, nil, nil, nil, nil, nil,
                       nil, "Player-1-SOMEONE")
-    return #Rail.items == 0
+    return #Feed.items == 0
 end)())
 
 -- With no GUID the localized "you receive" strings decide. Guessing wrong in a
 -- raid is the noisy direction, so an unattributable message is dropped.
 check("a message with no GUID falls back to the localized patterns", (function()
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("CHAT_MSG_LOOT", EPIC)
-    return #Rail.items == 1
+    return #Feed.items == 1
 end)())
 check("  and one that names somebody else is dropped", (function()
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("CHAT_MSG_LOOT",
                       "Someone receives loot: |Hitem:6948::::::::70:::::|h[Hearthstone]|h|r.")
-    return #Rail.items == 0
+    return #Feed.items == 0
 end)())
 
 -- SPEC 6: "loot at uncommon and above", a saved variable.
 mock.itemQuality[1234] = 1
 local POOR = "You receive loot: |Hitem:1234::::::::70:::::|h[Linen Cloth]|h|r."
 check("common loot is filtered out", (function()
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("CHAT_MSG_LOOT", POOR, nil, nil, nil, nil, nil, nil, nil, nil, nil,
                       nil, mock.playerGUID)
-    return #Rail.items == 0
+    return #Feed.items == 0
 end)())
 check("  and the threshold comes from saved variables", (function()
     _G.MyUIDB.sources.lootQuality = 1
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("CHAT_MSG_LOOT", POOR, nil, nil, nil, nil, nil, nil, nil, nil, nil,
                       nil, mock.playerGUID)
-    local n = #Rail.items
+    local n = #Feed.items
     _G.MyUIDB.sources.lootQuality = 2
     return n == 1
 end)())
@@ -1488,7 +1280,7 @@ check("an unknown quest id still posts, with a fallback name",
 -- SPEC 6: "one row per event, never a stream". UNIT_QUEST_LOG_CHANGED fires
 -- several times for one objective and carries no id to tell them apart.
 
-Rail.Clear()
+Feed.Clear()
 -- G1 is closed by deletion. UNIT_QUEST_LOG_CHANGED fired several times per
 -- objective and carried no quest id, so its row could never be named or rolled
 -- up -- it just said "Objective". Dropped rather than tuned: it was the only
@@ -1497,15 +1289,15 @@ check("quest objectives are not a source", Sources.EVENTS.UNIT_QUEST_LOG_CHANGED
 check("  and the window that existed only for them went with it",
       Sources.COALESCE == nil and Sources.Coalesce == nil)
 check("  so firing it does nothing at all", (function()
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("UNIT_QUEST_LOG_CHANGED", "player")
-    return #Rail.items == 0, #Rail.items
+    return #Feed.items == 0, #Feed.items
 end)())
 -- Quests still speak; it is only the unnameable progress event that went.
 check("  while accepting a quest still does", (function()
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("QUEST_ACCEPTED", 42)
-    return #Rail.items == 1, #Rail.items
+    return #Feed.items == 1, #Feed.items
 end)())
 
 -- --- green: currency and reputation ---------------------------------------
@@ -1515,9 +1307,9 @@ got = fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50)
 check("a currency gain posts a green row", got ~= nil and got.kind == "green")
 check("  named and counted", got and got.name == "Conquest" and got.count == 50)
 check("spending is not a notification", (function()
-    Rail.Clear()
+    Feed.Clear()
     sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 200, -50)
-    return #Rail.items == 0
+    return #Feed.items == 0
 end)())
 
 got = fire("CHAT_MSG_COMBAT_FACTION_CHANGE",
@@ -1564,7 +1356,7 @@ check("every variant the client ships was found, not listed",
 
 mock.achievements[5] = "Explorer"
 got = fire("ACHIEVEMENT_EARNED", 5)
-check("an achievement posts a violet row", got ~= nil and got.kind == "violet")
+check("an achievement posts an amber row (round 003)", got ~= nil and got.kind == "amber")
 check("  named", got and got.name == "Explorer")
 
 -- --- orange: something wants you -------------------------------------------
@@ -1580,27 +1372,27 @@ end)())
 
 -- The latch. SPEC's own example: "a full bag says so once, not on every
 -- BAG_UPDATE."
-Rail.Clear()
+Feed.Clear()
 Sources.latched.bagFull = nil
 mock.bagFree = 0
 for _ = 1, 5 do sourceDriver:Fire("BAG_UPDATE_DELAYED") end
-check("a full bag says so once, not on every update", #Rail.items == 1, #Rail.items)
-check("  in orange", Rail.items[1] and Rail.items[1].kind == "orange")
+check("a full bag says so once, not on every update", #Feed.items == 1, #Feed.items)
+check("  in orange", Feed.items[1] and Feed.items[1].kind == "orange")
 
 mock.bagFree = 3
 sourceDriver:Fire("BAG_UPDATE_DELAYED")
-check("making room clears the latch silently", #Rail.items == 1, #Rail.items)
+check("making room clears the latch silently", #Feed.items == 1, #Feed.items)
 mock.bagFree = 0
 sourceDriver:Fire("BAG_UPDATE_DELAYED")
-check("  and filling it again speaks again", #Rail.items == 2, #Rail.items)
+check("  and filling it again speaks again", #Feed.items == 2, #Feed.items)
 mock.bagFree = 5
 sourceDriver:Fire("BAG_UPDATE_DELAYED")
 
-Rail.Clear()
+Feed.Clear()
 Sources.latched.durability = nil
 mock.durability = 0.10
 for _ = 1, 4 do sourceDriver:Fire("UPDATE_INVENTORY_DURABILITY") end
-check("worn gear says so once", #Rail.items == 1, #Rail.items)
+check("worn gear says so once", #Feed.items == 1, #Feed.items)
 mock.durability = 0.5
 sourceDriver:Fire("UPDATE_INVENTORY_DURABILITY")
 check("  and repairing clears it", Sources.latched.durability == nil)
@@ -1615,12 +1407,12 @@ check("  but unreadable durability leaves the latch alone",
 mock.durability = 1.0
 Sources.latched.durability = nil
 
-Rail.Clear()
+Feed.Clear()
 Sources.latched.mail = nil
 mock.hasMail = true
 sourceDriver:Fire("UPDATE_PENDING_MAIL")
 sourceDriver:Fire("UPDATE_PENDING_MAIL")
-check("pending mail says so once", #Rail.items == 1, #Rail.items)
+check("pending mail says so once", #Feed.items == 1, #Feed.items)
 mock.hasMail = false
 sourceDriver:Fire("UPDATE_PENDING_MAIL")
 check("  and reading it clears the latch", Sources.latched.mail == nil)
@@ -1630,14 +1422,14 @@ check("  and reading it clears the latch", Sources.latched.mail == nil)
 check("a missing reader does not take the source down", (function()
     local saved = _G.C_CurrencyInfo
     _G.C_CurrencyInfo = nil
-    Rail.Clear()
+    Feed.Clear()
     local ok = pcall(function() sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50) end)
     _G.C_CurrencyInfo = saved
-    return ok and #Rail.items == 1 and Rail.items[1].name == "Currency",
-           Rail.items[1] and Rail.items[1].name
+    return ok and #Feed.items == 1 and Feed.items[1].name == "Currency",
+           Feed.items[1] and Feed.items[1].name
 end)())
 
-Rail.Clear()
+Feed.Clear()
 Sources.latched = {}
 
 -- ---------------------------------------------------------------------------
@@ -1951,7 +1743,7 @@ check("phase 3's script covers what PLAN's acceptance names", (function()
     for _, step in ipairs(Testing.scripts[3].steps) do
         text = text .. " " .. step.act:lower() .. " " .. step.expect:lower()
     end
-    for _, word in ipairs({ "dot", "square", "toast", "calm", "age" }) do
+    for _, word in ipairs({ "toast", "log", "history", "whisper", "four seconds" }) do
         if not text:find(word, 1, true) then return false, word end
     end
     return true
@@ -2155,8 +1947,8 @@ check("  carrying a schema", Log.db.schema == Log.SCHEMA)
 -- migration, which is the whole reason it is here on day one.
 check("entries are dated in epoch seconds, not session seconds", (function()
     Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Dated")
+    Feed.Clear()
+    Feed.Add("blue", "Dated")
     local e = Log.db.entries[1]
     return e ~= nil and e.at > 1000000000, e and e.at
 end)())
@@ -2164,16 +1956,16 @@ check("  which is a different clock from the rail's", Log.Now() ~= ns.Reveal.Now
 
 check("every rail item is recorded", (function()
     Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "One")
-    Rail.Add("amber", "Two")
+    Feed.Clear()
+    Feed.Add("blue", "One")
+    Feed.Add("amber", "Two")
     return Log.Count() == 2, Log.Count()
 end)())
 check("  newest first, like the rail", Log.db.entries[1].name == "Two")
 check("  keeping the hue", Log.Filter("amber")[1].name == "Two")
 check("  and the count", (function()
     Log.Clear()
-    Rail.Add("green", "Stack", 7)
+    Feed.Add("green", "Stack", 7)
     return Log.db.entries[1].count == 7, Log.db.entries[1].count
 end)())
 
@@ -2200,18 +1992,18 @@ end)())
 
 check("a tally counts per hue, for the filter row", (function()
     Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "a")
-    Rail.Add("blue", "b")
-    Rail.Add("red", "c")
+    Feed.Clear()
+    Feed.Add("blue", "a")
+    Feed.Add("blue", "b")
+    Feed.Add("orange", "c")
     local t = Log.Tally()
-    return t.blue == 2 and t.red == 1, tostring(t.blue) .. "/" .. tostring(t.red)
+    return t.blue == 2 and t.orange == 1, tostring(t.blue) .. "/" .. tostring(t.orange)
 end)())
 
 check("/myui log prints the record", (function()
     Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Readable")
+    Feed.Clear()
+    Feed.Add("blue", "Readable")
     ns.ClearOutput()
     run("log")
     local out = ns.GetOutput()
@@ -2219,13 +2011,13 @@ check("/myui log prints the record", (function()
 end)())
 check("  filters by hue", (function()
     Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Bluey")
-    Rail.Add("red", "Reddy")
+    Feed.Clear()
+    Feed.Add("blue", "Bluey")
+    Feed.Add("orange", "Orangey")
     ns.ClearOutput()
-    run("log red")
+    run("log orange")
     local out = ns.GetOutput()
-    return out:find("Reddy", 1, true) ~= nil and out:find("Bluey", 1, true) == nil, out
+    return out:find("Orangey", 1, true) ~= nil and out:find("Bluey", 1, true) == nil, out
 end)())
 check("  refuses a hue that does not exist", (function()
     ns.ClearOutput()
@@ -2237,57 +2029,6 @@ check("  and clears on request", (function()
     return Log.Count() == 0, Log.Count()
 end)())
 
--- FOUND IN GAME: after a reload the rail was blank and looked broken. The log
--- lives on disk and the rail lives in memory, so the record kept everything
--- and the display forgot it -- survivable when dots sat there forever, not
--- once they age out.
-check("the rail comes back from the log after a reload", (function()
-    Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Before the reload")
-    Rail.Add("amber", "Also before")
-    -- Simulate the reload: the rail is memory, so it empties; the log is not.
-    Rail.items = {}
-    local n = Rail.Rehydrate()
-    return n == 2 and #Rail.items == 2, n
-end)())
-check("  newest still at the top", Rail.items[1].name == "Also before",
-      Rail.items[1].name)
-check("  and it does not announce them again", (function()
-    Rail.Collapse()
-    Rail.items = {}
-    Rail.Rehydrate()
-    -- They already spoke, in a previous session.
-    return not Rail.IsToasting()
-end)())
-check("  carrying the age across, not the timestamp", (function()
-    Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Aged")
-    mock.time = mock.time + 120
-    Rail.items = {}
-    Rail.Rehydrate()
-    local age = ns.Reveal.Now() - Rail.items[1].at
-    return age >= 119 and age <= 121, age
-end)())
-check("  and leaves behind anything past the decay", (function()
-    Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Ancient")
-    mock.time = mock.time + Rail.DECAY + 60
-    Rail.items = {}
-    return Rail.Rehydrate() == 0
-end)())
-check("  without re-recording what it restored", (function()
-    Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Once")
-    local before = Log.Count()
-    Rail.items = {}
-    Rail.Rehydrate()
-    return Log.Count() == before, Log.Count()
-end)())
-
 -- ---------------------------------------------------------------------------
 section("Sources -- the leading edge")
 -- ---------------------------------------------------------------------------
@@ -2297,62 +2038,58 @@ section("Sources -- the leading edge")
 -- of them is still written down.
 
 check("the first gain after a quiet stretch speaks", (function()
-    Rail.Clear()
+    Feed.Clear()
     Log.Clear()
     mock.time = mock.time + Sources.QUIET + 1
     Sources.bursts["currency:1602"] = nil
     sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50)
-    return #Rail.items == 1, #Rail.items
+    return #Feed.items == 1, #Feed.items
 end)())
 check("  and the stream behind it does not add a second dot", (function()
     for _ = 1, 8 do
         sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50)
     end
-    return #Rail.items == 1, #Rail.items
+    return #Feed.items == 1, #Feed.items
 end)())
-check("  it rolls up into the one dot instead", Rail.items[1].count > 8, Rail.items[1].count)
+check("  it rolls up into the one dot instead", Feed.items[1].count > 8, Feed.items[1].count)
 check("  and every single gain reached the log", Log.Count() == 9, Log.Count())
 
 check("a different currency is a different thing happening", (function()
     mock.currencies[1792] = "Honor"
     sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1792, 10, 10)
-    return #Rail.items == 2, #Rail.items
+    return #Feed.items == 2, #Feed.items
 end)())
 
 check("the burst reopens once the source goes quiet", (function()
     mock.time = mock.time + Sources.QUIET + 1
     sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 300, 50)
-    return #Rail.items == 3, #Rail.items
+    return #Feed.items == 3, #Feed.items
 end)())
 
--- Round 5's sixth hue, wired to the one event that means it.
-check("dying posts a red row", (function()
-    Rail.Clear()
-    Sources.bursts["death"] = nil
-    mock.time = mock.time + Sources.QUIET + 1
-    sourceDriver:Fire("PLAYER_DEAD")
-    return Rail.items[1] ~= nil and Rail.items[1].kind == "red",
-           Rail.items[1] and Rail.items[1].kind
-end)())
+-- Round 003 drops the sixth hue: dying is not a source any more.
+check("dying is not a source (the red hue is gone)", Sources.EVENTS.PLAYER_DEAD == nil)
 
--- Bump is the rollup. It refreshes rather than duplicating, and it never
--- toasts: the burst already spoke.
-check("a bump moves the item back to the front", (function()
-    Rail.Clear()
-    local first = Rail.Add("blue", "First")
-    Rail.Add("amber", "Second")
-    Rail.Bump(first)
-    return Rail.items[1] == first, Rail.items[1].name
+-- Whispers take violet (D1). The sender can arrive secret in chat-messaging
+-- lockdown; then it is never compared, concatenated or logged.
+check("a whisper posts a violet row named for the sender", (function()
+    Feed.Clear()
+    sourceDriver:Fire("CHAT_MSG_WHISPER", "hi", "Friend-Realm")
+    local it = Feed.items[1]
+    return it ~= nil and it.kind == "violet" and it.name == "Friend-Realm"
+           and it.sub == "Friend-Realm", it and (it.kind .. " " .. it.name)
 end)())
-check("  resetting its clock", (function()
-    Rail.Clear()
-    local item = Rail.Add("blue", "Ticking")
-    local was = item.at
-    mock.time = mock.time + 30
-    Rail.Bump(item)
-    return item.at > was
+check("  a secret sender toasts as 'Whisper' and carries nothing", (function()
+    Feed.Clear()
+    sourceDriver:Fire("CHAT_MSG_WHISPER", mock.secret(), mock.secret())
+    local it = Feed.items[1]
+    return it ~= nil and it.name == "Whisper" and it.sub == nil, it and it.name
 end)())
-
+check("  a Battle.net whisper carries no /w target", (function()
+    Feed.Clear()
+    sourceDriver:Fire("CHAT_MSG_BN_WHISPER", "hi", "|Kq1|k")
+    local it = Feed.items[1]
+    return it ~= nil and it.kind == "violet" and it.sub == nil
+end)())
 
 -- ---------------------------------------------------------------------------
 section("Chat -- the edit box override")
@@ -2695,12 +2432,20 @@ end)())
 
 -- Unit frames are protected. The manager itself is not, but it is the visible
 -- edge of a protected system, so this group never moves during combat.
-check("it refuses to move during combat", (function()
+check("in combat it does not move, it queues (RULES)", (function()
+    Stow.Restore("raid")
     local was = _G.InCombatLockdown
     _G.InCombatLockdown = function() return true end
     local moved, err = Stow.Group("raid")
+    local stillHome = not Stow.IsStowed("raid")
     _G.InCombatLockdown = was
-    return moved == nil and tostring(err):find("combat", 1, true) ~= nil, tostring(err)
+    return moved == 0 and stillHome and tostring(err):find("queued", 1, true) ~= nil, tostring(err)
+end)())
+check("  and flushes when combat ends", (function()
+    Stow.waiter:Fire("PLAYER_REGEN_ENABLED")
+    local ok = Stow.IsStowed("raid")
+    Stow.Restore("raid")
+    return ok
 end)())
 check("  and the chat group, which is ordinary UI, does not", (function()
     local was = _G.InCombatLockdown
@@ -2750,7 +2495,17 @@ section("Panel -- switches instead of typing")
 
 local Panel = ns.Panel
 
-check("the minimap button exists", Panel.button ~= nil)
+-- R3 ruling: a dev aid with no minimap button until SPEC 14's menu exists.
+check("no minimap button at login (R3)", Panel.button == nil)
+check("  /myui panel opens it", (function()
+    run("panel")
+    local open = Panel.IsOpen()
+    run("panel")
+    return open and not Panel.IsOpen()
+end)())
+-- Built here so the drag-safety findings below stay covered for the day the
+-- button returns as the minimap-menu entry.
+Panel.BuildButton()
 check("  and the panel is closed at rest", Panel.IsOpen() == false)
 check("  with a switch for every toggle", #Panel.panel.rows == #Panel.TOGGLES)
 
@@ -2827,13 +2582,13 @@ check("  closed at rest", Center.IsOpen() == false)
 
 -- "The center is the rail" -- same anchor, growing right, not a window
 -- somewhere else.
-check("it opens at the rail's own edge", (function()
-    local src = assert(io.open("../MyUI/Center.lua")):read("*a")
-    return src:find('SetPoint("LEFT", anchor.frame, "LEFT", 0, 0)', 1, true) ~= nil
+check("it opens at the toast anchor (round 003: reattached from the rail)", (function()
+    local _, rel = Center.panel:GetPoint(1)
+    return rel ~= nil and rel == ns.Toast.Anchor()
 end)())
 
--- Deliberately not a palette entry: the palette is the resting HUD's thirteen
--- colours, and a fourteenth is an error.
+-- Allowed in R3 as SPEC 7's one recorded exception, and still not a palette
+-- entry: the palette is the resting HUD's thirteen colours.
 check("the opaque surface is not smuggled into the palette",
       ns.Palette.colors["surface"] == nil and ns.Palette.COUNT == 13)
 check("  and it is the value Round 5 named", (function()
@@ -2843,9 +2598,9 @@ end)())
 
 check("it lists what the log holds", (function()
     Log.Clear()
-    Rail.Clear()
-    Rail.Add("blue", "Ashlin")
-    Rail.Add("green", "Voidsteel Greaves")
+    Feed.Clear()
+    Feed.Add("blue", "Ashlin")
+    Feed.Add("green", "Voidsteel Greaves")
     Center.Filter(nil)
     Center.Open()
     return Center.panel.rows[1]:IsShown()
@@ -2882,20 +2637,20 @@ end)())
 -- instead of announcing."
 check("a notification arriving while it is open does not toast", (function()
     Center.Open()
-    Rail.Collapse()
-    Rail.Add("amber", "Quiet arrival")
-    return not Rail.IsToasting()
+    Feed.Clear()
+    Feed.Add("amber", "Quiet arrival")
+    return not ns.Toast.IsSpeaking()
 end)())
-check("  but it is still on the rail", Rail.items[1].name == "Quiet arrival")
+check("  but it was still posted", Feed.items[1].name == "Quiet arrival")
 check("  and still in the log", Log.db.entries[1].name == "Quiet arrival")
 check("  and the centre shows it immediately",
       Center.panel.rows[1].name:GetText() == "Quiet arrival")
 
 check("it toasts again once closed", (function()
     Center.Close()
-    Rail.Collapse()
-    Rail.Add("blue", "Loud again")
-    return Rail.IsToasting()
+    Feed.Clear()
+    Feed.Add("blue", "Loud again")
+    return ns.Toast.IsSpeaking()
 end)())
 
 -- Closed, it takes no mouse at all: a hidden frame cannot be clicked, which is

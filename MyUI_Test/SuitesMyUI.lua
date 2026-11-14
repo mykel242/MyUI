@@ -13,11 +13,11 @@ local ADDON, T = ...
 -- Shared state handling
 -- ---------------------------------------------------------------------------
 
-local CHANNELS = { "debug", "peek", "modifier", "combat", "target", "cursor" }
+local CHANNELS = { "debug", "peek", "combat", "target", "cursor" }
 
 -- SPEC.md 2's resting alphas, restated so checks assert against the spec
 -- rather than against whatever Frames.lua registered.
-local SPEC_RESTING = { SelfStack = 0.35, Cooldowns = 0.25, TargetStrip = 0, Rail = 1 }
+local SPEC_RESTING = { SelfStack = 0.35, Cooldowns = 0.25, TargetStrip = 0 }
 
 local saved
 
@@ -43,7 +43,8 @@ local function Baseline(api, fill)
     if ns.Peek and ns.Peek.IsActive() then ns.Peek.Stop() end
     for _, ch in ipairs(CHANNELS) do ns.Reveal.Release(ch) end
     if ns.Outline and ns.Outline.IsShown() then ns.Outline.Toggle(false) end
-    if ns.Rail then ns.Rail.Clear() end
+    if ns.Toast then ns.Toast.Clear() end
+    if ns.Center and ns.Center.IsOpen() then ns.Center.Close() end
     ns.Reveal.Resolve()
     ns.Reveal.Snap()
 end
@@ -96,7 +97,7 @@ end
 
 local function Claim(api, channel)
     local ns = api.ns()
-    ns.Reveal.Claim(channel, nil, "test")
+    ns.Reveal.Claim(channel)
     ns.Reveal.Snap()
 end
 
@@ -195,11 +196,6 @@ T.Suite("myui-p2", {
               return true, "all five match"
           end },
 
-        { id = "modifier",
-          what = "Held modifier: every frame at full, no dwell.",
-          setup = function(api) Baseline(api); Claim(api, "modifier") end,
-          check = function(api) return AllAt(api, 1) end },
-
         { id = "target",
           what = "A target: the top strip appears; the bottom group stays faint.",
           setup = function(api) Baseline(api); Claim(api, "target") end,
@@ -233,104 +229,129 @@ T.Suite("myui-p2", {
           what = "All claims dropped: back to resting, not to zero.",
           setup = function(api)
               Baseline(api)
-              Claim(api, "modifier")
-              api.ns().Reveal.Release("modifier", nil, "test")
+              Claim(api, "combat")
+              api.ns().Reveal.Release("combat")
           end,
           check = function(api) return AlphasAre(api, SPEC_RESTING) end },
     },
 })
 
 -- ---------------------------------------------------------------------------
--- Phase 3 -- the rail
+-- R3 -- toasts and a history (SPEC 6, round 003)
 -- ---------------------------------------------------------------------------
+-- Test notifications go through the real log, so the character's record is
+-- saved before the suite and put back after it: a test run must not leave
+-- "Notice 3" in someone's history.
 
--- The Rail frame's rect is the dot column only. Row labels, ages and the
--- "+N" count hang off it to the right, so they are listed separately or the
--- diff would never see them.
-local function RailFrames(api)
+local savedLog
+
+local function ToastFrames(api)
     local f = api.registryFrames()
-    f.RailToast = _G.MyUIRailToast
-    local Rail = api.ns().Rail
-    for i, slot in ipairs(Rail.slots or {}) do
-        if slot.text then f[("RailRow%dText"):format(i)] = slot.text end
+    for i = 1, 8 do
+        local t = _G["MyUIToast" .. i]
+        if t then f["Toast" .. i] = t end
     end
-    if Rail.overflow then f.RailOverflow = Rail.overflow end
+    f.ToastAnchor = _G.MyUIToastAnchor
     return f
 end
 
--- Ages count up in whole seconds, and how long a test's waits take varies by
--- a second either way. Stamp every item "now" just before the shot so every
--- row reads 0s, in every run.
+-- Ages count in whole seconds and a test's waits vary by a second, so every
+-- speaking toast is stamped "now" just before the shot: every age reads 0s.
 local function FreshAges(api)
     local ns = api.ns()
     local now = ns.Reveal.Now()
-    for _, item in ipairs(ns.Rail.items) do item.at = now end
-    ns.Rail.Refresh()
+    for _, item in ipairs(ns.Toast.live) do item.at = now end
+    ns.Toast.Repaint()
 end
 
-T.Suite("myui-p3", {
-    title = "Phase 3 -- the rail",
+-- The history shows the log, which is whatever this character has lived
+-- through. For a stable shot it is given a fixed, freshly dated record.
+local FIXED = {
+    { "violet", "Friend-Realm" }, { "blue", "Hearthstone" }, { "amber", "The Missing Diplomat" },
+    { "green", "Conquest", 50 }, { "orange", "Mail" }, { "blue", "Satchel of Cooperation" },
+}
+local function FixedLog(api)
+    local Log = api.ns().Log
+    local now = Log.Now()
+    local entries = {}
+    for i, e in ipairs(FIXED) do
+        entries[i] = { at = now, kind = e[1], name = e[2], count = e[3] or 1 }
+    end
+    Log.db.entries = entries
+end
+
+T.Suite("myui-toasts", {
+    title = "R3 -- toasts and a history",
     requires = NeedMyUI,
-    before = function(api) Save(api.ns()) end,
-    after = Restore,
+    before = function(api)
+        Save(api.ns())
+        local Log = api.ns().Log
+        savedLog = Log.db and Log.db.entries
+        if Log.db then
+            local copy = {}
+            for i, e in ipairs(savedLog or {}) do copy[i] = e end
+            Log.db.entries = copy
+        end
+    end,
+    after = function(api)
+        Restore(api)
+        local Log = api.ns().Log
+        if Log.db and savedLog then Log.db.entries = savedLog end
+    end,
     tests = {
-        { id = "empty",
-          what = "The rail at rest: one vertical hairline, nothing else. Calm.",
-          setup = function(api) Baseline(api) end, frames = RailFrames, beforeShot = FreshAges,
+        { id = "quiet",
+          what = "Nothing speaking: nothing at the left edge at all. No column, no hairline.",
+          setup = function(api) Baseline(api) end, frames = ToastFrames,
           check = function(api)
-              local n = #api.ns().Rail.items
-              return n == 0, n .. " items"
+              local n = #api.ns().Toast.live
+              return n == 0, n .. " speaking"
           end },
 
-        { id = "toast",
-          what = "A blue Whisper toast slid in near the top of the rail.",
-          setup = function(api) Baseline(api); api.myui("notify blue Whisper") end,
-          wait = 0.8, frames = RailFrames, beforeShot = FreshAges,
+        { id = "one",
+          what = "One blue toast at the anchor: dot, name, 0s on the right.",
+          setup = function(api) Baseline(api); api.myui("notify blue Hearthstone") end,
+          wait = 0.8, frames = ToastFrames, beforeShot = FreshAges,
           check = function(api)
-              local on = api.ns().Rail.IsToasting()
-              return on and true or false, on and "toasting" or "no toast"
+              return api.ns().Toast.IsSpeaking(), "speaking"
           end },
 
-        { id = "two",
-          what = "Two items, toasts dismissed: amber Loot on top, blue Whisper below, "
-              .. "both named, ages on the right.",
+        { id = "stack",
+          what = "Five sent: three speaking, newest at the anchor, stacked downward.",
+          setup = function(api) Baseline(api); api.myui("notify demo") end,
+          wait = 0.8, frames = ToastFrames, beforeShot = FreshAges,
+          check = function(api)
+              local T2 = api.ns().Toast
+              return #T2.live == T2.CAP, ("%d speaking, cap %d"):format(#T2.live, T2.CAP)
+          end },
+
+        { id = "long-name",
+          what = "A long name truncates with an ellipsis; the age never yields (H1).",
           setup = function(api)
               Baseline(api)
-              api.myui("notify blue Whisper"); api.myui("notify dismiss")
-              api.myui("notify amber Loot"); api.myui("notify dismiss")
+              api.myui("notify blue Chunk of Companion Experience and a Great Deal More")
           end,
-          frames = RailFrames, beforeShot = FreshAges,
-          check = function(api)
-              local items = api.ns().Rail.items
-              return #items == 2 and items[1].name == "Loot",
-                     ("%d items, top %s"):format(#items, items[1] and items[1].name or "-")
-          end },
+          wait = 0.8, frames = ToastFrames, beforeShot = FreshAges },
 
-        { id = "full",
-          what = "Ten sent: eight dots, the newest two named, lower ones dimmer, a hollow "
-              .. "square with +2 beside it.",
-          setup = function(api)
-              Baseline(api); api.myui("notify demo"); api.myui("notify dismiss")
+        { id = "history",
+          what = "The history at the toast anchor: five hue chips, six rows, newest first.",
+          setup = function(api) Baseline(api); FixedLog(api); api.ns().Center.Open() end,
+          frames = function(api)
+              local f = ToastFrames(api)
+              f.Center = _G.MyUICenter
+              return f
           end,
-          frames = RailFrames, beforeShot = FreshAges,
           check = function(api)
-              local Rail = api.ns().Rail
-              local shown = 0
-              for i = 1, Rail.CAP do
-                  if Rail.slots and Rail.slots[i] and Rail.slots[i]:IsShown() then shown = shown + 1 end
-              end
-              return shown == Rail.CAP and Rail.Overflow() >= 1,
-                     ("%d dots, +%d behind the square"):format(shown, Rail.Overflow())
-          end },
-
-        { id = "full-normal-contrast", world = true,
-          what = "As full, with SPEC 6's exact greys (contrast normal), over the world -- "
-              .. "the legibility question in Phase 3 step 13. For eyes; diffed on geometry.",
-          setup = function(api)
-              Baseline(api); api.myui("contrast normal")
-              api.myui("notify demo"); api.myui("notify dismiss")
+              return api.ns().Center.IsOpen(), "open"
           end,
-          frames = RailFrames, beforeShot = FreshAges,
+          teardown = function(api) api.ns().Center.Close() end },
+
+        { id = "stack-normal-contrast", world = true,
+          what = "Three toasts with SPEC 6's original grey (contrast normal), over the "
+              .. "world -- legibility. For eyes; diffed on geometry.",
+          setup = function(api)
+              Baseline(api); api.myui("contrast normal"); api.myui("notify demo")
+          end,
+          wait = 0.8, frames = ToastFrames, beforeShot = FreshAges,
           teardown = function(api)
               local ns = api.ns()
               if saved and ns.db then ns.db.contrast = saved.contrast; ns.Frames.RestyleText() end

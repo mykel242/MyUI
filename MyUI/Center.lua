@@ -29,7 +29,8 @@ Center.HEADER_H = 26
 Center.FOOTER_H = 20
 Center.PAD      = 10
 
--- Round 5 makes this a named exception and says why: "SPEC 1 forbids fills
+-- Allowed by Mykel in R3 (2026-11-14) as the palette's one recorded
+-- exception (SPEC 7). Round 5 made the case: "SPEC 1 forbids fills
 -- above 14% -- and twelve rows of 11pt over daylight terrain is unreadable at
 -- 14%. So the center is a named exception: rgba(10,10,12,0.86). Defensible
 -- because SPEC 1 governs the resting HUD, and the center only exists while
@@ -42,28 +43,19 @@ Center.PAD      = 10
 local SURFACE = { 10 / 255, 10 / 255, 12 / 255, 0.86 }
 Center.SURFACE = SURFACE
 
--- The filter row, in the order Round 5 draws it.
-Center.HUES = { "person", "loot", "quest", "prog", "attn", "death" }
+-- The filter row: SPEC 6's five hues, by what each means. Violet leads
+-- because whispers are the reason chat and the history are one view (SPEC 14).
+Center.HUES = { "whispers", "loot", "quests", "gains", "attention" }
 
--- Our hue names are the rail's. Round 5's names are categories; the rail's are
--- colours. Mapped here rather than renamed, because the rail's names are what
--- every source already posts with.
 Center.HUE_OF = {
-    person = "blue",
-    loot   = "green",
-    quest  = "amber",
-    prog   = "violet",
-    attn   = "orange",
-    death  = "red",
+    whispers  = "violet",
+    loot      = "blue",
+    quests    = "amber",
+    gains     = "green",
+    attention = "orange",
 }
-Center.LABEL_OF = {
-    blue   = "people",
-    green  = "loot",
-    amber  = "quests",
-    violet = "progress",
-    orange = "attention",
-    red    = "deaths",
-}
+Center.LABEL_OF = {}
+for label, hue in pairs(Center.HUE_OF) do Center.LABEL_OF[hue] = label end
 
 Center.filter = nil     -- nil is unfiltered
 
@@ -120,7 +112,7 @@ local function BuildChip(parent, index, hue)
     chip.dot = chip:CreateTexture(nil, "ARTWORK")
     chip.dot:SetSize(U(8), U(8))
     chip.dot:SetPoint("LEFT", chip, "LEFT", 0, 0)
-    chip.dot:SetColorTexture(Palette.Get(ns.Rail.HUES[hue]))
+    chip.dot:SetColorTexture(Palette.Get(ns.Toast.HUES[hue]))
 
     chip.count = ns.Frames.Text(chip, 10, "textDim", "LEFT")
     chip.count:SetPoint("LEFT", chip.dot, "RIGHT", U(5), 0)
@@ -142,7 +134,9 @@ function Center.Build()
     if panel then
         return panel
     end
-    local anchor = ns.Registry.Get("Rail")
+    -- Reattached from the rail to the toasts (SPEC 6): the history opens
+    -- where notifications speak.
+    local anchor = ns.Toast and ns.Toast.Anchor()
     if not anchor then
         return nil
     end
@@ -152,9 +146,7 @@ function Center.Build()
     panel:SetFrameStrata("DIALOG")
     panel:SetSize(U(Center.WIDTH), U(height))
 
-    -- "The hairline at x=20 becomes the panel's left edge and the dots stay
-    -- exactly where they were." Same anchor, same edge; the panel grows right.
-    panel:SetPoint("LEFT", anchor.frame, "LEFT", 0, 0)
+    panel:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
 
     local bg = panel:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
@@ -231,10 +223,10 @@ function Center.Refresh()
             row:Hide()
         else
             row:Show()
-            row.dot:SetColorTexture(Palette.Get(ns.Rail.HUES[e.kind] or "textDim"))
+            row.dot:SetColorTexture(Palette.Get(ns.Toast.HUES[e.kind] or "textDim"))
             row.name:SetText(tostring(e.name or ""))
             row.count:SetText((e.count or 1) > 1 and ("x" .. e.count) or "")
-            row.age:SetText(ns.Rail.FormatAge(now - (tonumber(e.at) or now)))
+            row.age:SetText(ns.Toast.FormatAge(now - (tonumber(e.at) or now)))
         end
     end
 

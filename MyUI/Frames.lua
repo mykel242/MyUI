@@ -254,34 +254,6 @@ local function BuildTargetStrip()
 end
 
 -- ---------------------------------------------------------------------------
--- Rail -- LEFT, x = 20, vertically centred. 440 tall.
--- ---------------------------------------------------------------------------
--- SPEC.md 2 gives the rail's resting alpha as "hairline 0.14, dots per 6",
--- which is a per-element alpha rather than a frame one. 0.14 is exactly the
--- trough colour from SPEC.md 7, so the hairline takes that colour and carries
--- its alpha in the palette entry, leaving the container to rest at 1 for the
--- reveal engine to claim.
---
--- Dots are SPEC.md 6 and arrive in Phase 3 with the notification lifecycle
--- that produces them. Container width is a dot wide so they have somewhere to
--- go; SPEC does not say which side of the hairline they sit on, and at x = 20
--- rightward is the only direction with room.
-
-local function BuildRail()
-    local rail = CreateFrame("Frame", "MyUIRail", UIParent)
-    rail:SetFrameStrata(Frames.STRATA)
-    rail:SetSize(U(10), U(440))
-    rail:SetPoint("LEFT", UIParent, "LEFT", U(20), 0)
-
-    local hairline = Fill(rail, "trough", "ARTWORK")
-    hairline:SetSize(Scale.Hairline(), U(440))
-    hairline:SetPoint("TOPLEFT", rail, "TOPLEFT", 0, 0)
-
-    rail.hairline = hairline
-    return rail
-end
-
--- ---------------------------------------------------------------------------
 -- Build
 -- ---------------------------------------------------------------------------
 
@@ -342,7 +314,6 @@ function Frames.OnLogin()
     Registry.Add("SelfStack", selfStack, 0.35)
     Registry.Add("Cooldowns", BuildCooldowns(selfStack), 0.25)
     Registry.Add("TargetStrip", BuildTargetStrip(), 0)
-    Registry.Add("Rail", BuildRail(), 1)
 
     Registry.Each(function(entry)
         entry.frame:SetAlpha(entry.resting)

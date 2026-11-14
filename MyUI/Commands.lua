@@ -217,13 +217,14 @@ local COMMANDS = {
     { "test",         "the acceptance checklist; test report | reset | <phase>" },
     { "outline",      "diagnostic boxes around every frame, above everything" },
     { "claims",       "who is claiming each frame, and every recent transition" },
-    { "notify",       "feed the rail: <type> [name] [count] | demo | clear | dismiss" },
-    { "sources",      "what feeds the rail for real: thresholds, readings, latches" },
-    { "log",          "the record behind the rail: <hue> to filter | clear" },
+    { "notify",       "send a toast: <hue> [name] [count] | demo | clear | dismiss" },
+    { "sources",      "what feeds the toasts: thresholds, readings, latches" },
+    { "log",          "the notification record: <hue> to filter | clear" },
     { "chat",         "our edit box instead of Blizzard's: on | off | hide | show" },
     { "center",       "the notification centre: <hue> to open filtered | close" },
     { "what",         "name whatever is under the cursor; bind MyUI -> Name what" },
     { "stow",         "take Blizzard furniture off the screen: raid | show raid" },
+    { "panel",        "the dev panel: the toggles as switches" },
     { "text",         "legibility over bright scenery: shadow | outline | none" },
     { "contrast",     "the dim grey: lift is SPEC 7; normal is the value it replaced" },
     { "rules",        "the 12.1 compliance contract, printed" },
@@ -249,23 +250,7 @@ local HANDLERS = {
     help         = Help,
     show         = function(arg)
         local on
-        if arg == "hide" then
-            if not Chat.IsOverriding() then
-                ns.Print("not while the override is off -- you would have no way to type.")
-                return
-            end
-            Chat.HideLog()
-            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = true end
-            ns.Print(("chat log stowed -- %d frame(s) out of sight."):format(Chat.StowedCount()))
-            ns.Raw("  Enter still opens ours, / still opens Blizzard's.")
-            ns.Raw("  |cffadb1b8/myui chat show|r brings the furniture back")
-            return
-        elseif arg == "show" then
-            Chat.ShowLog()
-            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = false end
-            ns.Print("chat log back. A /reload restores Blizzard's exact layout.")
-            return
-        elseif arg == "off" then
+        if arg == "off" then
             on = false
         elseif arg == "on" then
             on = true
@@ -325,16 +310,16 @@ local HANDLERS = {
                .. "stronger but thickens the type.")
     end,
     notify       = function(arg)
-        local Rail = ns.Rail
+        local Toast = ns.Toast
         arg = arg or ""
 
         if arg == "clear" then
-            Rail.Clear()
-            ns.Print("rail cleared")
+            Toast.Clear()
+            ns.Print("toasts cleared (the log keeps everything)")
             return
         end
         if arg == "dismiss" then
-            if Rail.Collapse() then
+            if Toast.Dismiss() then
                 ns.Print("toast dismissed")
             else
                 ns.Print("nothing to dismiss")
@@ -342,13 +327,14 @@ local HANDLERS = {
             return
         end
         if arg == "demo" then
-            -- Ten, so the 8-dot cap and the "+2 more" square both show.
-            local kinds = { "blue", "amber", "green", "violet", "orange", "red" }
-            for i = 1, 12 do
-                Rail.Add(kinds[(i - 1) % #kinds + 1], "Notice " .. i, i % 3 + 1)
+            -- One of each hue: more than the stack's cap, so the oldest is
+            -- seen to leave, and every hue lands in the log.
+            local kinds = { "blue", "amber", "green", "violet", "orange" }
+            for i, kind in ipairs(kinds) do
+                Toast.Add(kind, "Notice " .. i, i % 3 + 1)
             end
-            ns.Print(("added 12 -- %d dots live at pitch %d, none hidden")
-                     :format(#Rail.items, Rail.Pitch()))
+            ns.Print(("sent %d -- %d speaking (cap %d), all %d in the log")
+                     :format(#kinds, #Toast.live, Toast.CAP, #kinds))
             return
         end
 
@@ -358,21 +344,20 @@ local HANDLERS = {
                      .. "[name] [count], or demo | clear | dismiss")
             return
         end
-        local item, why = Rail.Add(kind, name ~= "" and name or nil, count)
+        local item, why = Toast.Add(kind, name ~= "" and name or nil, count)
         if not item then
             ns.Print(why)
             return
         end
-        ns.Print(("%s: %s x%d -- %d on the rail")
-                 :format(item.kind, item.name, item.count, #Rail.items))
+        ns.Print(("%s: %s x%d -- %d speaking")
+                 :format(item.kind, item.name, item.count, #Toast.live))
     end,
     -- SPEC 6's sources are conditions as much as events, and a condition that
     -- has already latched looks exactly like one that never fired. This prints
     -- the readings beside the latches so the two can be told apart -- which is
     -- the only way to check the stream rule in game without filling your bags
     -- twice.
-    -- The rail forgets on purpose now -- dots decay, and the pool has a
-    -- ceiling. This is the thing that makes that honest, so it needs to be
+    -- Toasts forget on purpose; the log is the record, so it needs to be
     -- readable without opening the SavedVariables file.
     log          = function(arg)
         local Log = ns.Log
@@ -390,15 +375,15 @@ local HANDLERS = {
         end
 
         local kind = arg ~= "" and arg or nil
-        if kind and not ns.Rail.HUES[kind] then
-            ns.Print(("unknown hue %q -- blue, amber, green, violet, orange, red"):format(kind))
+        if kind and not ns.Toast.HUES[kind] then
+            ns.Print(("unknown hue %q -- blue, amber, green, violet, orange"):format(kind))
             return
         end
 
         local tally = Log.Tally()
         ns.Print(("%d kept, per character, ceiling %d"):format(Log.Count(), Log.MAX))
         local counts = {}
-        for hue in pairs(ns.Rail.HUES) do
+        for hue in pairs(ns.Toast.HUES) do
             counts[#counts + 1] = ("%s %d"):format(hue, tally[hue] or 0)
         end
         table.sort(counts)
@@ -484,8 +469,8 @@ local HANDLERS = {
             ns.Print("centre closed.")
             return
         end
-        if arg ~= "" and not ns.Rail.HUES[arg] then
-            ns.Print(("unknown hue %q -- blue, amber, green, violet, orange, red"):format(arg))
+        if arg ~= "" and not ns.Toast.HUES[arg] then
+            ns.Print(("unknown hue %q -- blue, amber, green, violet, orange"):format(arg))
             return
         end
         Center.Open(arg ~= "" and arg or nil)
@@ -493,6 +478,11 @@ local HANDLERS = {
                  :format(arg ~= "" and (", filtered to " .. arg) or ""))
     end,
 
+    panel        = function()
+        if not ns.Panel then return end
+        ns.Panel.Toggle()
+        ns.Print(ns.Panel.IsOpen() and "panel open." or "panel closed.")
+    end,
     chat         = function(arg)
         local Chat = ns.Chat
         if not Chat then
@@ -585,7 +575,7 @@ local HANDLERS = {
             ns.Print("no sources module")
             return
         end
-        ns.Print("what feeds the rail -- SPEC 6 plus Round 5, six hues")
+        ns.Print("what feeds the toasts -- SPEC 6, five hues")
         ns.Raw("  |cff8cc8ffblue|r   loot     |cffffd159amber|r  quests    "
                .. "|cffa6d98cgreen|r  currency, reputation")
         ns.Raw("  |cffd1b3ffviolet|r achievements        "
@@ -667,23 +657,7 @@ local HANDLERS = {
     end,
     outline      = function(arg)
         local on
-        if arg == "hide" then
-            if not Chat.IsOverriding() then
-                ns.Print("not while the override is off -- you would have no way to type.")
-                return
-            end
-            Chat.HideLog()
-            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = true end
-            ns.Print(("chat log stowed -- %d frame(s) out of sight."):format(Chat.StowedCount()))
-            ns.Raw("  Enter still opens ours, / still opens Blizzard's.")
-            ns.Raw("  |cffadb1b8/myui chat show|r brings the furniture back")
-            return
-        elseif arg == "show" then
-            Chat.ShowLog()
-            if ns.db then ns.db.chat = ns.db.chat or {}; ns.db.chat.hideLog = false end
-            ns.Print("chat log back. A /reload restores Blizzard's exact layout.")
-            return
-        elseif arg == "off" then
+        if arg == "off" then
             on = false
         elseif arg == "on" then
             on = true

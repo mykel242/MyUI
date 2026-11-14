@@ -215,7 +215,8 @@ record you can summon.
 
 - A toast speaks once and leaves after **4s** or on dismissal. Slide + fade in, 180ms.
 - **Toasts appear at `ToastAnchor`, wherever the player puts it** in edit mode (D1). Not a
-  fixed column. A toast never covers `SelfStack` or `TargetStrip`.
+  fixed column. A toast never covers `SelfStack` or `TargetStrip`. Until the layout layer
+  (R4) can move it, the anchor sits at the left edge, upper third (x 20, 240 down).
 - **A toast can be interacted with.** A whisper or other chat toast opens chat at that
   conversation; this is the main way into chat (§ 14).
 - A long name **truncates with an ellipsis; the age never yields** (rules on HANDBACK-2 H1).
@@ -278,6 +279,11 @@ Notif orange        rgba(242,158,115,1)
 ```
 
 Curve intermediates (§ 3) are interpolation stops, not palette entries.
+
+**One recorded exception (R3, 2026-11-14):** the summoned history's backing surface,
+`rgba(10,10,12,0.86)`. It exists only while summoned — § 1's limits govern the resting HUD —
+and twelve rows of 11pt over daylight terrain are unreadable on a 0.14 fill. It is not a
+palette entry and nothing at rest may use it.
 
 ---
 

@@ -128,7 +128,7 @@ function Panel.Build()
     panel = CreateFrame("Frame", "MyUIPanel", UIParent)
     panel:SetFrameStrata("DIALOG")
     panel:SetSize(U(Panel.WIDTH), U(height))
-    panel:SetPoint("TOPRIGHT", _G.Minimap or UIParent, "TOPLEFT", -U(8), 0)
+    panel:SetPoint("CENTER", UIParent, "CENTER", 0, 0)
 
     local bg = panel:CreateTexture(nil, "BACKGROUND")
     bg:SetAllPoints()
@@ -248,10 +248,12 @@ function Panel.BuildButton()
     return btn
 end
 
+-- R3 ruling (2026-11-14): a dev aid opened by /myui panel, with no minimap
+-- button. Round 002 said slash commands only; this is the same state behind
+-- switches, kept for development until SPEC 14's minimap menu exists and the
+-- panel becomes MyUI's entry in it. BuildButton stays for that day.
 function Panel.OnLogin()
-    Panel.BuildButton()
     Panel.Build()
-    Panel.Place(ns.db and ns.db.panel and ns.db.panel.angle or 210)
 end
 
 ns.Panel = Panel
