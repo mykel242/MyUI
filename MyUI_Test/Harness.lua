@@ -46,6 +46,8 @@ local SHOT_GAP = 1.2
 --       regions = { { "name", x, y, w, h }, ... },  -- fixed boxes, normalised, top-left
 --       check   = function(api) return ok, detail end,  -- optional
 --       beforeShot = function(api) end,             -- just before the screenshot
+--       world   = true,                             -- shoot over the world, not the
+--                                                   -- backdrop; diffed on geometry only
 --       shot    = false,                        -- check-only test
 --       teardown= function(api) end,
 --   }, ... },
@@ -305,6 +307,31 @@ local function Quiet(on)
     if not on then quieted = {} end
 end
 
+-- The backdrop. HUD frames are translucent and sparse, so a crop of one is
+-- mostly whatever the world was doing behind it -- the second in-game run,
+-- in a different spot, changed 50-100% of the pixels in every box and not
+-- one HUD pixel. So shots are taken over a flat, fixed backdrop drawn under
+-- all UI, and a diff sees only the HUD. A test that is ABOUT the world
+-- (legibility over terrain) sets world = true and is compared on geometry
+-- only; its shot is for eyes.
+local BACKDROP = { 0.12, 0.12, 0.14 }
+local backdrop
+
+local function Backdrop(on)
+    if on and not backdrop then
+        backdrop = CreateFrame("Frame", "MyUITestBackdrop", UIParent)
+        backdrop:SetFrameStrata("BACKGROUND")
+        backdrop:SetFrameLevel(0)
+        backdrop:SetAllPoints(_G.WorldFrame or UIParent)
+        local tex = backdrop:CreateTexture(nil, "BACKGROUND")
+        tex:SetAllPoints()
+        tex:SetColorTexture(BACKDROP[1], BACKDROP[2], BACKDROP[3], 1)
+    end
+    if backdrop then
+        if on then backdrop:Show() else backdrop:Hide() end
+    end
+end
+
 local function Stamp()
     return date("%Y-%m-%d %H:%M:%S")
 end
@@ -357,6 +384,7 @@ local function RunTest(suite, test)
         -- Last-moment touch-ups that must not depend on how long the waits
         -- took (a rail age reading 0s in one run and 1s in the next).
         Protected(key .. " beforeShot", test.beforeShot, api)
+        Backdrop(not test.world)
         local frames = FramesFor(test)
         local before = time()
         Screenshot()
@@ -364,6 +392,7 @@ local function RunTest(suite, test)
         lastShotAt = GetTime()
         run.shots[#run.shots + 1] = {
             n = #run.shots + 1,
+            world = test.world and true or false,
             suite = suite.name, test = test.id, what = test.what,
             before = before, after = time(),
             result = result or "timeout",
@@ -415,6 +444,7 @@ local function RunSuites(selected)
 
     if ns and ns.Reveal then ns.Reveal.cursorSuspended = false end
     Quiet(false)
+    Backdrop(false)
 
     run.finished = true
     run.finishedAt = time()

@@ -323,9 +323,9 @@ T.Suite("myui-p3", {
                      ("%d dots, +%d behind the square"):format(shown, Rail.Overflow())
           end },
 
-        { id = "full-normal-contrast",
-          what = "As full, with SPEC 6's exact greys (contrast normal) -- the legibility "
-              .. "question in Phase 3 step 13.",
+        { id = "full-normal-contrast", world = true,
+          what = "As full, with SPEC 6's exact greys (contrast normal), over the world -- "
+              .. "the legibility question in Phase 3 step 13. For eyes; diffed on geometry.",
           setup = function(api)
               Baseline(api); api.myui("contrast normal")
               api.myui("notify demo"); api.myui("notify dismiss")

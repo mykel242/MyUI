@@ -147,6 +147,14 @@ for _, c in ipairs(run and run.checks or {}) do
 end
 check("every in-run check passes against the mock", #failedChecks == 0, table.concat(failedChecks, " | "))
 
+local worldShots, backdropShots = 0, 0
+for _, s in ipairs(run and run.shots or {}) do
+    if s.world then worldShots = worldShots + 1 else backdropShots = backdropShots + 1 end
+end
+check("shots over the backdrop by default, the world only where asked",
+      worldShots == 1 and backdropShots == #run.shots - 1, ("%d world, %d backdrop"):format(worldShots, backdropShots))
+check("backdrop hidden after the run", _G.MyUITestBackdrop and not _G.MyUITestBackdrop:IsShown())
+
 check("cursor proximity handed back after the run", ns.Reveal.cursorSuspended == false)
 check("nothing left forced", not ns.Registry.forced)
 

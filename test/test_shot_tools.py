@@ -189,6 +189,21 @@ class Pipeline(unittest.TestCase):
         self.assertEqual(rest["status"], "fail")
         self.assertIn("moved", rest["why"])
 
+    def test_world_shots_are_geometry_only(self):
+        t0 = int(datetime(2026, 11, 14, 14, 0, 0).timestamp())
+        run = self.write_run("w1", t0)
+        run_dir = self.watch.sweep(self.args())[0]
+        self.approve.approve(run_dir, set())
+        # Same rects, different scenery and HUD colour, but flagged as over the world.
+        m = shotlib.load_manifest(run_dir)
+        for s in m["shots"]:
+            s["world"] = True
+            screenshot(run_dir / s["file"], colour=(255, 0, 0))
+        (run_dir / "manifest.json").write_text(json.dumps(m))
+        r = self.diff.diff_run(run_dir, 32, 0.01, 1.0)
+        drawn = [f for f in r["frames"] if f["status"] != "not-drawn"]
+        self.assertTrue(drawn and all(f["status"] == "pass" and f.get("review") for f in drawn), drawn)
+
     def test_missing_screenshot_waits(self):
         t0 = int(datetime(2026, 11, 14, 13, 0, 0).timestamp())
         self.write_run("r1", t0)

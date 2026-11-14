@@ -141,7 +141,12 @@ def diff_run(run_dir: Path, threshold: int, tolerance: float, geometry_px: float
                 if (dw or dh) and dw <= 2 and dh <= 2:
                     w, h = min(approved.width, crop.width), min(approved.height, crop.height)
                     approved, crop = approved.crop((0, 0, w, h)), crop.crop((0, 0, w, h))
-                if approved.size != crop.size:
+                if shot.get("world"):
+                    # Shot over the world on purpose: the pixels are scenery.
+                    row["changed"] = None
+                    row["review"] = True
+                    diff_image(approved, crop, None).save(dest)
+                elif approved.size != crop.size:
                     problems.append(f"size {approved.size} -> {crop.size}")
                     row["changed"] = None
                     diff_image(approved, crop, None).save(dest)
@@ -185,6 +190,8 @@ def render(r: dict) -> str:
         detail = f.get("why") or ""
         if f.get("changed") is not None and not detail:
             detail = f"{f['changed']:.3%} changed"
+        if f.get("review") and not detail:
+            detail = "over the world: geometry only, look at it"
         if f.get("diff"):
             detail = f"{detail} [diff]({Path(f['diff']).relative_to(Path('shots/results') / r['shape'] / r['run'])})".strip()
         lines.append(f"| {f['test']} | {f['frame']} | {f['status']} | {detail} |")

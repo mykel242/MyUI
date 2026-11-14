@@ -133,7 +133,7 @@ function M.frame(spec)
     -- the call, not stubs that pretend success -- a test asserting on them
     -- fails honestly if the real method is spelled differently.
     for _, method in ipairs({
-        "SetFrameStrata", "EnableMouse", "SetMovable", "RegisterForDrag",
+        "SetFrameStrata", "SetFrameLevel", "EnableMouse", "SetMovable", "RegisterForDrag",
         "SetClampedToScreen", "SetMultiLine", "SetAutoFocus", "SetFontObject",
         "SetCursorPosition", "SetFocus", "HighlightText", "SetScrollChild",
         "SetAllPoints", "SetColorTexture", "SetText", "StartMoving",
