@@ -426,3 +426,63 @@ is the only one of the four that does.
 
 `Interface/AddOns/Blizzard_CooldownViewer` (and `Blizzard_CooldownBroadcaster`) exist.
 Not examined — Phase 7 / v2.
+
+---
+
+## 7. Replacing the chat log: the focus override is supported, and `ActivateChat` drops it
+
+Verified in `Blizzard_ChatFrameBase` at 12.1.0.69497, and confirmed in game with a
+stack trace on 2026-08-28.
+
+### The override is a real extension point
+
+| | |
+|---|---|
+| `ChatFrameUtil.SetChatFocusOverride(editBox)` | `ChatFrameUtil.lua:104` |
+| `ChatFrameUtil.OpenChat` consults it **first** | `ChatFrameUtil.lua:367` |
+| `ChatFrameUtil.ChooseBoxForSend` never returns it | `ChatFrameUtil.lua:490` |
+
+`Blizzard_Communities` uses the same mechanism for its own chat, which is what makes it
+an extension point rather than a trick. The `ENTER` binding is `ChatFrameUtil.OpenChat(nil)`
+(`Bindings_Standard.xml:109`), so `chatFrame` is nil and the override branch is taken.
+
+### `supportsSlashCommands` is why the chat frame must be hidden, never removed
+
+`OpenChat` only honours the override when `CHAT_FOCUS_OVERRIDE.supportsSlashCommands` is
+true **or** the text does not begin with `/`. Setting it false — as Communities does —
+means every slash command falls through to Blizzard's real edit box. Setting it true would
+mean owning slash-command routing for the whole game, which is exactly the pipeline
+replacement that makes other chat addons fragile.
+
+### `ActivateChat` clears the override, by design
+
+```lua
+function ChatFrameUtil.ActivateChat(editBox)          -- ChatFrameUtil.lua:449
+    if ( editBox.disableActivate ) then return end
+    ChatFrameUtil.ClearChatFocusOverride();           -- :454
+```
+
+Nothing else in `Interface/` writes `CHAT_FOCUS_OVERRIDE` except this and the file-load
+line. So an override installs, verifies, and is silently gone later — which is exactly how
+this presented in game, twice, before a hook on `ClearChatFocusOverride` named the caller:
+
+```
+[C]: in function 'ClearChatFocusOverride'
+ChatFrameUtil.lua:454: in function 'ActivateChat'
+ChatFrameUtil.lua:407: in function 'OpenChat'
+[OPENCHATSLASH]:1
+```
+
+**Pressing `/` is the trigger.** The fall-through we deliberately asked for activates
+Blizzard's box, and activation drops the override — their semantics are "whoever was just
+activated owns focus".
+
+**Consequence:** an addon holding the override must re-assert it after every activation.
+Do it on the next frame rather than inside the hook — the clear is the first step of an
+activation that has not finished, and re-claiming mid-teardown fights a frame still putting
+itself away. `MyUI/Chat.lua` hooks `ClearChatFocusOverride`, re-asserts through
+`C_Timer.After(0)`, and skips the re-assert if someone else legitimately holds it.
+
+**The reference source cannot answer this on its own.** Reading it tells you the override
+exists and who clears it, but not that ordinary play calls that clearer constantly. Only
+the hook did.

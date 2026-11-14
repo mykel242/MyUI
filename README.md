@@ -9,7 +9,7 @@ Retail only. Targets **Midnight 12.1.0**, TOC `120100`. There is no Classic fall
 neither the curve APIs nor Cooldown Manager exist there, so supporting it would be a
 different addon.
 
-Implements the design in `../UI - Rebar/design_handoff_rebar/`. `SPEC.md` there is
+Implements the design in `../UI - Rebar/in/current/`. `SPEC.md` there is
 authoritative for every colour, alpha, size and timing; the HTML mock beside it contains
 deliberately rejected explorations and must not be treated as a reference.
 

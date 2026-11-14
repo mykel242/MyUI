@@ -1,5 +1,6 @@
 -- MyUI :: Reveal.lua
--- SPEC.md 4. Four channels, one arbiter.
+-- SPEC.md 4. Four channels, one arbiter -- three of them built here, since the
+-- fourth is the low-health summon that arrives with Phase 4.
 --
 -- "All four resolve through a single arbiter that computes one target alpha per
 -- frame per tick. Do not let frames manage their own visibility; that is the
@@ -45,28 +46,47 @@ Reveal.FADE_OUT = 0.260   -- SPEC 8, slower so release settles rather than snaps
 -- they claim different frames and collapsing them would make the audit's CLAIM
 -- column useless. debug is not a SPEC channel; it is the Phase 1 toggle,
 -- routed through the arbiter so there is exactly one owner of alpha.
+--
+-- THE MODIFIER CHANNEL IS GONE. Phase 2 built it as SPEC 4 named it, Alt or
+-- Shift, and then found the problem: a conventional three-row bind layout
+-- (bare 1-n, Ctrl+1-6, Alt+1-6) leaves no modifier free, so the HUD revealed
+-- itself on every modified cast in a fight. That is the incidental-reveal
+-- problem the 140ms dwell exists to prevent, arriving through a different door.
+-- Phase 2 worked around it with a bindable hold key; the amended SPEC 4 cut the
+-- channel outright instead, and the hold binding with it. Proximity covers
+-- reveal-while-doing-something and peek covers reveal-because-I-want-to, and
+-- one fewer channel is worth more than the option.
+--
+-- lowhealth joins this table in Phase 4, as the only channel that can claim
+-- without the player having done anything -- which is why SPEC 4 ranks it top.
 Reveal.CHANNELS = {
-    cursor   = 1.0,
-    modifier = 1.0,
-    combat   = 1.0,
-    target   = 1.0,
-    peek     = 1.0,
-    debug    = 1.0,
+    cursor = 1.0,
+    combat = 1.0,
+    target = 1.0,
+    peek   = 1.0,
+    debug  = 1.0,
 }
 
 -- SPEC.md 4 says "highest claim wins" and says nothing about ties -- but every
 -- channel claims 1.0, so ties are the NORMAL case, not an edge one.
 --
 -- Iterating the claim table with pairs() made the credited winner depend on
--- Lua's internal table order, so it flapped between resolves: one Alt press
+-- Lua's internal table order, so it flapped between resolves: one keypress
 -- logged three separate handovers at three different timestamps. The alpha was
 -- never wrong, only the attribution, but the transition log is a diagnostic and
 -- a diagnostic that invents events is worse than none.
 --
--- Ordered most deliberate first, so what gets credited is the thing the player
--- actually did. debug leads because it is an override and the audit should say
--- so; cursor trails because it is the one claim you can make by accident.
-Reveal.PRECEDENCE = { "debug", "peek", "modifier", "combat", "target", "cursor" }
+-- Phase 2 chose its own order and raised the gap; the amended SPEC 4 now states
+-- one, and THIS IS THAT ORDER rather than ours: "low health, state change,
+-- peek, proximity", highest first. State change is our combat and target. It
+-- differs from what Phase 2 shipped, which put peek above both -- so a peek
+-- during combat is now credited to combat. The alpha is identical either way;
+-- this decides only what /myui claims reports.
+--
+-- debug leads because it is not a SPEC channel at all but a diagnostic
+-- override, and an audit that hid it would be lying about why a frame is lit.
+-- lowhealth slots in directly after it in Phase 4.
+Reveal.PRECEDENCE = { "debug", "combat", "target", "peek", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
@@ -86,11 +106,12 @@ local claims = {}   -- [frameName][channel] = alpha
 -- ---------------------------------------------------------------------------
 -- Transition log
 -- ---------------------------------------------------------------------------
--- Every reveal channel is transient by nature, and the two that are hardest to
--- observe -- a held modifier and a cursor dwell -- cannot be inspected by
--- typing a command, because typing while holding a modifier produces something
--- other than the command. On macOS Option-key combinations insert accented
--- characters and Shift turns "/" into "?", so the command never runs at all.
+-- Every reveal channel is transient by nature, and the hardest to observe --
+-- a cursor dwell -- cannot be inspected by typing a command, because the cursor
+-- has to leave the frame to reach the chat box. The same was true of the
+-- modifier channel before it was cut, and worse: on macOS an Option-key
+-- combination inserts an accented character and Shift turns "/" into "?", so
+-- the command never ran at all.
 --
 -- So the engine records its own transitions and you read them afterwards. This
 -- is also simply a better test than watching: it shows which channel won, on
@@ -141,10 +162,14 @@ local function InScope(channel, name)
 end
 
 --- Assert a claim. name omitted claims every frame the channel may reach.
--- via names what armed it, for the log: the modifier channel can be armed by
--- a modifier key or by the hold binding, and a log that cannot tell them apart
--- invites exactly the kind of guessing this log exists to end.
-function Reveal.Claim(channel, name, via)
+--
+-- This used to take a third argument naming what armed the channel, because the
+-- modifier channel had two arms -- a modifier key and the hold binding -- and a
+-- log that cannot tell them apart invites the guessing it exists to end. With
+-- that channel cut, every remaining channel has exactly one arm, so the
+-- argument is gone. Phase 4's low-health hook may want it back; it is four
+-- lines here and one in the claims renderer.
+function Reveal.Claim(channel, name)
     local alpha = Reveal.CHANNELS[channel]
     if alpha == nil then
         error("no reveal channel " .. tostring(channel), 2)
@@ -168,18 +193,19 @@ function Reveal.Claim(channel, name, via)
             end
         end)
     end
-    -- Only a real change is logged. A modifier event can repeat while the key
-    -- is held, and a log full of "claimed" for a key you pressed once would be
-    -- exactly the noise this is meant to remove.
+    -- Only a real change is logged. A channel can re-assert an existing claim --
+    -- the proximity check runs every tick and re-claims while the cursor sits
+    -- still -- and a log full of "claimed" for one dwell would be exactly the
+    -- noise this is meant to remove.
     if changed then
-        Record({ kind = "claim", channel = channel, frame = name, via = via })
+        Record({ kind = "claim", channel = channel, frame = name })
     end
     Reveal.Resolve()
     return true
 end
 
 --- Drop a claim. name omitted releases the channel everywhere.
-function Reveal.Release(channel, name, via)
+function Reveal.Release(channel, name)
     local changed = false
     if name then
         if claims[name] and claims[name][channel] ~= nil then
@@ -195,7 +221,7 @@ function Reveal.Release(channel, name, via)
         end
     end
     if changed then
-        Record({ kind = "release", channel = channel, frame = name, via = via })
+        Record({ kind = "release", channel = channel, frame = name })
     end
     Reveal.Resolve()
 end
@@ -406,93 +432,6 @@ end
 -- Everything except cursor proximity and the peek clock is event-driven, which
 -- RULES.md requires and which is also simply cheaper.
 
--- SPEC.md 4 names "Alt (primary) or Shift" and that is the default. But Alt
--- and Shift are what most players bind their ability modifiers to, and a HUD
--- that flashes on every modified cast during a fight is the opposite of a
--- design whose premise is that at rest the screen is the game. The dwell exists
--- to stop incidental reveals; this is the same problem arriving through a
--- different door.
---
--- So which keys arm the channel is configurable, and turning it off entirely is
--- a supported answer. Slash commands only, per the handoff's scoping decision.
-local MODIFIER_KEYS = {
-    alt   = "IsAltKeyDown",
-    shift = "IsShiftKeyDown",
-    ctrl  = "IsControlKeyDown",
-}
-
-Reveal.DEFAULT_MODIFIERS = { alt = true, shift = true }
-
-function Reveal.Modifiers()
-    if ns.db and ns.db.modifiers then
-        return ns.db.modifiers
-    end
-    return Reveal.DEFAULT_MODIFIERS
-end
-
---- Set which keys arm the modifier channel. An empty list disables it.
--- Returns the accepted set, or nil plus the unknown name.
-function Reveal.SetModifiers(names)
-    local set = {}
-    for _, name in ipairs(names) do
-        name = name:lower()
-        if name ~= "none" then
-            if not MODIFIER_KEYS[name] then
-                return nil, name
-            end
-            set[name] = true
-        end
-    end
-    if ns.db then
-        ns.db.modifiers = set
-    end
-    Reveal.Release("modifier")
-    return set
-end
-
-local function AnyModifierDown()
-    for name in pairs(Reveal.Modifiers()) do
-        local fn = _G[MODIFIER_KEYS[name]]
-        if type(fn) == "function" then
-            local ok, down = pcall(fn)
-            if ok and down then
-                return true
-            end
-        end
-    end
-    return false
-end
-
-local function OnModifier()
-    if AnyModifierDown() then
-        Reveal.Claim("modifier", nil, "keys")
-    else
-        Reveal.Release("modifier", nil, "keys")
-    end
-end
-
-Reveal.AnyModifierDown = AnyModifierDown
-
--- The held reveal, as a binding rather than a modifier key.
---
--- SPEC 4 names Alt or Shift, but in a normal keybind layout every modifier is
--- already spoken for -- Ctrl+1-6, Alt+1-6 and bare 1-n is an ordinary three-row
--- setup, and Shift is usually taken too. A HUD keyed to a modifier then reveals
--- itself on every modified cast in a fight, which is the incidental-reveal
--- problem the 140ms dwell exists to prevent, arriving through a different door.
---
--- So the same channel can be armed by any key the player has free. runOnUp
--- gives both edges; Blizzard's MOVEFORWARD uses the identical shape.
-function MyUI_Hold(down)
-    if down then
-        ns.Reveal.Claim("modifier", nil, "binding")
-    else
-        ns.Reveal.Release("modifier", nil, "binding")
-    end
-end
-
-_G.BINDING_NAME_MYUI_HOLD = "Hold to reveal"
-
 local function OnTargetChanged()
     local exists = _G.UnitExists and _G.UnitExists("target")
     if exists then
@@ -506,15 +445,12 @@ function Reveal.OnLogin()
     local driver = CreateFrame("Frame", "MyUIRevealDriver", UIParent)
     Reveal.driver = driver
 
-    driver:RegisterEvent("MODIFIER_STATE_CHANGED")
     driver:RegisterEvent("PLAYER_TARGET_CHANGED")
     driver:RegisterEvent("PLAYER_REGEN_DISABLED")
     driver:RegisterEvent("PLAYER_REGEN_ENABLED")
 
     driver:SetScript("OnEvent", function(_, event)
-        if event == "MODIFIER_STATE_CHANGED" then
-            OnModifier()
-        elseif event == "PLAYER_TARGET_CHANGED" then
+        if event == "PLAYER_TARGET_CHANGED" then
             OnTargetChanged()
         elseif event == "PLAYER_REGEN_DISABLED" then
             Reveal.Claim("combat")

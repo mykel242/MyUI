@@ -51,7 +51,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 15, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 21, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -59,6 +59,11 @@ check("every file in the TOC was loaded", #ns.__loadedFiles == 15, #ns.__loadedF
 local toc = ns.__toc
 check("TOC targets retail 12.1 only", toc.Interface == "120100", toc.Interface)
 check("TOC saves to MyUIDB", toc.SavedVariables == "MyUIDB", toc.SavedVariables)
+-- Settings are account-wide so every alt gets the same HUD; the record of what
+-- happened is per character, because a whisper was addressed to who you were
+-- playing. Two files, two natures.
+check("  and the log per character",
+      toc.SavedVariablesPerCharacter == "MyUICharDB", toc.SavedVariablesPerCharacter)
 check("TOC version carries the phase suffix",
       toc.Version:match("%-phase(%d+)$") == toc["X-Phase"],
       toc.Version .. " vs X-Phase " .. tostring(toc["X-Phase"]))
@@ -258,8 +263,18 @@ section("Palette")
 local Palette = ns.Palette
 local paletteCount = 0
 for _ in pairs(Palette.colors) do paletteCount = paletteCount + 1 end
-check("exactly fourteen colours", paletteCount == 14, paletteCount)
-check("  and the count is declared", Palette.COUNT == 14)
+check("exactly thirteen colours", paletteCount == 13, paletteCount)
+check("  and the count is declared", Palette.COUNT == 13)
+
+-- Thirteen, not fourteen, since the amended SPEC 7. Text secondary and text
+-- tertiary held the same value once the unreadable tertiary grey was lifted, so
+-- they collapsed into one textDim.
+check("  the two dim greys collapsed into textDim", (function()
+    local r, g, b, a = Palette.Get("textDim")
+    return near(r, 173/255) and near(g, 177/255) and near(b, 184/255) and a == 1
+end)())
+check("  and neither old name survives",
+      Palette.colors.textSecondary == nil and Palette.colors.textTertiary == nil)
 
 check("every entry is four floats in 0..1", (function()
     for name, c in pairs(Palette.colors) do
@@ -277,8 +292,19 @@ check("danger matches SPEC 7 rgba(242,107,97,1)",
 local _, _, _, troughA = Palette.Get("trough")
 check("trough alpha is 0.14, the rail hairline value", near(troughA, 0.14))
 
-check("asking for a fifteenth colour errors",
+check("asking for a fourteenth colour errors",
       not pcall(Palette.Get, "somethingElse"))
+
+-- The grey the amendment removed. It is still drawn by /myui contrast normal,
+-- but out of a constant in Frames -- deliberately not out of here.
+check("  and the superseded rgba(115,119,126,1) is not among them", (function()
+    for name, c in pairs(Palette.colors) do
+        if near(c[1], 115/255) and near(c[2], 119/255) and near(c[3], 126/255) then
+            return false, name
+        end
+    end
+    return true
+end)())
 
 -- ---------------------------------------------------------------------------
 section("Frames -- SPEC 2 anchors")
@@ -514,13 +540,13 @@ end)())
 
 clearClaims()
 Reveal.Claim("cursor", "SelfStack")
-Reveal.Claim("modifier")
-check("a tie credits the more deliberate channel", stackEntry.claim == "modifier",
+Reveal.Claim("combat")
+check("a tie credits the channel SPEC 4 ranks higher", stackEntry.claim == "combat",
       stackEntry.claim)
 check("  and stays credited to it across repeated resolves", (function()
     for _ = 1, 50 do
         Reveal.Resolve()
-        if stackEntry.claim ~= "modifier" then return false end
+        if stackEntry.claim ~= "combat" then return false end
     end
     return true
 end)())
@@ -536,8 +562,18 @@ Reveal.CHANNELS.cursor = 1.0
 Reveal.CHANNELS.peek = 0.5
 Reveal.Claim("peek", "SelfStack")
 check("precedence does not beat a genuinely higher claim",
-      stackEntry.claim == "modifier" and stackEntry.target == 1)
+      stackEntry.claim == "combat" and stackEntry.target == 1)
 Reveal.CHANNELS.peek = realPeek
+clearClaims()
+
+-- The order is SPEC 4's, added by the amendment after Phase 2 raised the gap
+-- and chose its own: "low health, state change, peek, proximity". Phase 2 put
+-- peek above state change, so this is the behaviour that actually changed.
+Reveal.Claim("combat")
+Reveal.Claim("peek")
+check("a peek during combat is credited to combat, not peek",
+      stackEntry.claim == "combat", stackEntry.claim)
+check("  and the alpha is the same either way", stackEntry.target == 1)
 clearClaims()
 
 -- ---------------------------------------------------------------------------
@@ -668,19 +704,14 @@ clearClaims()
 local driver = Reveal.driver
 check("a reveal driver exists", driver ~= nil)
 
-mock.altDown = true
+-- Alt and Shift used to claim everything here, with no dwell. The amended
+-- SPEC 4 cut that channel; the driver no longer registers the event and the
+-- handler has no branch for it. Covered in full further down.
+mock.altDown, mock.shiftDown = true, true
 driver:Fire("MODIFIER_STATE_CHANGED")
-check("alt claims everything, with no dwell", stackEntry.target == 1
-      and stripEntry.target == 1)
-mock.altDown = false
-driver:Fire("MODIFIER_STATE_CHANGED")
-check("  and releasing it lets go", stackEntry.target == 0.35)
-
-mock.shiftDown = true
-driver:Fire("MODIFIER_STATE_CHANGED")
-check("shift works too", stackEntry.target == 1)
-mock.shiftDown = false
-driver:Fire("MODIFIER_STATE_CHANGED")
+check("a modifier claims nothing", stackEntry.target == 0.35
+      and stripEntry.target == 0, stackEntry.target)
+mock.altDown, mock.shiftDown = false, false
 
 mock.units.target = true
 driver:Fire("PLAYER_TARGET_CHANGED")
@@ -698,10 +729,11 @@ check("leaving combat releases", stackEntry.target == 0.35)
 -- ---------------------------------------------------------------------------
 section("Reveal -- transition log")
 -- ---------------------------------------------------------------------------
--- A held modifier and a cursor dwell cannot be inspected by typing a command,
--- because typing while holding a modifier produces something other than the
--- command -- on macOS an accented character, or "?" instead of "/". So the
--- engine records its transitions and they are read afterwards.
+-- A cursor dwell cannot be inspected by typing a command: the cursor has to
+-- leave the frame to reach the chat box. The same was true of the modifier
+-- channel before it was cut, and worse -- typing while holding one produced an
+-- accented character on macOS, or "?" instead of "/", so the command never ran.
+-- So the engine records its transitions and they are read afterwards.
 
 local function logOf(kind, field, value)
     local hits = {}
@@ -741,24 +773,25 @@ end)())
 -- presses, not like one press with the winner wobbling.
 Reveal.ClearLog()
 for _ = 1, 3 do
-    Reveal.Claim("modifier")
-    Reveal.Release("modifier")
+    Reveal.Claim("peek")
+    Reveal.Release("peek")
 end
-check("three presses log three claims", #logOf("claim", "channel", "modifier") == 3)
-check("  and three releases", #logOf("release", "channel", "modifier") == 3)
+check("three presses log three claims", #logOf("claim", "channel", "peek") == 3)
+check("  and three releases", #logOf("release", "channel", "peek") == 3)
 
--- A modifier event can repeat while the key is held. Logging every repeat
--- would be exactly the noise this exists to remove.
+-- A channel can re-assert a claim it already holds: proximity re-claims every
+-- tick while the cursor sits still. Logging every repeat would be exactly the
+-- noise this exists to remove.
 Reveal.ClearLog()
-Reveal.Claim("modifier")
-Reveal.Claim("modifier")
-Reveal.Claim("modifier")
-check("holding a key does not log a claim per event",
-      #logOf("claim", "channel", "modifier") == 1)
-Reveal.Release("modifier")
-Reveal.Release("modifier")
+Reveal.Claim("peek")
+Reveal.Claim("peek")
+Reveal.Claim("peek")
+check("re-asserting a held claim does not log it again",
+      #logOf("claim", "channel", "peek") == 1)
+Reveal.Release("peek")
+Reveal.Release("peek")
 check("  and releasing twice logs one release",
-      #logOf("release", "channel", "modifier") == 1)
+      #logOf("release", "channel", "peek") == 1)
 
 -- The case worth logging: two channels overlap, the higher releases, and the
 -- frame does not move. Logging only alpha changes would hide it entirely.
@@ -790,89 +823,72 @@ Reveal.ClearLog()
 clearClaims()
 
 -- ---------------------------------------------------------------------------
-section("Reveal -- which keys reveal")
+section("Reveal -- the modifier channel is gone")
 -- ---------------------------------------------------------------------------
--- SPEC 4 names Alt and Shift, which are also what most players bind their
--- ability modifiers to. A HUD that flashes on every modified cast during a
--- fight is the opposite of a design premised on the screen being the game.
+-- SPEC 4 named Alt and Shift, which are also what most players bind their
+-- ability modifiers to, so the HUD revealed itself on every modified cast in a
+-- fight. Phase 2 shipped a configurable key set plus a bindable hold key as the
+-- escape hatch, and raised it. The amended SPEC 4 cut the channel outright
+-- instead, and the escape hatch with it: proximity already covers
+-- reveal-while-doing-something and peek covers reveal-because-I-want-to.
 
-check("the spec's default is alt and shift",
-      Reveal.DEFAULT_MODIFIERS.alt and Reveal.DEFAULT_MODIFIERS.shift)
+check("the channel is not in the table", Reveal.CHANNELS.modifier == nil)
+check("  and claiming it is refused rather than silently ignored",
+      not pcall(Reveal.Claim, "modifier"))
+check("  the key-set API went with it",
+      Reveal.SetModifiers == nil and Reveal.Modifiers == nil
+      and Reveal.AnyModifierDown == nil)
+check("  and so did the hold binding",
+      _G.MyUI_Hold == nil and _G.BINDING_NAME_MYUI_HOLD == nil)
 
+-- PLAN Phase 2's amended acceptance: "no modifier key reveals anything."
 local driver2 = Reveal.driver
-mock.altDown, mock.shiftDown = false, false
-run("modifier shift")
-mock.altDown = true
-driver2:Fire("MODIFIER_STATE_CHANGED")
-check("alt no longer reveals once it is deselected", stackEntry.target == 0.35,
-      stackEntry.target)
-mock.altDown, mock.shiftDown = false, true
-Reveal.ClearLog()
-driver2:Fire("MODIFIER_STATE_CHANGED")
-check("a key press is logged as coming from the keys, not the binding", (function()
-    for _, e in ipairs(Reveal.log) do
-        if e.kind == "claim" and e.channel == "modifier" then
-            return e.via == "keys", e.via
-        end
-    end
-    return false, "no claim logged"
-end)())
-mock.shiftDown = false
-driver2:Fire("MODIFIER_STATE_CHANGED")
-mock.altDown = true
-driver2:Fire("MODIFIER_STATE_CHANGED")
-mock.altDown, mock.shiftDown = false, true
-driver2:Fire("MODIFIER_STATE_CHANGED")
-check("  while the chosen key still does", stackEntry.target == 1)
-mock.shiftDown = false
-driver2:Fire("MODIFIER_STATE_CHANGED")
-
-run("modifier none")
+clearClaims()
 mock.altDown, mock.shiftDown = true, true
 driver2:Fire("MODIFIER_STATE_CHANGED")
-check("none disables the channel entirely", stackEntry.target == 0.35,
+check("holding every modifier at once reveals nothing", stackEntry.target == 0.35,
       stackEntry.target)
-mock.altDown, mock.shiftDown = false, false
-driver2:Fire("MODIFIER_STATE_CHANGED")
-
-check("an unknown key is refused rather than silently dropped",
-      select(1, Reveal.SetModifiers({ "meta" })) == nil)
-
--- With every modifier already bound to an ability row, the channel has to be
--- reachable by a key the player actually has free.
-run("modifier none")
-check("the held reveal has a binding of its own", type(_G.MyUI_Hold) == "function")
-Reveal.ClearLog()
-_G.MyUI_Hold(true)
-check("holding the bound key claims the same channel", stackEntry.target == 1,
-      stackEntry.target)
-check("  and the log says which mechanism armed it", (function()
+check("  and logs nothing either", (function()
     for _, e in ipairs(Reveal.log) do
-        if e.kind == "claim" and e.channel == "modifier" then
-            return e.via == "binding", e.via
-        end
+        if e.channel == "modifier" then return false end
     end
-    return false, "no claim logged"
+    return true
 end)())
-check("  crediting the modifier channel", stackEntry.claim == "modifier")
-_G.MyUI_Hold(false)
-check("releasing it lets go", stackEntry.target == 0.35)
-check("  and it works with key detection off entirely",
-      next(Reveal.Modifiers()) == nil)
+mock.altDown, mock.shiftDown = false, false
+clearClaims()
 
-check("both bindings are named for the keybinding UI",
-      _G.BINDING_NAME_MYUI_HOLD ~= nil and _G.BINDING_NAME_MYUI_PEEK ~= nil
-      and _G.BINDING_HEADER_MYUI ~= nil)
+check("peek is named for the keybinding UI",
+      _G.BINDING_NAME_MYUI_PEEK ~= nil and _G.BINDING_HEADER_MYUI ~= nil)
 
 -- Bindings.xml is read straight off disk: it is the one file the client loads
 -- that the addon never sees, so nothing else can check it.
 local bindings = assert(io.open("../MyUI/Bindings.xml")):read("*a")
-check("the hold binding asks for both key edges",
-      bindings:match('name="MYUI_HOLD"[^>]*runOnUp="true"') ~= nil)
-check("  and reads keystate to tell them apart",
-      bindings:find('keystate == "down"', 1, true) ~= nil)
-check("the peek binding does not, since a tap is one edge",
+check("Bindings.xml no longer declares a hold binding",
+      bindings:match('<Binding%s+name="MYUI_HOLD"') == nil)
+check("  and peek carries the header the hold binding used to",
+      bindings:match('name="MYUI_PEEK"[^>]*header="MYUI"') ~= nil)
+check("the peek binding takes one edge, since a tap is one edge",
       bindings:match('name="MYUI_PEEK"[^>]*runOnUp') == nil)
+
+-- Shipped broken once. Every other file in this addon writes an em dash as a
+-- double hyphen, and one of those reaching an XML comment makes the whole file
+-- "not well-formed", which unregisters every binding while the client says
+-- nothing louder than a single LUA_WARNING. smoke.sh parses the file properly;
+-- this names the cause, because "not well-formed" does not.
+check("no comment in Bindings.xml contains a double hyphen", (function()
+    for body in bindings:gmatch("<!%-%-(.-)%-%->") do
+        if body:find("%-%-") then
+            return false, "in: " .. body:sub(1, 40)
+        end
+    end
+    return true
+end)())
+
+-- Kept deliberately: PLAN Phase 6 asks whether peek should stay a tap or become
+-- a hold, and runOnUp with keystate is the shape that answers it.
+check("  but the shape a hold needs is recorded, not lost",
+      bindings:find("runOnUp", 1, true) ~= nil
+      and bindings:find("keystate", 1, true) ~= nil)
 
 -- The rule that cost the Rebar project real time: the client loads
 -- Bindings.xml by filename, and listing it in the TOC sends the same file
@@ -882,14 +898,14 @@ local toc = assert(io.open("../MyUI/MyUI.toc")):read("*a")
 check("Bindings.xml is NOT listed in the TOC",
       not toc:find("Bindings.xml", 1, true))
 
-run("modifier alt shift")
-check("the setting persists to saved variables",
-      _G.MyUIDB.modifiers.alt and _G.MyUIDB.modifiers.shift)
-mock.altDown = true
-driver2:Fire("MODIFIER_STATE_CHANGED")
-check("  and the default works again", stackEntry.target == 1)
-mock.altDown = false
-driver2:Fire("MODIFIER_STATE_CHANGED")
+check("the modifier setting is gone from saved variables",
+      _G.MyUIDB.modifiers == nil)
+check("  and /myui modifier is no longer a command",
+      (function()
+          ns.ClearOutput()
+          run("modifier")
+          return ns.GetOutput():find("unknown command", 1, true) ~= nil
+      end)())
 clearClaims()
 
 -- ---------------------------------------------------------------------------
@@ -952,7 +968,7 @@ section("Rail -- notifications")
 local Rail = ns.Rail
 
 -- Login order is a real dependency, and it used to be a pairs() over a table.
-check("the rail built at login", Rail.slots ~= nil and #Rail.slots == Rail.CAP)
+check("the rail built at login", Rail.slots ~= nil and #Rail.slots == Rail.SLOTS)
 check("  which means Frames ran before it", Registry.Get("Rail") ~= nil)
 
 Rail.Clear()
@@ -982,7 +998,7 @@ Rail.slots[1].fade:Finish()
 Rail.toastFrame.collapse:Finish()
 check("exactly two rows carry text", (function()
     local withText = 0
-    for i = 1, Rail.CAP do
+    for i = 1, Rail.SLOTS do
         if Rail.RowVisible(i) then withText = withText + 1 end
     end
     return withText == Rail.NAMED
@@ -994,28 +1010,125 @@ check("older dots sit at 0.4", Compat.Get(Rail.slots[3].dot, "GetAlpha") == Rail
 check("  while the named ones are full", Compat.Get(Rail.slots[1].dot, "GetAlpha") == 1)
 check("empty slots are hidden", not Rail.slots[6]:IsShown())
 
--- PLAN's acceptance: eight simultaneous notifications cap and show "+N more".
-Rail.Clear()
-for i = 1, 8 do Rail.Add("amber", "Eight " .. i) end
-check("eight fill the rail exactly", Rail.slots[8]:IsShown())
-check("  with nothing overflowing", Rail.Overflow() == 0)
-check("  so no square", not Rail.overflow:IsShown())
-
-Rail.Add("green", "Ninth")
-check("the ninth overflows rather than adding a dot", Rail.Overflow() == 1)
-check("  showing the hollow square", Rail.overflow:IsShown())
-check("  labelled with the count", Rail.overflow.label:GetText() == "+1 more")
-check("  and the cap holds", (function()
-    local shown = 0
-    for i = 1, Rail.CAP do
-        if Rail.slots[i]:IsShown() then shown = shown + 1 end
+-- FOUND IN GAME: "Chunk of Companion Experience" ran through the age and drew
+-- on top of it. SPEC 6 never says what happens when a name is longer than the
+-- row, so the name is bounded by the age rather than the row -- the age's own
+-- width varies between "9s" and "23h" -- and wraps to an ellipsis instead of a
+-- second line. Offline this can only check the mechanism; the acceptance script
+-- asks whether it actually reads.
+check("a row name is bounded on both sides, so it has a real width", (function()
+    local anchors = {}
+    for _, c in ipairs(Rail.slots[1].name.__calls) do
+        if c.method == "SetPoint" then anchors[c[1]] = c[2] end
     end
-    return shown == Rail.CAP
+    return anchors.LEFT ~= nil and anchors.RIGHT ~= nil, "LEFT and RIGHT both needed"
+end)())
+check("  and the right edge yields to the age, not to the row", (function()
+    for _, c in ipairs(Rail.slots[1].name.__calls) do
+        if c.method == "SetPoint" and c[1] == "RIGHT" then
+            return c[2] == Rail.slots[1].age, "anchored to the wrong thing"
+        end
+    end
+    return false, "no RIGHT anchor"
+end)())
+check("  with word wrap off, so it ellipsises instead of wrapping", (function()
+    for _, c in ipairs(Rail.slots[1].name.__calls) do
+        if c.method == "SetWordWrap" then return c[1] == false end
+    end
+    return false, "never set"
+end)())
+check("the toast is bounded too, so a long name stops at its edge", (function()
+    local sawRight, sawWrap = false, false
+    for _, c in ipairs(Rail.toastFrame.label.__calls) do
+        if c.method == "SetPoint" and c[1] == "RIGHT" then sawRight = true end
+        if c.method == "SetWordWrap" and c[1] == false then sawWrap = true end
+    end
+    return sawRight and sawWrap
 end)())
 
-for i = 1, 5 do Rail.Add("violet", "More " .. i) end
-check("the square counts everything behind it", Rail.overflow.label:GetText() == "+6 more",
-      Rail.overflow.label:GetText())
+-- SPEC 6 (amended): the 1px dark edge that keeps a 0.4 dot legible over sand
+-- and firelight. Attached to the "older items" line, so the newest two do not
+-- get one -- their dots are at full alpha and the reason for the edge does not
+-- apply to them.
+check("a dim dot carries a dark edge", Rail.slots[3].edge.TOP:IsShown())
+check("  on all four sides", (function()
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+        if not Rail.slots[3].edge[side]:IsShown() then return false, side end
+    end
+    return true
+end)())
+check("  in tickDark, introducing no new colour", (function()
+    for _, c in ipairs(Rail.slots[3].edge.TOP.__calls) do
+        if c.method == "SetColorTexture" then
+            return c[1] == 0 and c[2] == 0 and near(c[4], 0.55)
+        end
+    end
+    return false, "never coloured"
+end)())
+check("  and the full-alpha dots do not", not Rail.slots[1].edge.TOP:IsShown())
+
+-- The amendment's implementation note, and the whole point of it: "draw the
+-- edge as a sibling texture at constant alpha, never as a child of the dot --
+-- a child inherits the dot's 0.4 and the edge vanishes exactly when it is
+-- needed." Two checks, because each catches a different way of getting it wrong.
+check("the edge never has an alpha set on it", (function()
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+        for _, c in ipairs(Rail.slots[3].edge[side].__calls) do
+            if c.method == "SetAlpha" then return false, side end
+        end
+    end
+    return true
+end)())
+check("  and is not created on the dot", (function()
+    local src = assert(io.open("../MyUI/Rail.lua")):read("*a")
+    return src:find("dot:CreateTexture", 1, true) == nil
+end)())
+
+-- Round 5 killed the cap and the "+N more" square: "you were right, the cap
+-- was arbitrary". Twelve arrive, twelve are drawn.
+Rail.Clear()
+for i = 1, 12 do Rail.Add("amber", "Twelve " .. i) end
+check("nothing is hidden behind a count", (function()
+    local shown = 0
+    for i = 1, Rail.SLOTS do
+        if Rail.slots[i]:IsShown() then shown = shown + 1 end
+    end
+    return shown == 12, shown
+end)())
+check("  and the rail has no overflow marker at all", Rail.overflow == nil)
+
+-- "Pitch drops 26 -> 20 -> 8 as the live count rises."
+check("the pitch tightens as the rail fills", Rail.Pitch(12) < Rail.Pitch(3),
+      Rail.Pitch(12) .. " vs " .. Rail.Pitch(3))
+check("  loosest when quiet", Rail.Pitch(3) == Rail.SPACING, Rail.Pitch(3))
+check("  and bottoms out rather than going to zero", Rail.Pitch(400) == Rail.PITCH_MIN,
+      Rail.Pitch(400))
+
+-- "Alpha is the clock. A dot enters at 0.40 and decays to zero over 5 minutes."
+check("a fresh dot enters at the old-items alpha", Rail.Fade(0) == Rail.OLD_ALPHA, Rail.Fade(0))
+check("  is dimmer halfway through", Rail.Fade(Rail.DECAY / 2) < Rail.OLD_ALPHA)
+check("  and reaches zero at the end of the decay", Rail.Fade(Rail.DECAY) == 0)
+check("  never going negative past it", Rail.Fade(Rail.DECAY * 10) == 0)
+
+-- Dots leave by ageing out. This is only honest because the log has them.
+check("dots age out of the rail", (function()
+    Rail.Clear()
+    Rail.Add("blue", "Old")
+    mock.time = mock.time + Rail.DECAY + 1
+    Rail.Refresh()
+    return #Rail.items == 0, #Rail.items
+end)())
+check("  and the log still has it", ns.Log.Count("blue") > 0)
+
+-- SLOTS is an allocation bound, not the cap coming back: WoW cannot destroy a
+-- frame, so an unbounded rail is a pool that only ever grows.
+check("the pool has a ceiling", (function()
+    Rail.Clear()
+    for i = 1, Rail.SLOTS + 10 do Rail.Add("violet", "Flood " .. i) end
+    return #Rail.items == Rail.SLOTS, #Rail.items
+end)())
+check("  and everything past it is still in the log",
+      ns.Log.Count("violet") >= Rail.SLOTS + 10, ns.Log.Count("violet"))
 
 -- Hues come from the palette, so the rail cannot introduce a fifteenth colour.
 check("every notification type maps to a palette entry", (function()
@@ -1024,11 +1137,16 @@ check("every notification type maps to a palette entry", (function()
     end
     return true
 end)())
-check("  and there are five of them", (function()
+check("  and there are six of them", (function()
     local n = 0
     for _ in pairs(Rail.HUES) do n = n + 1 end
-    return n == 5
+    return n == 6, n
 end)())
+-- Round 5's sixth hue cost nothing: it is the danger red the low-health bar
+-- already uses, at the same rgba. If this ever stops being true the palette
+-- has grown a colour nobody asked for.
+check("  and the sixth is the palette's existing danger red",
+      Rail.HUES.red == "danger")
 
 -- ---------------------------------------------------------------------------
 section("Text legibility")
@@ -1039,16 +1157,35 @@ section("Text legibility")
 local Frames = ns.Frames
 check("shadow is the default", Frames.TextStyle() == "shadow")
 
--- The one deliberate deviation from SPEC in the addon. Verified in game: with
--- "normal" the age and the "+N more" count are unreadable against ordinary
--- terrain, and Phase 3's acceptance step for it passes only with lift on.
-check("contrast defaults to LIFT, deviating from SPEC 6",
+-- This was the addon's one deliberate deviation: verified in game, with
+-- "normal" the rail age and the "+N more" count are unreadable against ordinary
+-- terrain, and Phase 3's acceptance step for them passed only with lift on.
+-- THE AMENDED SPEC 7 ADOPTED IT, so lift is no longer a deviation -- it is the
+-- spec, and it is simply what the palette holds.
+check("dim text defaults to the amended SPEC 7 value",
       Frames.Contrast() == "lift", Frames.Contrast())
-check("  and the spec's exact values are one command away",
-      Frames.CONTRAST_LEVELS.normal == true)
+check("  which resolves to textDim, rgba(173,177,184,1)", (function()
+    local r, g, b, a = Frames.TextColor("textDim")
+    return near(r, 173/255) and near(g, 177/255) and near(b, 184/255) and a == 1
+end)())
+
+-- The grey it replaced is kept for one diagnostic and is deliberately outside
+-- the palette, so it cannot be reached by name and cannot be drawn by accident.
+run("contrast normal")
+check("normal draws the superseded rgba(115,119,126,1)", (function()
+    local r, g, b = Frames.TextColor("textDim")
+    return near(r, 115/255) and near(g, 119/255) and near(b, 126/255)
+end)())
+check("  a colour Palette refuses to serve", not pcall(ns.Palette.Get, "textTertiary"))
+run("contrast lift")
+check("  and lift restores the palette value", (function()
+    local r = Frames.TextColor("textDim")
+    return near(r, 173/255)
+end)())
+
 check("the shadow reuses an existing palette colour", (function()
     -- tickDark is rgba(0,0,0,0.55), which is what a shadow wants anyway, so
-    -- the fix introduces no fifteenth colour. SPEC 7 is closed at fourteen.
+    -- the fix introduces no fourteenth colour. SPEC 7 is closed at thirteen.
     local r, g, b, a = ns.Palette.Get("tickDark")
     return r == 0 and g == 0 and b == 0 and near(a, 0.55)
 end)())
@@ -1222,17 +1359,286 @@ Rail.toastFrame.collapse:Finish()
 Rail.Add("orange", "Dismissed")
 check("dismissal collapses early", Rail.Collapse() == true)
 check("  and there is nothing left to dismiss", Rail.Collapse() == false)
-check("clicking the toast dismisses it", (function()
-    Rail.toastFrame.collapse:Finish()
-    Rail.Add("blue", "Clicked")
-    Rail.toastFrame.scripts.OnMouseDown(Rail.toastFrame)
-    return not Rail.IsToasting()
+-- Click-to-dismiss is gone. SPEC 8 asks for "4s or on dismissal" and never
+-- says the dismissal is a click, so the mechanism stays and the mouse surface
+-- goes. What that buys is worth more than the gesture: the rail sits on the
+-- left edge of the screen, and nothing there eats a world click.
+check("the toast takes no mouse input", Rail.toastFrame.scripts.OnMouseDown == nil)
+check("  and nothing in the rail enables the mouse at all", (function()
+    local src = assert(io.open("../MyUI/Rail.lua")):read("*a")
+    return src:find("EnableMouse", 1, true) == nil
 end)())
 
 Rail.toastFrame.collapse:Finish()
 Rail.Clear()
 check("clearing empties the rail", #Rail.items == 0 and not Rail.slots[1]:IsShown())
 check("  and no row text survives it", not Rail.RowVisible(1))
+
+-- ---------------------------------------------------------------------------
+section("Rail -- what feeds it")
+-- ---------------------------------------------------------------------------
+-- SPEC 6's event table, wired up. C1 -- "what produces a notification?" -- was
+-- the biggest thing the spec left open, and Phase 3 shipped /myui notify rather
+-- than invent an answer. The amendment supplies one.
+--
+-- Nothing here is protected. Item quality, bag slots, durability and mail flags
+-- are ordinary Lua, and the amended RULES says so out loud because
+-- over-applying the rules produces worse code rather than safer code.
+
+local Sources = ns.Sources
+local sourceDriver = Sources.driver
+
+check("the source driver exists", sourceDriver ~= nil)
+
+-- The spec's table, transcribed. If a later edit drops an event or adds one the
+-- design never asked for, this is what says so.
+check("every event SPEC 6 names is wired, and only those", (function()
+    local want = {
+        "CHAT_MSG_LOOT", "LOOT_ITEM_ROLL_WON",
+        "QUEST_ACCEPTED", "QUEST_TURNED_IN",
+        "CURRENCY_DISPLAY_UPDATE", "CHAT_MSG_COMBAT_FACTION_CHANGE",
+        "ACHIEVEMENT_EARNED", "PLAYER_DEAD",
+        "UPDATE_PENDING_MAIL", "BAG_UPDATE_DELAYED", "UPDATE_INVENTORY_DURABILITY",
+        "PARTY_INVITE_REQUEST", "GUILD_INVITE_REQUEST",
+    }
+    local seen = {}
+    for _, event in ipairs(want) do
+        if type(Sources.EVENTS[event]) ~= "function" then return false, "missing " .. event end
+        seen[event] = true
+    end
+    for event in pairs(Sources.EVENTS) do
+        if not seen[event] then return false, "unasked-for " .. event end
+    end
+    return true
+end)())
+
+local function fire(event, ...)
+    Rail.Clear()
+    sourceDriver:Fire(event, ...)
+    return Rail.items[1]
+end
+
+-- --- blue: loot ------------------------------------------------------------
+
+mock.itemQuality[6948] = 4
+local EPIC = "You receive loot: |cffa335ee|Hitem:6948::::::::70:::::|h[Hearthstone]|h|r x3."
+
+local got = fire("CHAT_MSG_LOOT", EPIC, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+                 mock.playerGUID)
+check("your own loot posts a blue row", got ~= nil and got.kind == "blue", got and got.kind)
+check("  named from the item link", got and got.name == "Hearthstone", got and got.name)
+check("  with the count read after the link, not out of the name",
+      got and got.count == 3, got and got.count)
+
+check("somebody else's loot is ignored", (function()
+    Rail.Clear()
+    sourceDriver:Fire("CHAT_MSG_LOOT", EPIC, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+                      nil, "Player-1-SOMEONE")
+    return #Rail.items == 0
+end)())
+
+-- With no GUID the localized "you receive" strings decide. Guessing wrong in a
+-- raid is the noisy direction, so an unattributable message is dropped.
+check("a message with no GUID falls back to the localized patterns", (function()
+    Rail.Clear()
+    sourceDriver:Fire("CHAT_MSG_LOOT", EPIC)
+    return #Rail.items == 1
+end)())
+check("  and one that names somebody else is dropped", (function()
+    Rail.Clear()
+    sourceDriver:Fire("CHAT_MSG_LOOT",
+                      "Someone receives loot: |Hitem:6948::::::::70:::::|h[Hearthstone]|h|r.")
+    return #Rail.items == 0
+end)())
+
+-- SPEC 6: "loot at uncommon and above", a saved variable.
+mock.itemQuality[1234] = 1
+local POOR = "You receive loot: |Hitem:1234::::::::70:::::|h[Linen Cloth]|h|r."
+check("common loot is filtered out", (function()
+    Rail.Clear()
+    sourceDriver:Fire("CHAT_MSG_LOOT", POOR, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+                      nil, mock.playerGUID)
+    return #Rail.items == 0
+end)())
+check("  and the threshold comes from saved variables", (function()
+    _G.MyUIDB.sources.lootQuality = 1
+    Rail.Clear()
+    sourceDriver:Fire("CHAT_MSG_LOOT", POOR, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+                      nil, mock.playerGUID)
+    local n = #Rail.items
+    _G.MyUIDB.sources.lootQuality = 2
+    return n == 1
+end)())
+
+-- --- amber: quests ---------------------------------------------------------
+
+mock.questTitles[42] = "The Missing Diplomat"
+got = fire("QUEST_ACCEPTED", 42)
+check("accepting a quest posts an amber row", got ~= nil and got.kind == "amber")
+check("  named from the quest log", got and got.name == "The Missing Diplomat")
+
+got = fire("QUEST_TURNED_IN", 42)
+check("turning one in posts too", got ~= nil and got.name == "The Missing Diplomat")
+
+got = fire("QUEST_ACCEPTED", 999)
+check("an unknown quest id still posts, with a fallback name",
+      got ~= nil and got.name == "Quest accepted", got and got.name)
+
+-- --- the stream rule -------------------------------------------------------
+-- SPEC 6: "one row per event, never a stream". UNIT_QUEST_LOG_CHANGED fires
+-- several times for one objective and carries no id to tell them apart.
+
+Rail.Clear()
+-- G1 is closed by deletion. UNIT_QUEST_LOG_CHANGED fired several times per
+-- objective and carried no quest id, so its row could never be named or rolled
+-- up -- it just said "Objective". Dropped rather than tuned: it was the only
+-- row on the rail that could not say what it was about.
+check("quest objectives are not a source", Sources.EVENTS.UNIT_QUEST_LOG_CHANGED == nil)
+check("  and the window that existed only for them went with it",
+      Sources.COALESCE == nil and Sources.Coalesce == nil)
+check("  so firing it does nothing at all", (function()
+    Rail.Clear()
+    sourceDriver:Fire("UNIT_QUEST_LOG_CHANGED", "player")
+    return #Rail.items == 0, #Rail.items
+end)())
+-- Quests still speak; it is only the unnameable progress event that went.
+check("  while accepting a quest still does", (function()
+    Rail.Clear()
+    sourceDriver:Fire("QUEST_ACCEPTED", 42)
+    return #Rail.items == 1, #Rail.items
+end)())
+
+-- --- green: currency and reputation ---------------------------------------
+
+mock.currencies[1602] = "Conquest"
+got = fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50)
+check("a currency gain posts a green row", got ~= nil and got.kind == "green")
+check("  named and counted", got and got.name == "Conquest" and got.count == 50)
+check("spending is not a notification", (function()
+    Rail.Clear()
+    sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 200, -50)
+    return #Rail.items == 0
+end)())
+
+got = fire("CHAT_MSG_COMBAT_FACTION_CHANGE",
+           "Your reputation with Stormwind has increased by 250.")
+check("reputation posts the faction, not the sentence",
+      got ~= nil and got.name == "Stormwind", got and got.name)
+
+-- FOUND IN GAME: the first version knew only FACTION_STANDING_INCREASED and the
+-- rail drew the fallback "Reputation" instead of a faction. The client ships
+-- several forms and GlobalStrings.lua is not in the reference dump, so the
+-- reader scans for them rather than naming one.
+check("  from the achievement-bonus form too", (function()
+    mock.time = mock.time + Sources.QUIET + 1
+    local item = fire("CHAT_MSG_COMBAT_FACTION_CHANGE",
+        "Your reputation with Valdrakken Accord has increased by 250.  "
+        .. "(+25.0 bonus from achievement)")
+    return item ~= nil and item.name == "Valdrakken Accord", item and item.name
+end)())
+check("  and the account-wide form", (function()
+    mock.time = mock.time + Sources.QUIET + 1
+    local item = fire("CHAT_MSG_COMBAT_FACTION_CHANGE",
+        "Your account-wide reputation with Dream Wardens has increased by 75.")
+    return item ~= nil and item.name == "Dream Wardens", item and item.name
+end)())
+check("  and the generic form, which does not start the same way", (function()
+    mock.time = mock.time + Sources.QUIET + 1
+    local item = fire("CHAT_MSG_COMBAT_FACTION_CHANGE", "Reputation with Ironforge increased.")
+    return item ~= nil and item.name == "Ironforge", item and item.name
+end)())
+check("  a %.1f in the format does not break the escaper", (function()
+    -- The naive converter escaped first and turned "%.1f" into something that
+    -- matched nothing, which is how the bonus form went silently unhandled.
+    local pattern = Sources.ToPattern("Your reputation with %s has increased by %d.  (+%.1f bonus)")
+    return pattern ~= nil
+       and ("Your reputation with Zaralek has increased by 10.  (+1.5 bonus)")
+           :match(pattern) == "Zaralek", pattern
+end)())
+check("  and a format with no %s is not a faction pattern",
+      Sources.ToPattern("Reputation increased.") == nil)
+check("every variant the client ships was found, not listed",
+      #Sources.FactionPatterns() >= 4, #Sources.FactionPatterns())
+
+-- --- violet: achievements --------------------------------------------------
+
+mock.achievements[5] = "Explorer"
+got = fire("ACHIEVEMENT_EARNED", 5)
+check("an achievement posts a violet row", got ~= nil and got.kind == "violet")
+check("  named", got and got.name == "Explorer")
+
+-- --- orange: something wants you -------------------------------------------
+
+check("a party invite posts orange", (function()
+    local item = fire("PARTY_INVITE_REQUEST", "Thrall")
+    return item ~= nil and item.kind == "orange" and item.name:find("Thrall", 1, true) ~= nil
+end)())
+check("  as does a guild invite", (function()
+    local item = fire("GUILD_INVITE_REQUEST", "Thrall", "Horde")
+    return item ~= nil and item.name:find("Horde", 1, true) ~= nil
+end)())
+
+-- The latch. SPEC's own example: "a full bag says so once, not on every
+-- BAG_UPDATE."
+Rail.Clear()
+Sources.latched.bagFull = nil
+mock.bagFree = 0
+for _ = 1, 5 do sourceDriver:Fire("BAG_UPDATE_DELAYED") end
+check("a full bag says so once, not on every update", #Rail.items == 1, #Rail.items)
+check("  in orange", Rail.items[1] and Rail.items[1].kind == "orange")
+
+mock.bagFree = 3
+sourceDriver:Fire("BAG_UPDATE_DELAYED")
+check("making room clears the latch silently", #Rail.items == 1, #Rail.items)
+mock.bagFree = 0
+sourceDriver:Fire("BAG_UPDATE_DELAYED")
+check("  and filling it again speaks again", #Rail.items == 2, #Rail.items)
+mock.bagFree = 5
+sourceDriver:Fire("BAG_UPDATE_DELAYED")
+
+Rail.Clear()
+Sources.latched.durability = nil
+mock.durability = 0.10
+for _ = 1, 4 do sourceDriver:Fire("UPDATE_INVENTORY_DURABILITY") end
+check("worn gear says so once", #Rail.items == 1, #Rail.items)
+mock.durability = 0.5
+sourceDriver:Fire("UPDATE_INVENTORY_DURABILITY")
+check("  and repairing clears it", Sources.latched.durability == nil)
+
+-- Unreadable is not the same as fine. Nil must not clear a live warning, or a
+-- login mid-warning would silently disarm it.
+Sources.latched.durability = true
+mock.durability = nil
+sourceDriver:Fire("UPDATE_INVENTORY_DURABILITY")
+check("  but unreadable durability leaves the latch alone",
+      Sources.latched.durability == true)
+mock.durability = 1.0
+Sources.latched.durability = nil
+
+Rail.Clear()
+Sources.latched.mail = nil
+mock.hasMail = true
+sourceDriver:Fire("UPDATE_PENDING_MAIL")
+sourceDriver:Fire("UPDATE_PENDING_MAIL")
+check("pending mail says so once", #Rail.items == 1, #Rail.items)
+mock.hasMail = false
+sourceDriver:Fire("UPDATE_PENDING_MAIL")
+check("  and reading it clears the latch", Sources.latched.mail == nil)
+
+-- The whole file has to survive an API that is not there. On 12.1 a
+-- misremembered name returns nil in game while every offline test passes.
+check("a missing reader does not take the source down", (function()
+    local saved = _G.C_CurrencyInfo
+    _G.C_CurrencyInfo = nil
+    Rail.Clear()
+    local ok = pcall(function() sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50) end)
+    _G.C_CurrencyInfo = saved
+    return ok and #Rail.items == 1 and Rail.items[1].name == "Currency",
+           Rail.items[1] and Rail.items[1].name
+end)())
+
+Rail.Clear()
+Sources.latched = {}
 
 -- ---------------------------------------------------------------------------
 section("Core -- saved variables")
@@ -1242,7 +1648,22 @@ check("database was created", type(_G.MyUIDB) == "table")
 check("  at the current schema", _G.MyUIDB.schema == ns.SCHEMA_VERSION)
 check("  recording the phase", _G.MyUIDB.addon.phase == ns.phase, _G.MyUIDB.addon.phase)
 check("  with an alpha table for phase 5", type(_G.MyUIDB.alpha) == "table")
-check("no migrations needed at schema 1", next(ns.MIGRATIONS) == nil)
+-- Phase 0 shipped an empty ladder so no later phase would have to retrofit
+-- one. Cutting the modifier channel is the first thing to need a rung.
+check("the migration ladder has its first rung",
+      type(ns.MIGRATIONS[1]) == "function")
+check("  which clears the setting the cut channel left behind", (function()
+    local old = { schema = 1, modifiers = { alt = true, shift = true } }
+    ns.MIGRATIONS[1](old)
+    return old.modifiers == nil
+end)())
+check("  and a fresh database never had it", _G.MyUIDB.modifiers == nil)
+check("  the ladder reaches the current schema", (function()
+    for n = 1, ns.SCHEMA_VERSION - 1 do
+        if type(ns.MIGRATIONS[n]) ~= "function" then return false, n end
+    end
+    return true
+end)())
 
 ns.ClearOutput()
 ns.Print("hello")
@@ -1660,14 +2081,33 @@ section("Rules")
 
 check("the principle is stated once, exactly",
       Rules.principle == "Forwarding a secret value is legal. Inspecting one is not.")
-check("six prohibitions are listed", #Rules.forbidden == 6, #Rules.forbidden)
+check("eight prohibitions are listed", #Rules.forbidden == 8, #Rules.forbidden)
 check("every prohibition names an alternative", (function()
     for _, r in ipairs(Rules.forbidden) do
         if not r.yes or r.yes == "" then return false end
     end
     return true
 end)())
-check("four sanctioned mechanisms", #Rules.mechanisms == 4)
+
+-- Five since the handoff amendment: two of the original four were wrong on 12.1
+-- and the low-health hook was added.
+check("five sanctioned mechanisms", #Rules.mechanisms == 5, #Rules.mechanisms)
+check("  and the printed heading says so", (function()
+    ns.ClearOutput()
+    Rules.Print()
+    return ns.GetOutput():find("the five sanctioned mechanisms", 1, true) ~= nil
+end)())
+check("  and the fifth is narrowly licensed, in writing",
+      Rules.licence ~= nil and Rules.licence:find("SelfStack", 1, true) ~= nil)
+
+-- RULES.md still says a pulse needs a driver state. It cannot: the same
+-- amendment refuted RegisterStateDriver for low health, and SPEC 3 builds the
+-- breathe from cross-faded frames instead. Printing the stale claim would send
+-- the next reader hunting for a driver state that cannot exist.
+check("the printed consequence does not promise a driver state",
+      Rules.consequence:find("driver state", 1, true) == nil, Rules.consequence)
+check("  but keeps the part that is verified -- SetScale refuses a secret",
+      Rules.consequence:find("SetScale", 1, true) ~= nil)
 
 -- ---------------------------------------------------------------------------
 section("Registry")
@@ -1695,6 +2135,800 @@ Registry.Add("Tainted", health, 0.25)
 snap = Registry.Snapshot()
 check("secret alpha reads back as a sentinel",
       snap[#snap].current == Compat.SECRET, tostring(snap[#snap].current))
+
+
+-- ---------------------------------------------------------------------------
+section("Log -- the record behind the rail")
+-- ---------------------------------------------------------------------------
+-- Round 5 killed the cap and let dots age out, which is only honest because
+-- something keeps them. Everything the rail is now allowed to forget has to be
+-- here, or the design is just losing things with better manners.
+
+local Log = ns.Log
+
+check("the log attached at load", Log.db ~= nil and type(Log.db.entries) == "table")
+check("  into its own per-character file", _G.MyUICharDB == Log.db)
+check("  carrying a schema", Log.db.schema == Log.SCHEMA)
+
+-- GetTime() resets on reload, so it cannot date a record that outlives the
+-- session. This is what makes "filter by time" possible later without a
+-- migration, which is the whole reason it is here on day one.
+check("entries are dated in epoch seconds, not session seconds", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Dated")
+    local e = Log.db.entries[1]
+    return e ~= nil and e.at > 1000000000, e and e.at
+end)())
+check("  which is a different clock from the rail's", Log.Now() ~= ns.Reveal.Now())
+
+check("every rail item is recorded", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "One")
+    Rail.Add("amber", "Two")
+    return Log.Count() == 2, Log.Count()
+end)())
+check("  newest first, like the rail", Log.db.entries[1].name == "Two")
+check("  keeping the hue", Log.Filter("amber")[1].name == "Two")
+check("  and the count", (function()
+    Log.Clear()
+    Rail.Add("green", "Stack", 7)
+    return Log.db.entries[1].count == 7, Log.db.entries[1].count
+end)())
+
+-- A ceiling, not a garbage collector. SavedVariables is Lua source parsed on
+-- every login, so an unbounded log is an unbounded login cost.
+check("the log is bounded", (function()
+    Log.Clear()
+    local was = Log.MAX
+    Log.MAX = 10
+    for i = 1, 25 do Log.Add("blue", "Entry " .. i) end
+    local n = Log.Count()
+    Log.MAX = was
+    return n == 10, n
+end)())
+check("  dropping the oldest, not the newest", (function()
+    Log.Clear()
+    local was = Log.MAX
+    Log.MAX = 3
+    for i = 1, 5 do Log.Add("blue", "Entry " .. i) end
+    local newest = Log.db.entries[1].name
+    Log.MAX = was
+    return newest == "Entry 5", newest
+end)())
+
+check("a tally counts per hue, for the filter row", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "a")
+    Rail.Add("blue", "b")
+    Rail.Add("red", "c")
+    local t = Log.Tally()
+    return t.blue == 2 and t.red == 1, tostring(t.blue) .. "/" .. tostring(t.red)
+end)())
+
+check("/myui log prints the record", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Readable")
+    ns.ClearOutput()
+    run("log")
+    local out = ns.GetOutput()
+    return out:find("Readable", 1, true) ~= nil and out:find("kept", 1, true) ~= nil, out
+end)())
+check("  filters by hue", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Bluey")
+    Rail.Add("red", "Reddy")
+    ns.ClearOutput()
+    run("log red")
+    local out = ns.GetOutput()
+    return out:find("Reddy", 1, true) ~= nil and out:find("Bluey", 1, true) == nil, out
+end)())
+check("  refuses a hue that does not exist", (function()
+    ns.ClearOutput()
+    run("log puce")
+    return ns.GetOutput():find("unknown hue", 1, true) ~= nil
+end)())
+check("  and clears on request", (function()
+    run("log clear")
+    return Log.Count() == 0, Log.Count()
+end)())
+
+-- FOUND IN GAME: after a reload the rail was blank and looked broken. The log
+-- lives on disk and the rail lives in memory, so the record kept everything
+-- and the display forgot it -- survivable when dots sat there forever, not
+-- once they age out.
+check("the rail comes back from the log after a reload", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Before the reload")
+    Rail.Add("amber", "Also before")
+    -- Simulate the reload: the rail is memory, so it empties; the log is not.
+    Rail.items = {}
+    local n = Rail.Rehydrate()
+    return n == 2 and #Rail.items == 2, n
+end)())
+check("  newest still at the top", Rail.items[1].name == "Also before",
+      Rail.items[1].name)
+check("  and it does not announce them again", (function()
+    Rail.Collapse()
+    Rail.items = {}
+    Rail.Rehydrate()
+    -- They already spoke, in a previous session.
+    return not Rail.IsToasting()
+end)())
+check("  carrying the age across, not the timestamp", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Aged")
+    mock.time = mock.time + 120
+    Rail.items = {}
+    Rail.Rehydrate()
+    local age = ns.Reveal.Now() - Rail.items[1].at
+    return age >= 119 and age <= 121, age
+end)())
+check("  and leaves behind anything past the decay", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Ancient")
+    mock.time = mock.time + Rail.DECAY + 60
+    Rail.items = {}
+    return Rail.Rehydrate() == 0
+end)())
+check("  without re-recording what it restored", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Once")
+    local before = Log.Count()
+    Rail.items = {}
+    Rail.Rehydrate()
+    return Log.Count() == before, Log.Count()
+end)())
+
+-- ---------------------------------------------------------------------------
+section("Sources -- the leading edge")
+-- ---------------------------------------------------------------------------
+-- Currency and reputation stream. The gain you feel you caused is the first
+-- after a quiet stretch; the rest are the system talking to itself. So the
+-- first speaks and the rest refresh the dot it already owns -- and every one
+-- of them is still written down.
+
+check("the first gain after a quiet stretch speaks", (function()
+    Rail.Clear()
+    Log.Clear()
+    mock.time = mock.time + Sources.QUIET + 1
+    Sources.bursts["currency:1602"] = nil
+    sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50)
+    return #Rail.items == 1, #Rail.items
+end)())
+check("  and the stream behind it does not add a second dot", (function()
+    for _ = 1, 8 do
+        sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 250, 50)
+    end
+    return #Rail.items == 1, #Rail.items
+end)())
+check("  it rolls up into the one dot instead", Rail.items[1].count > 8, Rail.items[1].count)
+check("  and every single gain reached the log", Log.Count() == 9, Log.Count())
+
+check("a different currency is a different thing happening", (function()
+    mock.currencies[1792] = "Honor"
+    sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1792, 10, 10)
+    return #Rail.items == 2, #Rail.items
+end)())
+
+check("the burst reopens once the source goes quiet", (function()
+    mock.time = mock.time + Sources.QUIET + 1
+    sourceDriver:Fire("CURRENCY_DISPLAY_UPDATE", 1602, 300, 50)
+    return #Rail.items == 3, #Rail.items
+end)())
+
+-- Round 5's sixth hue, wired to the one event that means it.
+check("dying posts a red row", (function()
+    Rail.Clear()
+    Sources.bursts["death"] = nil
+    mock.time = mock.time + Sources.QUIET + 1
+    sourceDriver:Fire("PLAYER_DEAD")
+    return Rail.items[1] ~= nil and Rail.items[1].kind == "red",
+           Rail.items[1] and Rail.items[1].kind
+end)())
+
+-- Bump is the rollup. It refreshes rather than duplicating, and it never
+-- toasts: the burst already spoke.
+check("a bump moves the item back to the front", (function()
+    Rail.Clear()
+    local first = Rail.Add("blue", "First")
+    Rail.Add("amber", "Second")
+    Rail.Bump(first)
+    return Rail.items[1] == first, Rail.items[1].name
+end)())
+check("  resetting its clock", (function()
+    Rail.Clear()
+    local item = Rail.Add("blue", "Ticking")
+    local was = item.at
+    mock.time = mock.time + 30
+    Rail.Bump(item)
+    return item.at > was
+end)())
+
+
+-- ---------------------------------------------------------------------------
+section("Chat -- the edit box override")
+-- ---------------------------------------------------------------------------
+-- Step one of replacing the chat log. Additive: nothing is hidden, nothing is
+-- intercepted, and clearing the override puts the game back as it was.
+
+local Chat = ns.Chat
+
+check("the box was built at login", Chat.box ~= nil)
+check("  and named, so it can be found in game", Chat.box:GetName() == "MyUIChatBox")
+check("  registered through Blizzard's own override", Chat.IsOverriding())
+check("  which is the API Communities uses, not a hook",
+      mock.chatFocusOverride == Chat.box)
+
+-- The flag Blizzard reads in OpenChat. False means a leading "/" never reaches
+-- us -- which is precisely why the chat frame has to be hidden and not removed.
+check("slash commands are left to Blizzard", Chat.box.supportsSlashCommands == false)
+
+-- The invariant worth locking: we present, we do not route. Chat addons are
+-- fragile because they re-implement sending; this file must never learn how.
+check("nothing in Chat.lua sends a message itself", (function()
+    local src = assert(io.open("../MyUI/Chat.lua")):read("*a")
+    return src:find("SendChatMessage", 1, true) == nil
+end)())
+check("  it hands the text to Blizzard's box instead", (function()
+    mock.sent = {}
+    local ok = Chat.Send("hello there")
+    return ok == true and #mock.sent == 1 and mock.sent[1].text == "hello there",
+           #mock.sent
+end)())
+check("  asking it to keep the history", mock.sent[1].history == 1)
+
+-- The reason a slash typed INSIDE our box still works: SendText calls
+-- ParseText, which calls HandleChatType, which is what resolves /w /p /g /r
+-- and sets the chat type and tell target (ChatFrameEditBox.lua:148-160). It
+-- only works while we pass the text through untouched -- the moment this file
+-- starts trimming or rewriting, our box really would be say-only.
+check("the text is handed over verbatim, slash and all", (function()
+    mock.sent = {}
+    Chat.Send("/w Ashlin did you get the fragment?")
+    return #mock.sent == 1
+       and mock.sent[1].text == "/w Ashlin did you get the fragment?",
+           mock.sent[1] and mock.sent[1].text
+end)())
+check("  including leading whitespace inside the message", (function()
+    mock.sent = {}
+    Chat.Send("/p  stack on me")
+    return mock.sent[1].text == "/p  stack on me", mock.sent[1].text
+end)())
+
+check("empty text is not a message", (function()
+    mock.sent = {}
+    local ok, why = Chat.Send("   ")
+    return ok == false and why == "empty"
+end)())
+
+check("pressing enter sends and lets go of the keyboard", (function()
+    mock.sent = {}
+    Chat.box:SetText("into the void")
+    Chat.box.scripts.OnEnterPressed(Chat.box)
+    local calls = Chat.box.__calls
+    local clearedFocus = false
+    for i = #calls, 1, -1 do
+        if calls[i].method == "ClearFocus" then clearedFocus = true break end
+    end
+    return #mock.sent == 1 and clearedFocus, #mock.sent
+end)())
+
+check("escape sends nothing", (function()
+    mock.sent = {}
+    Chat.box:SetText("never mind")
+    Chat.box.scripts.OnEscapePressed(Chat.box)
+    return #mock.sent == 0
+end)())
+
+-- Shown but transparent, because OpenChat calls SetFocus on us directly and a
+-- hidden EditBox cannot take focus. Alpha hides it; focus shows it.
+check("the box is invisible until it has focus", (function()
+    Chat.box.scripts.OnEditFocusLost(Chat.box)
+    return Chat.box:GetAlpha() == 0, Chat.box:GetAlpha()
+end)())
+check("  and appears when focused", (function()
+    Chat.box.scripts.OnEditFocusGained(Chat.box)
+    return Chat.box:GetAlpha() == 1, Chat.box:GetAlpha()
+end)())
+check("  labelled with what you are talking into", (function()
+    mock.chatType = "WHISPER"
+    mock.tellTarget = "Ashlin"
+    Chat.box.scripts.OnEditFocusGained(Chat.box)
+    local label = Chat.box.label:GetText()
+    mock.chatType, mock.tellTarget = "SAY", nil
+    return label == "whisper Ashlin", label
+end)())
+
+-- It takes no mouse, like the rail. Nothing this addon draws eats a click.
+check("the box takes no mouse input", (function()
+    local src = assert(io.open("../MyUI/Chat.lua")):read("*a")
+    return src:find("EnableMouse(false)", 1, true) ~= nil
+       and src:find("EnableMouse(true)", 1, true) == nil
+end)())
+
+-- FOUND IN GAME: the override did not install and the status could only say
+-- "not installed" -- a symptom with no cause attached. The reference dump is
+-- 12.1.0.69497 and the live build can differ, so the code now probes, falls
+-- back, and checks that what it set actually held.
+check("the probe reports what the client offers", (function()
+    local p = Chat.Probe()
+    return p.util and p.set and p.get and p.clear and p.open
+end)())
+
+check("with no setter it writes the global OpenChat actually reads", (function()
+    local util = _G.ChatFrameUtil
+    local set, get, clear = util.SetChatFocusOverride, util.GetChatFocusOverride,
+                            util.ClearChatFocusOverride
+    util.SetChatFocusOverride, util.GetChatFocusOverride = nil, nil
+    _G.CHAT_FOCUS_OVERRIDE = nil
+
+    local ok, route = Chat.Enable()
+    local held = _G.CHAT_FOCUS_OVERRIDE == Chat.box
+
+    util.SetChatFocusOverride, util.GetChatFocusOverride = set, get
+    util.ClearChatFocusOverride = clear
+    _G.CHAT_FOCUS_OVERRIDE = nil
+    return ok == true and held, tostring(route)
+end)())
+check("  reporting which route it took", Chat.route ~= nil)
+
+check("a set that does not hold is a failure, not a success", (function()
+    local util = _G.ChatFrameUtil
+    local set = util.SetChatFocusOverride
+    -- A client that accepts the call and ignores it. This is exactly what the
+    -- first version could not tell apart from working.
+    util.SetChatFocusOverride = function() end
+    mock.chatFocusOverride = nil
+    _G.CHAT_FOCUS_OVERRIDE = nil
+    local ok, err = Chat.Enable()
+    util.SetChatFocusOverride = set
+    Chat.Enable()
+    return ok == false and type(err) == "string" and err:find("did not hold", 1, true) ~= nil,
+           tostring(err)
+end)())
+
+check("the status names the cause when it fails", (function()
+    local util = _G.ChatFrameUtil
+    local set = util.SetChatFocusOverride
+    util.SetChatFocusOverride = function() end
+    mock.chatFocusOverride = nil
+    _G.CHAT_FOCUS_OVERRIDE = nil
+    Chat.Enable()
+    ns.ClearOutput()
+    run("chat")
+    local out = ns.GetOutput()
+    util.SetChatFocusOverride = set
+    Chat.Enable()
+    return out:find("why", 1, true) ~= nil and out:find("client", 1, true) ~= nil, out
+end)())
+
+-- FOUND IN GAME, second attempt: the override installed and verified at
+-- login, and was nil by the time /myui chat ran. Nothing in Blizzard's
+-- Interface clears it except ClearChatFocusOverride, so the addon watches that
+-- function rather than guessing which caller it is.
+check("it watches for the override being taken back", Chat.watching == true)
+check("  counting who clears it", (function()
+    Chat.Enable()
+    local before = Chat.clears or 0
+    _G.ChatFrameUtil.ClearChatFocusOverride()
+    return (Chat.clears or 0) == before + 1, Chat.clears
+end)())
+check("  recording where the clear came from", Chat.clearedBy ~= nil)
+check("  and putting it back on the next frame, not inside the teardown", (function()
+    Chat.Enable()
+    local before = Chat.reasserts or 0
+    _G.ChatFrameUtil.ClearChatFocusOverride()
+    -- Nothing yet: re-asserting mid-teardown is how you fight a frame that has
+    -- not finished putting itself away.
+    local immediately = Chat.IsOverriding()
+    mock.runTimers()
+    return immediately == false and Chat.IsOverriding()
+       and (Chat.reasserts or 0) == before + 1
+end)())
+check("  and it stops re-asserting once disabled", (function()
+    Chat.Disable()
+    local before = Chat.reasserts or 0
+    _G.ChatFrameUtil.ClearChatFocusOverride()
+    mock.runTimers()
+    local n = Chat.reasserts or 0
+    Chat.Enable()
+    return n == before
+end)())
+
+-- --- the reply key ------------------------------------------------------
+check("Bindings.xml declares a reply binding", (function()
+    local xml = assert(io.open("../MyUI/Bindings.xml")):read("*a")
+    return xml:find('name="MYUI_REPLY"', 1, true) ~= nil
+       and xml:find("MyUI_Reply()", 1, true) ~= nil
+end)())
+check("  and the global it names exists", type(_G.MyUI_Reply) == "function")
+check("  with a name for the key bindings menu",
+      _G.BINDING_NAME_MYUI_REPLY ~= nil)
+check("pressing it opens our box already replying", (function()
+    Chat.box:SetText("")
+    _G.MyUI_Reply()
+    return Chat.box:GetText() == "/r ", Chat.box:GetText()
+end)())
+check("  and it is Blizzard's own reply command, not our lookup", (function()
+    local src = assert(io.open("../MyUI/Chat.lua")):read("*a")
+    -- If this file ever starts resolving who whispered you, it has taken on
+    -- state Blizzard already keeps correctly.
+    return src:find("GetLastTold", 1, true) == nil
+end)())
+
+-- --- the furniture ------------------------------------------------------
+check("hiding the log takes the edit box out first", (function()
+    Chat.HideLog()
+    -- FloatingChatFrame.xml:496 declares the edit box inside the chat frame,
+    -- so stowing the frame with the box still in it kills slash commands.
+    return _G.ChatFrame1EditBox:GetParent() == _G.UIParent
+       and Chat.editBoxFreed == true
+end)())
+check("  and stows the frames, tabs and buttons", (function()
+    return Chat.StowedCount() >= 6, Chat.StowedCount()
+end)())
+check("  under a parent that is itself hidden", (function()
+    return _G.ChatFrame1:GetParent() == ns.Stow.Attic()
+       and ns.Stow.Attic():IsShown() == false
+end)())
+
+-- The reason for the attic rather than Hide(): ChooseBoxForSend branches on
+-- IsShown (ChatFrameUtil.lua:490), so a properly hidden chat frame is how you
+-- lose the ability to send.
+check("  while the chat frame still reports itself shown", _G.ChatFrame1:IsShown() == true)
+check("  so Blizzard's send box is still reachable", Chat.SendBox() ~= nil)
+check("  and sending still works with the log out of sight", (function()
+    mock.sent = {}
+    Chat.Send("still here")
+    return #mock.sent == 1, #mock.sent
+end)())
+
+check("showing it puts everything back", (function()
+    Chat.ShowLog()
+    return Chat.StowedCount() == 0
+       and _G.ChatFrame1:GetParent() == _G.UIParent
+       and Chat.logHidden == false
+end)())
+
+check("hiding is refused with no way to type", (function()
+    Chat.Disable()
+    ns.ClearOutput()
+    run("chat hide")
+    local refused = ns.GetOutput():find("no way to type", 1, true) ~= nil
+    Chat.Enable()
+    return refused and Chat.StowedCount() == 0, ns.GetOutput()
+end)())
+
+check("/myui chat off puts the game back", (function()
+    run("chat off")
+    return not Chat.IsOverriding() and mock.chatFocusOverride == nil
+end)())
+check("  and on reinstalls it", (function()
+    run("chat on")
+    return Chat.IsOverriding()
+end)())
+check("  status reports the state and the way out", (function()
+    ns.ClearOutput()
+    run("chat")
+    local out = ns.GetOutput()
+    return out:find("installed", 1, true) ~= nil
+       and out:find("/myui chat off", 1, true) ~= nil, out
+end)())
+
+
+-- ---------------------------------------------------------------------------
+section("What is that thing")
+-- ---------------------------------------------------------------------------
+-- FOUND IN GAME: something Blizzard draws appeared along the left edge that
+-- the design never accounted for. The offline suite knows what we drew and
+-- nothing about what the client put next to it, so this asks the client.
+
+check("the probe names what is under the cursor", (function()
+    mock.mouseFoci = { mock.frame({ name = "SomeBlizzardBar", objectType = "Frame" }) }
+    ns.ClearOutput()
+    ns.Outline.Under()
+    return ns.GetOutput():find("SomeBlizzardBar", 1, true) ~= nil, ns.GetOutput()
+end)())
+check("  reporting every region under the pixel, not just the top one", (function()
+    mock.mouseFoci = {
+        mock.frame({ name = "TopThing" }),
+        mock.frame({ name = "UnderneathThing" }),
+    }
+    ns.ClearOutput()
+    local named = ns.Outline.Under()
+    return #named == 2 and ns.GetOutput():find("UnderneathThing", 1, true) ~= nil
+end)())
+check("  and says so plainly when nothing takes the mouse", (function()
+    mock.mouseFoci = {}
+    ns.ClearOutput()
+    ns.Outline.Under()
+    return ns.GetOutput():find("nothing under the cursor", 1, true) ~= nil
+end)())
+check("the binding names a global that exists", (function()
+    local xml = assert(io.open("../MyUI/Bindings.xml")):read("*a")
+    return xml:find('name="MYUI_WHAT"', 1, true) ~= nil
+       and type(_G.MyUI_What) == "function"
+       and _G.BINDING_NAME_MYUI_WHAT ~= nil
+end)())
+
+-- ---------------------------------------------------------------------------
+section("Stow -- Blizzard furniture off the screen")
+-- ---------------------------------------------------------------------------
+-- FOUND IN GAME: CompactRaidFrameManager, a 221x361 frame at the left edge --
+-- exactly where the rail lives. It shows whenever you are in a group, or
+-- whenever Edit Mode is force-showing party frames, which is easy to leave on
+-- by accident (Blizzard_CompactRaidFrameManager.lua:294).
+
+local Stow = ns.Stow
+
+check("the raid manager is a group of its own", Stow.GROUPS.raid ~= nil)
+check("  separate from chat, because they come back for different reasons",
+      Stow.GROUPS.chat ~= nil and Stow.GROUPS.raid ~= Stow.GROUPS.chat)
+
+check("stowing it moves it into the hidden attic", (function()
+    local moved = Stow.Group("raid")
+    return moved == 1 and _G.CompactRaidFrameManager:GetParent() == Stow.Attic(), moved
+end)())
+
+-- The reason for the attic rather than Hide(): Blizzard calls SetShown on this
+-- frame every time your group changes, so a frame we HIDE is a frame we would
+-- have to keep re-hiding. Nothing here polls or hooks.
+check("  while Blizzard's own show still succeeds", (function()
+    _G.CompactRaidFrameManager:Show()
+    return _G.CompactRaidFrameManager:IsShown() == true
+       and _G.CompactRaidFrameManager:GetParent() == Stow.Attic()
+end)())
+
+check("  and it comes back on request", (function()
+    local back = Stow.Restore("raid")
+    return back == 1 and _G.CompactRaidFrameManager:GetParent() == _G.UIParent
+end)())
+
+-- Unit frames are protected. The manager itself is not, but it is the visible
+-- edge of a protected system, so this group never moves during combat.
+check("it refuses to move during combat", (function()
+    local was = _G.InCombatLockdown
+    _G.InCombatLockdown = function() return true end
+    local moved, err = Stow.Group("raid")
+    _G.InCombatLockdown = was
+    return moved == nil and tostring(err):find("combat", 1, true) ~= nil, tostring(err)
+end)())
+check("  and the chat group, which is ordinary UI, does not", (function()
+    local was = _G.InCombatLockdown
+    _G.InCombatLockdown = function() return true end
+    Stow.Restore("chat")
+    local moved = Stow.Group("chat")
+    _G.InCombatLockdown = was
+    Stow.Restore("chat")
+    return moved ~= nil and moved > 0, tostring(moved)
+end)())
+
+check("restoring one group leaves the other alone", (function()
+    Stow.Group("chat")
+    Stow.Group("raid")
+    Stow.Restore("raid")
+    return Stow.Count("chat") > 0 and Stow.Count("raid") == 0
+end)())
+check("  and restoring everything takes both", (function()
+    Stow.Group("raid")
+    Stow.Restore()
+    return Stow.Count() == 0, Stow.Count()
+end)())
+
+check("/myui stow reports what is off the screen", (function()
+    ns.ClearOutput()
+    run("stow")
+    local out = ns.GetOutput()
+    return out:find("raid", 1, true) ~= nil and out:find("visible", 1, true) ~= nil, out
+end)())
+check("  stows a named group", (function()
+    run("stow raid")
+    return Stow.IsStowed("raid")
+end)())
+check("  and shows it again", (function()
+    run("stow show raid")
+    return not Stow.IsStowed("raid")
+end)())
+check("  refusing a group that does not exist", (function()
+    ns.ClearOutput()
+    run("stow banana")
+    return ns.GetOutput():find("no such group", 1, true) ~= nil
+end)())
+
+-- ---------------------------------------------------------------------------
+section("Panel -- switches instead of typing")
+-- ---------------------------------------------------------------------------
+
+local Panel = ns.Panel
+
+check("the minimap button exists", Panel.button ~= nil)
+check("  and the panel is closed at rest", Panel.IsOpen() == false)
+check("  with a switch for every toggle", #Panel.panel.rows == #Panel.TOGGLES)
+
+-- Every switch runs the same path a typed command does. A second way to change
+-- state is a second thing to keep in agreement.
+check("switches go through the command dispatcher", (function()
+    local src = assert(io.open("../MyUI/Panel.lua")):read("*a")
+    return src:find("ns.Commands.Run", 1, true) ~= nil
+       and src:find("Chat.HideLog()", 1, true) == nil
+end)())
+
+check("the panel reads live state, so it cannot disagree", (function()
+    ns.Stow.Restore("raid")
+    Panel.Toggle()
+    local raidRow
+    for _, row in ipairs(Panel.panel.rows) do
+        if row.spec.key == "raid" then raidRow = row end
+    end
+    local before = raidRow.tick:GetAlpha()
+    -- Change it the OTHER way, by command, behind the panel's back.
+    run("stow raid")
+    Panel.Refresh()
+    return before == 1 and raidRow.tick:GetAlpha() == 0
+end)())
+
+check("clicking a switch flips the thing itself", (function()
+    for _, row in ipairs(Panel.panel.rows) do
+        if row.spec.key == "raid" then
+            row.scripts.OnClick(row)
+            return not ns.Stow.IsStowed("raid")
+        end
+    end
+    return false
+end)())
+
+-- FOUND IN GAME: "attempt to perform arithmetic on local 'my' (a nil value)".
+-- The guard was `_G.Minimap and _G.Minimap:GetCenter()`, and an `and`
+-- expression keeps only the first return value.
+check("dropping the button survives a minimap that answers oddly", (function()
+    local map = _G.Minimap
+    local was = map.GetCenter
+    map.GetCenter = function() return 1400 end          -- one value, not two
+    local ok = pcall(Panel.button.scripts.OnDragStop, Panel.button)
+    map.GetCenter = function() return nil, nil end        -- no values
+    local ok2 = pcall(Panel.button.scripts.OnDragStop, Panel.button)
+    map.GetCenter = was
+    return ok and ok2
+end)())
+check("  and still places it when the answer is whole", (function()
+    Panel.button.scripts.OnDragStop(Panel.button)
+    return type(ns.db.panel.angle) == "number"
+end)())
+
+check("the button remembers where you dragged it", (function()
+    Panel.Place(45)
+    return ns.db.panel.angle == 45
+end)())
+
+Panel.Toggle()
+
+-- ---------------------------------------------------------------------------
+section("Centre -- reading the record")
+-- ---------------------------------------------------------------------------
+-- The rail became lossy on purpose: dots age out, the pool has a ceiling, and
+-- the chat log is stowed. This is the first thing that reads the log back, and
+-- until it existed a whisper was a dot and nothing else.
+
+local Center = ns.Center
+
+check("the centre was built at login", Center.panel ~= nil)
+check("  named, so Escape can close it through UISpecialFrames",
+      Center.panel:GetName() == "MyUICenter")
+check("  closed at rest", Center.IsOpen() == false)
+
+-- "The center is the rail" -- same anchor, growing right, not a window
+-- somewhere else.
+check("it opens at the rail's own edge", (function()
+    local src = assert(io.open("../MyUI/Center.lua")):read("*a")
+    return src:find('SetPoint("LEFT", anchor.frame, "LEFT", 0, 0)', 1, true) ~= nil
+end)())
+
+-- Deliberately not a palette entry: the palette is the resting HUD's thirteen
+-- colours, and a fourteenth is an error.
+check("the opaque surface is not smuggled into the palette",
+      ns.Palette.colors["surface"] == nil and ns.Palette.COUNT == 13)
+check("  and it is the value Round 5 named", (function()
+    local s = Center.SURFACE
+    return math.abs(s[1] - 10/255) < 0.001 and math.abs(s[4] - 0.86) < 0.001
+end)())
+
+check("it lists what the log holds", (function()
+    Log.Clear()
+    Rail.Clear()
+    Rail.Add("blue", "Ashlin")
+    Rail.Add("green", "Voidsteel Greaves")
+    Center.Filter(nil)
+    Center.Open()
+    return Center.panel.rows[1]:IsShown()
+       and Center.panel.rows[1].name:GetText() == "Voidsteel Greaves",
+           Center.panel.rows[1].name:GetText()
+end)())
+check("  newest first", Center.panel.rows[2].name:GetText() == "Ashlin")
+check("  with a count per hue on the filter row", (function()
+    for _, chip in ipairs(Center.panel.chips) do
+        if chip.hue == "blue" then return chip.count:GetText() == "1", chip.count:GetText() end
+    end
+    return false, "no blue chip"
+end)())
+
+check("filtering narrows it to one hue", (function()
+    Center.Filter("blue")
+    return Center.panel.rows[1].name:GetText() == "Ashlin"
+       and not Center.panel.rows[2]:IsShown()
+end)())
+check("  and the unselected hues dim rather than grow chrome", (function()
+    for _, chip in ipairs(Center.panel.chips) do
+        if chip.hue == "green" then return chip:GetAlpha() < 1, chip:GetAlpha() end
+    end
+    return false
+end)())
+check("  clicking the same hue again clears the filter", (function()
+    for _, chip in ipairs(Center.panel.chips) do
+        if chip.hue == "blue" then chip.scripts.OnClick(chip) end
+    end
+    return Center.filter == nil
+end)())
+
+-- "Toasts suppress while open ... incoming events insert silently at the top
+-- instead of announcing."
+check("a notification arriving while it is open does not toast", (function()
+    Center.Open()
+    Rail.Collapse()
+    Rail.Add("amber", "Quiet arrival")
+    return not Rail.IsToasting()
+end)())
+check("  but it is still on the rail", Rail.items[1].name == "Quiet arrival")
+check("  and still in the log", Log.db.entries[1].name == "Quiet arrival")
+check("  and the centre shows it immediately",
+      Center.panel.rows[1].name:GetText() == "Quiet arrival")
+
+check("it toasts again once closed", (function()
+    Center.Close()
+    Rail.Collapse()
+    Rail.Add("blue", "Loud again")
+    return Rail.IsToasting()
+end)())
+
+-- Closed, it takes no mouse at all: a hidden frame cannot be clicked, which is
+-- what keeps the left edge of the screen passing clicks to the world.
+check("closed, it is hidden rather than transparent", (function()
+    Center.Close()
+    return Center.panel:IsShown() == false
+end)())
+
+check("the binding names a global that exists", (function()
+    local xml = assert(io.open("../MyUI/Bindings.xml")):read("*a")
+    return xml:find('name="MYUI_CENTER"', 1, true) ~= nil
+       and type(_G.MyUI_Center) == "function"
+       and _G.BINDING_NAME_MYUI_CENTER ~= nil
+end)())
+check("  and it toggles", (function()
+    Center.Close()
+    _G.MyUI_Center()
+    local opened = Center.IsOpen()
+    _G.MyUI_Center()
+    return opened and not Center.IsOpen()
+end)())
+
+check("/myui center opens it filtered", (function()
+    run("center green")
+    return Center.IsOpen() and Center.filter == "green", tostring(Center.filter)
+end)())
+check("  and refuses a hue that does not exist", (function()
+    ns.ClearOutput()
+    run("center puce")
+    return ns.GetOutput():find("unknown hue", 1, true) ~= nil
+end)())
+run("center close")
 
 -- ---------------------------------------------------------------------------
 print("")

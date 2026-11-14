@@ -1,6 +1,6 @@
 # MyUI — status
 
-**Last updated:** 2026-08-27 · `0.1.0-phase0` · 81 addon / 15 lint checks, all green
+**Last updated:** 2026-08-27 · `0.4.0-phase3` · 476 addon checks / 7 lint rules over 16 files, all green
 
 Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1.0.69497**.
 
@@ -15,22 +15,123 @@ Target: WoW Midnight 12.1.0, TOC `120100`. Reference source read at build **12.1
 | 1 — Anchors and frame registry | **Delivered** — `v0.2.0-phase1`, 15/15 in game |
 | 2 — Reveal engine | **Delivered** — `v0.3.0-phase2`, 16/16 in game |
 | 3 — Rail | **Delivered** — `v0.4.0-phase3`, 17/17 in game |
-| 4 — Bars and low health | Not started |
+| 4 — Bars and low health | Not started — **spec amended**, see below |
 | 5 — Edit mode | Not started |
 | 6 — Polish and persistence | Not started |
+| **6b — Clearing the screen** | **New.** Added by the amendment. SPEC § 11 |
 | 7 (v2) — Rhythm line | Not started |
 
-### Nothing is blocking
+### The handoff came back amended, 2026-08-27
 
-Phase 4 is the next action: bars and low health. SPEC § 2's internals and § 3.
-The riskiest compliance surface in v1 — audit after each sub-step, not just at
-phase end.
+`DESIGN-QUESTIONS.md` went to the designer with fourteen findings. **All fourteen
+are answered**, and `SPEC.md`, `RULES.md` and `PLAN.md` are amended in place — the
+reasoning is in the handoff's new `HANDBACK-RESPONSE.md`, which says explicitly
+that where it and the specs disagree, the specs win.
 
-**`DESIGN-QUESTIONS.md` has accumulated enough to be worth sending to the
-designer.** Three verified in-game failures, three specified mechanisms that do
-not exist on 12.1, and eleven decisions made where the spec is silent. One
-deviation has shipped: contrast defaults to lift, because the specified grey is
-unreadable.
+The revised handoff is at `~/Development/UI - Rebar/in/current`, beside
+the original. Read-only, like the original.
+
+Both questions that were blocking or shaping Phase 4 are closed:
+
+| Was open | Answer |
+|---|---|
+| Whose job is the empty screen? | **Rebar's.** New SPEC § 11, new PLAN Phase 6b. Player frame filtered by roleset, action bars via an Edit Mode layout, minimap/chat/bags *adopted* at resting alpha 0 rather than hidden. `/myui restore` reverses all three |
+| Does low health summon, or only escalate? | **Summons — `SelfStack` only.** The fifth mechanism is licensed for this one purpose: a hook on Blizzard's `LowHealthFrame`, whose show/hide is a plain boolean and so *may* claim in the arbiter where a step curve's secret alpha cannot |
+
+Other substantive changes: the **modifier reveal channel is cut**; the arbiter's
+tie **precedence is now specified** and differs from ours; the **palette collapses
+to thirteen** colours; the rail gains **seven real notification sources**; and the
+dots get a **1px dark edge**.
+
+### Reworked to match, before Phase 4
+
+Three amendments landed in already-accepted phases. Done, `./smoke.sh` clean at
+434 checks, **not yet re-verified in game**:
+
+- **Modifier channel removed** — the channel, the configurable key set, the
+  `Hold to reveal` binding, the saved setting (schema 1 → 2 clears it) and the
+  `via` argument that existed only to tell its two arms apart. Phase 2's script
+  drops from 16 steps to 13, Phase 3's from 17 to 16.
+- **Precedence is now SPEC § 4's**, not ours: `debug, combat, target, peek,
+  cursor`. Phase 2 put peek above state change, so **a peek during combat is now
+  credited to combat**. The alpha is identical either way; only `/myui claims`
+  changes.
+- **Palette collapsed to thirteen.** `textSecondary` and `textTertiary` became
+  one `textDim`. `/myui contrast` survives with inverted meaning: `lift` is the
+  spec, `normal` is the superseded grey, and that grey is deliberately no longer
+  a palette entry — it lives as a constant in `Frames.lua`, the one colour in the
+  addon `Palette.Get` cannot serve.
+
+`/myui rules` was rewritten too: eight prohibitions, five mechanisms, and the
+licence text limiting the fifth to `SelfStack`. It is the file that has to be
+right before Phase 4 uses the new mechanisms.
+
+**A real bug fell out of the palette collapse.** The old lift was a blanket rule —
+tertiary → secondary *and* secondary → primary — so with lift on by default, the
+TargetStrip's level text drew at `rgba(240,241,243,1)` instead of the
+`rgba(173,177,184,1)` SPEC § 2 names for it. It has been wrong since Phase 1 and
+was accepted three times without anyone seeing it, because nothing draws the two
+levels next to each other. There is one dim grey now and no remapping, so it is
+correct by construction.
+
+### Phase 3's two amendments, also built
+
+**The 1px dark dot edge.** In `tickDark`, on the same 10 × 10 rect as the dot so
+it stays the specified size and reads as a bordered square rather than growing by
+two pixels. Drawn by a `HairlineBox` helper the "+N more" square now shares —
+SPEC § 6 asks the two to match, and two separate implementations of "a 1px box"
+is how they stop matching.
+
+Built as a **sibling of the dot, never a child**, which is the amendment's own
+implementation note and the whole trick: a child inherits the dot's 0.4 and the
+edge vanishes at exactly the alpha it was added to rescue. Two tests guard it —
+one asserting no alpha is ever set on the edge, one reading `Rail.lua` off disk
+to assert `dot:CreateTexture` never appears.
+
+**One reading to check by eye.** SPEC attaches the edge to the *"Older items"*
+line specifically, and gives legibility at 0.4 as the reason — which does not
+apply to a dot at full alpha. So the newest two dots have no edge, and the rail
+reads as a progression: solid dots, outlined dots, hollow square. That is a
+defensible reading rather than an obvious one, and two acceptance steps ask
+whether it looks deliberate or inconsistent.
+
+**The seven real notification sources**, in a new `Sources.lua`. SPEC § 6's event
+table wired verbatim, kept as data so a test can assert every event the spec
+names is registered and nothing outside it is.
+
+The interesting part is not the wiring but SPEC's *"one row per event, never a
+stream"*, which needed two mechanisms because there are two shapes of noise:
+
+- **A latch, for a condition.** Bag full, low durability and pending mail are
+  states whose events fire on every change. The latch speaks on the way in and
+  stays quiet until the condition clears, so a full bag says so once. Nil is
+  deliberately not "fine" — an unreadable durability leaves a live warning
+  latched rather than silently disarming it.
+- **A coalesce window, for a burst.** `UNIT_QUEST_LOG_CHANGED` fires several
+  times for one objective and carries no quest id to tell them apart. **Two
+  seconds, invented** — SPEC gives no window. Flagged in `DESIGN-QUESTIONS.md`.
+
+Every reader goes through one defensive `API()` helper, because on 12.1 a
+misremembered name returns nil in game while every offline test passes — three
+times on this project already. A source whose reader is missing still posts its
+row under a fallback name rather than erroring on login.
+
+`/myui sources` prints the thresholds, a live reading of free bag slots and worst
+durability, and which conditions have already latched. A latched condition and
+one that never fired look identical otherwise, which makes the stream rule
+uncheckable in game without filling your bags twice.
+
+### What is still not done
+
+**An in-game run.** All of the above is offline-green only, at 476 checks.
+Phase 2's script shrank (16 → 13 steps) and Phase 3's grew (17 → 23), and both
+want re-running before Phase 4 builds on the arbiter.
+
+The new steps below the `/myui sources` line are the first in this project that
+cannot be driven by a command — they need loot to drop and a quest to hand in.
+That is the point: the filters are guesses until something real goes through
+them.
+
 
 Running a phase acceptance test: `/myui test` in game, work down the checklist,
 hit **report**, `/reload`. The report lands in `MyUIDB.testRuns` and can be read
@@ -105,7 +206,7 @@ Full detail with citations in `API-NOTES-12.1.md`.
 | Addon name | **MyUI** — the handoff says "Rebar", which collides with the layout framework's folder, slash prefix and SavedVariables |
 | Repo | Its own, beside `Rebar` and `cc-addon` |
 | Coordinates | SPEC's numbers are mock-canvas px on a 1707×960 canvas; × 0.8 gives UI units. "1px" means one physical pixel. Lives in `Scale.MOCK_TO_UNIT` — one edit if wrong |
-| Low-health treatment | Combined: curve + one driver state (SPEC § 3) |
+| Low-health treatment | ~~Combined: curve + one driver state~~ → colour curve + step curve + summon hook (amended SPEC § 3) |
 | Rhythm line in v1 | No — deferred to Phase 7 |
 | Config surface | Slash commands only |
 
@@ -114,7 +215,7 @@ above is one edit to revisit if it turns out wrong.
 
 ---
 
-## Open: SPEC's palette assumes a dark backdrop
+## Answered: SPEC's palette assumes a dark backdrop
 
 Found in game during Phase 3. SPEC § 7 is light-on-dark — near-white text, faint white
 troughs, pale pastel dot hues. Over bright scenery (desert sand, firelight, anything
@@ -129,27 +230,28 @@ than imposed. A structural test fails the build if any module creates a FontStri
 the helper, because such a string would miss the treatment and the miss would only show up
 on a bright backdrop.
 
-**The dim greys need more than a shadow.** `textTertiary` is `rgba(115,119,126,1)` — a
+**The dim greys needed more than a shadow.** `textTertiary` was `rgba(115,119,126,1)` — a
 mid-grey. Against the mid-brown of ordinary terrain it has almost no contrast in either
 direction, and a shadow cannot fix that: a shadow solves an edge problem, not a contrast
 one. The age and the "+N more" count were reported unreadable in game.
 
-`/myui contrast lift` moves dim text one step up the palette — tertiary to secondary,
-secondary to primary. Still SPEC § 7, no fifteenth colour, off by default. **SPEC § 6 names
-`rgba(115,119,126,1)` for the age specifically, so this is a spec conflict, not a bug.**
+Phase 3 shipped `/myui contrast lift` as a deviation and raised it. **The amendment adopted
+the lift**, and took it further than expected: the lifted value *is* the existing secondary,
+so the two entries collapsed and the palette is now thirteen colours, not fourteen. The old
+grey survives only as `/myui contrast normal`, a debug affordance for looking at the
+original intent, and it is deliberately not a palette entry.
 
-**Not fixed for the dots.** The two named dots are at full alpha but their hues are pale
-pastels, and the six older ones sit at the specified 0.4 — over bright gold they are all
-faint. Options, none of them mine to choose:
+**The dots: answered as the 1px dark edge**, in `tickDark`, matching the "+N more" square.
+The backing option was rejected because § 1's geometry rule is that fills above 14% do not
+exist outside a data bar, and an edge stays inside the vocabulary the design already has.
 
-| | |
-|---|---|
-| Leave it | 0.4 is what § 6 asks for, and quiet is the design's whole premise |
-| 1px dark edge on each dot | Uses `tickDark`, and the "+N more" square already establishes outlines in the rail's vocabulary. Changes the specified 10 × 10 solid dot |
-| A ≤14% dark backing behind rows with content | Stays inside § 1's "no fill above 14%", but adds a panel, which sits badly with "no frame is permanent" |
+The amendment carries one implementation note that decides whether it works, worth repeating
+because it is the kind of thing that passes offline and fails on screen: **draw the edge as
+a sibling texture at constant alpha, never as a child of the dot.** A child inherits the
+dot's 0.4 and the edge disappears at exactly the alpha it was added to rescue.
 
-**Worth raising with the designer** — the palette is declared complete, and a design that
-is unreadable half the time is a spec problem rather than an implementation one.
+**Not built yet** — this is Phase 3 amendment work, alongside the seven notification
+sources.
 
 ---
 
@@ -248,10 +350,17 @@ Two answers, both shipped:
 Recommended for a layout like this one: `/myui modifier none`, then bind **MyUI → Hold to
 reveal** to any free key.
 
-**Worth raising with the designer.** SPEC names Alt and Shift specifically. If a modifier
-is unavailable in a normal layout, the channel wants either a different default or a
-different mechanism, and that is a spec decision. The hold binding is an addition to § 4,
-not something it asked for.
+**Raised, and answered: the channel is cut entirely.** The amended SPEC § 4 removed it
+rather than re-defaulting it, on the reading that this finding was really an argument that
+the channel was never load-bearing — proximity covers reveal-while-doing-something and peek
+covers reveal-because-I-want-to, and the modifier only ever covered reveal-while-casting,
+which is the case where it misfires. The hold binding came out with it, since it was an
+escape hatch from a channel that no longer exists.
+
+Knock-on the amendment names: peek is now the only deliberate summon, so the 3s tap carries
+more weight than it did, and PLAN Phase 6 should judge whether it still wants to be a tap or
+a hold. `Bindings.xml` keeps the `runOnUp` + `keystate` shape in a comment for that reason —
+it is the answer to "how do you bind a hold", and a test asserts it is still recorded.
 
 **Verified in game 2026-08-27**: the modifier channel arms and releases cleanly, one input
 entry with its three outcomes sharing a timestamp. The log now records `via binding` or
@@ -293,7 +402,17 @@ anything curve-driven lives on child frames where alpha multiplies on its own.
 
 That is fine if § 3's continuous escalation was the whole intent. If the design also
 wanted *"when I get low, the HUD comes up"*, that needs a discrete event and the only
-source is hooking `LowHealthFrame`. **Still open, still blocking nothing.**
+source is hooking `LowHealthFrame`.
+
+**Answered: it does summon, and the hook is licensed for exactly that.** The amendment
+accepts the reasoning above and routes around it — the hook's show/hide is a *plain
+boolean*, not a secret, so it may be compared and may claim, which is precisely what a step
+curve's alpha cannot do. It reveals `SelfStack` alone: not the cooldowns, not the target
+strip. Blizzard's fixed 35% and the CVar the player can switch off are accepted costs, and
+`/myui audit` has to report which state that CVar is in.
+
+See the new question raised back about this in `DESIGN-QUESTIONS.md` — under our own C6
+inference, the channel is invisible for most of the time low health actually happens.
 
 ---
 
@@ -365,9 +484,11 @@ traces to a citation in `API-NOTES-12.1.md`.
 
 ## If picking up cold
 
-1. Read this file, then `API-NOTES-12.1.md`, then the handoff's `RULES.md` and `SPEC.md`.
+1. Read `CONTINUATION.md`, then this file, then `API-NOTES-12.1.md`, then the **amended**
+   handoff at `~/Development/UI - Rebar/in/current` — `HANDBACK-RESPONSE.md`
+   first, since it says what changed and why, then `RULES.md` and `SPEC.md`.
 2. `./smoke.sh`, and `git tag -n99` for what each delivered phase actually contains.
-3. Phase 2: the reveal engine, four channels through one arbiter.
+3. Phase 4: bars and low health, now including the summon hook.
 
 A phase is delivered when smoke is clean, `/myui audit` is clean in game, PLAN.md's
 acceptance test for it passes in game, and the tag is cut. See README for the convention.

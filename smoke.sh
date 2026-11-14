@@ -31,6 +31,11 @@ else
     run "addon tests ($lua)" bash -c "cd test && $lua run_tests.lua >/dev/null"
 fi
 
+# A real parser, not a grep. Bindings.xml shipped "not well-formed" once, from
+# a double hyphen inside a comment -- legal as an em dash in every Lua file here
+# and illegal in XML -- and the client's only complaint was one LUA_WARNING
+# while every binding silently stopped registering. Nothing else reads this file.
+run "bindings xml"         python3 -c "import xml.etree.ElementTree as ET; ET.parse('MyUI/Bindings.xml')"
 run "compliance lint"      python3 rules_lint.py
 run "lint self-test"       bash -c "python3 test/test_lint.py >/dev/null"
 

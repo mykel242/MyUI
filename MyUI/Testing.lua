@@ -230,13 +230,6 @@ Testing.scripts = {
               expect = "They fade back to faint over about a quarter second — "
                     .. "and stop there. They must NOT vanish." },
 
-            { act = "Hold Alt.",
-              expect = "Everything appears at once, with no pause. The modifier "
-                    .. "channel has no dwell." },
-            { act = "Release Alt.",
-              expect = "Everything settles back to resting. The top-centre strip "
-                    .. "disappears completely; the others stay faint." },
-
             { act = "Target something.",
               expect = "The top-centre strip appears on its own. The bottom "
                     .. "group stays faint." },
@@ -256,39 +249,18 @@ Testing.scripts = {
               expect = "It empties over about three seconds, then everything "
                     .. "fades back to resting." },
 
-            -- These used to ask you to type a command while holding Alt, which
-            -- cannot be done: on macOS Option-combinations insert accented
-            -- characters, and Shift turns "/" into "?", so the command never
-            -- runs at all. A transient channel has to be recorded and read
-            -- afterwards, not caught in the act.
-            { awaits = "claims",
-              cmd = "/myui claims", act = "Hold Alt for a second, release it, then type /myui claims.",
-              expect = "The log shows modifier claiming three frames, then "
-                    .. "releasing them.",
-              check = function()
-                  -- Reads the input entries, not the outcomes: whether you
-                  -- pressed the key is a different question from what the
-                  -- arbiter did about it.
-                  local claimed, released = 0, 0
-                  for _, e in ipairs(ns.Reveal.log) do
-                      if e.channel == "modifier" then
-                          if e.kind == "claim" then claimed = claimed + 1 end
-                          if e.kind == "release" then released = released + 1 end
-                      end
-                  end
-                  if claimed == 0 then
-                      return false, "no modifier press recorded yet"
-                  end
-                  if released == 0 then
-                      return false, "pressed but never released"
-                  end
-                  return true, ("%d press%s recorded"):format(
-                      claimed, claimed == 1 and "" or "es")
-              end },
-
+            -- A transient channel has to be recorded and read afterwards rather
+            -- than caught in the act. That began as a workaround: the step
+            -- above this one used to ask you to type a command while holding
+            -- Alt, which cannot be done -- on macOS an Option-combination
+            -- inserts an accented character and Shift turns "/" into "?", so
+            -- the command never ran at all. The modifier channel is gone now
+            -- and the constraint went with it, but the technique is better
+            -- anyway and the cursor dwell still needs it: the cursor has to
+            -- leave the frame to reach the chat box.
             { awaits = "claims",
               act = "Rest the cursor on the bottom bars for a second, move away, "
-                 .. "then run /myui claims again.",
+                 .. "then type /myui claims.",
               expect = "A cursor claim on SelfStack, and none on the target strip.",
               check = function()
                   local onStack, onStrip = false, false
@@ -328,9 +300,10 @@ Testing.scripts = {
 
     [3] = {
         title = "Phase 3 — the rail",
-        accept = "Eight simultaneous notifications cap correctly and show "
-              .. "\"+N more\"; a toast speaks once and collapses after 4s; "
-              .. "the rail at rest reads as calm.",
+        accept = "Notifications arrive without a cap and age out; a toast "
+              .. "speaks once and collapses after 4s; the log survives a "
+              .. "reload; Enter opens our edit box; the rail at rest reads "
+              .. "as calm.",
         steps = {
             { awaits = "notify clear", cmd = "/myui notify clear", act = "Type /myui notify clear",
               expect = "The rail empties.",
@@ -360,69 +333,287 @@ Testing.scripts = {
                     .. "second row and keeps its text." },
 
             { awaits = "notify demo", cmd = "/myui notify demo", act = "Type /myui notify demo",
-              expect = "Ten arrive at once. Eight dots, two behind the square.",
+              expect = "Twelve arrive at once and all twelve are drawn -- no square, no count.",
               check = function()
                   local Rail = ns.Rail
                   local shown = 0
-                  for i = 1, Rail.CAP do
+                  for i = 1, Rail.SLOTS do
                       if Rail.slots and Rail.slots[i]:IsShown() then
                           shown = shown + 1
                       end
                   end
-                  if shown ~= Rail.CAP then
-                      return false, shown .. " dots shown, cap is " .. Rail.CAP
+                  if shown < 12 then
+                      return false, shown .. " dots shown, sent 12"
                   end
-                  if Rail.Overflow() < 1 then
-                      return false, "nothing overflowed"
-                  end
-                  return true, ("%d dots, +%d behind the square")
-                               :format(shown, Rail.Overflow())
+                  return true, ("%d dots at pitch %d"):format(shown, Rail.Pitch())
               end },
             { act = "Count the dots on the rail.",
-              expect = "Exactly eight, however many were sent." },
-            { act = "Look below the eighth dot.",
-              expect = "A hollow square with a count beside it, not a ninth dot. "
-                    .. "Hollow because a solid one would read as another item." },
+              expect = "All twelve, and nothing hidden behind a +N square. The "
+                    .. "cap was arbitrary and is gone; dots leave by ageing "
+                    .. "out, and the log behind the rail keeps them either way." },
+            { act = "Look at how tightly the dots are spaced.",
+              expect = "Closer together than they were with two or three on "
+                    .. "screen. The pitch tightens as the rail fills, so a "
+                    .. "busy minute looks busy." },
             { act = "Look at rows three and below.",
               expect = "Bare dots with no text. Only the newest two are named." },
             { act = "Compare the lower dots with the top two.",
               expect = "The lower ones are visibly dimmer." },
 
-            -- The palette is light-on-dark and the dim greys lose to mid-tone
+            -- The amendment's answer to the dots-over-bright-ground finding.
+            -- Two steps, because "is there an edge" and "is it on the right
+            -- dots" are different questions and a compound one cannot be
+            -- answered.
+            { act = "Look closely at one of the dim lower dots, over bright "
+                 .. "ground if you can find some.",
+              expect = "A thin dark outline around it, which is what keeps a "
+                    .. "0.4 dot readable over sand or firelight." },
+            { act = "Now look at the top two dots.",
+              expect = "No outline -- they are solid. SPEC 6 puts the edge on "
+                    .. "the older items only, so the rail should read as a "
+                    .. "progression: solid, then outlined and fading. If that "
+                    .. "reads as inconsistent rather than "
+                    .. "deliberate, it is a finding." },
+
+            -- The palette is light-on-dark and the dim grey loses to mid-tone
             -- terrain in both directions. A shadow cannot fix a contrast
             -- problem, only an edge problem.
+            --
+            -- This step is what produced the finding: it failed here on the
+            -- grey SPEC 6 originally named, the addon shipped a lift as a
+            -- deviation, and the amended SPEC 7 adopted it. So the default now
+            -- IS the spec, and the step reads as an ordinary check again.
             { act = "Read the age on the top row and the count beside the square.",
-              expect = "Both legible against the ground you are standing on. If "
-                    .. "not, try /myui contrast lift and answer again -- SPEC 6 "
-                    .. "names that exact grey, so a fail here is a spec finding." },
+              expect = "Both legible against the ground you are standing on. "
+                    .. "/myui contrast normal shows the grey this replaced, if "
+                    .. "you want to see what the finding was about." },
 
             { cmd = { "/myui notify green Urgent", "/myui notify dismiss" },
               act = "Send the first, then dismiss it before four seconds pass.",
               expect = "The toast collapses immediately rather than waiting." },
-            { act = "Send another, and click the toast itself.",
-              expect = "It collapses on the click too." },
+            { cmd = "/myui notify dismiss", act = "Send another, then type /myui notify dismiss",
+              expect = "It collapses early rather than waiting out the four "
+                    .. "seconds. Nothing on the rail takes a click -- the whole "
+                    .. "left edge passes clicks through to the world." },
 
-            -- Folded in from Phase 2: the hold binding shipped after that
-            -- phase was accepted, so it has never been verified in game.
-            { awaits = "claims",
-              cmd = { "/myui modifier none", "/myui claims" },
-              act = "Bind MyUI -> Hold to reveal to a free key, run the first "
-                 .. "command, hold that key, release, then run the second.",
-              expect = "The log shows the channel arming via binding, not via "
-                    .. "keys -- so the HUD no longer fights your ability rows.",
+            -- SPEC 6's real sources, in place of /myui notify. Everything above
+            -- this line is driven by a test command; everything below it has to
+            -- be provoked by playing, which is the only way to find out whether
+            -- the filters are set anywhere near right.
+            { awaits = "sources", cmd = { "/myui notify clear", "/myui sources" },
+              act = "Clear the rail, then run the second command.",
+              expect = "The thresholds, a live reading of your free bag slots "
+                    .. "and worst durability, and which conditions have already "
+                    .. "spoken.",
               check = function()
-                  for _, e in ipairs(ns.Reveal.log) do
-                      if e.kind == "claim" and e.channel == "modifier"
-                         and e.via == "binding" then
-                          return true, "armed via binding"
+                  local out = ns.db and ns.db.lastOutput
+                  if not out or not out:find("free slots", 1, true) then
+                      return false, "waiting for /myui sources"
+                  end
+                  if out:find("unreadable", 1, true) then
+                      return false, "a reader came back unreadable -- see the output"
+                  end
+                  return true, "readings available"
+              end },
+            { act = "Compare the free-slot number it printed with your actual bags.",
+              expect = "They match. If they do not, the bag source is counting "
+                    .. "the wrong containers and the full-bag notice will be "
+                    .. "wrong with it." },
+
+            { awaits = "notify clear",
+              cmd = "/myui notify clear",
+              act = "Clear the rail, then kill something and loot an item of "
+                 .. "uncommon quality or better.",
+              expect = "One blue row, named for the item, with its count.",
+              check = function()
+                  local Rail = ns.Rail
+                  for _, item in ipairs(Rail.items) do
+                      if item.kind == "blue" then
+                          return true, "blue row: " .. tostring(item.name)
                       end
                   end
-                  return false, "no binding-armed claim recorded yet"
+                  return false, "no loot recorded yet"
+              end },
+            { act = "Keep looting greys and whites for a moment.",
+              expect = "Nothing new on the rail. SPEC 6 filters loot at uncommon "
+                    .. "and above, so common drops are deliberately silent." },
+
+            -- Both found in game on the first run of these steps, and both are
+            -- the kind of thing the offline suite cannot see: one needs a real
+            -- item name, the other a real client string.
+            { act = "Look at a row whose item name is long -- "
+                 .. "\"Chunk of Companion Experience\" was the one that found this.",
+              expect = "The name stops short and ends in an ellipsis. It must "
+                    .. "not run across the age; the first build drew the two on "
+                    .. "top of each other and neither could be read." },
+            { act = "Gain reputation with any faction.",
+              expect = "A green row naming THE FACTION. If it says just "
+                    .. "\"Reputation\", that is the fallback and the client "
+                    .. "sent a message form the reader still does not know.",
+              check = function()
+                  for _, item in ipairs(ns.Rail.items) do
+                      if item.kind == "green" and item.name == "Reputation" then
+                          return false, "fallback name -- an unhandled message form"
+                      end
+                  end
+                  for _, item in ipairs(ns.Rail.items) do
+                      if item.kind == "green" then
+                          return true, "named: " .. tostring(item.name)
+                      end
+                  end
+                  return false, "no reputation or currency recorded yet"
+              end },
+
+            { act = "Accept a quest, or hand one in.",
+              expect = "One amber row, named for the quest rather than saying "
+                    .. "\"Quest accepted\" -- the fallback name means the quest "
+                    .. "log reader did not answer.",
+              check = function()
+                  for _, item in ipairs(ns.Rail.items) do
+                      if item.kind == "amber" then
+                          return true, "amber row: " .. tostring(item.name)
+                      end
+                  end
+                  return false, "no quest event recorded yet"
               end },
 
             { act = "Stand back and look at the whole screen with the rail full.",
               expect = "It still reads as calm. If the rail draws your eye at "
                     .. "rest, that is the finding this phase exists to catch." },
+
+            -- The log. Everything the rail is now allowed to forget depends on
+            -- this, so it is checked before anything that relies on it.
+            { cmd = "/myui log", act = "Type /myui log",
+              expect = "A list of what has happened, newest first, with clock "
+                    .. "times and a count per hue.",
+              check = function()
+                  local Log = ns.Log
+                  if not Log or not Log.db then
+                      return false, "no log"
+                  end
+                  if Log.Count() == 0 then
+                      return false, "nothing recorded yet -- loot something first"
+                  end
+                  return true, ("%d entries kept"):format(Log.Count())
+              end },
+            { cmd = "/myui log green", act = "Type /myui log green",
+              expect = "Only the green rows -- currency and reputation." },
+            { cmd = "/reload", act = "Type /reload and wait for the addon to load.",
+              expect = "The UI comes back." },
+            { cmd = "/myui log", act = "Type /myui log again.",
+              expect = "The same entries are still there with the same times. "
+                    .. "This is the thing that makes dots ageing out safe: if "
+                    .. "the log is empty after a reload, nothing else in this "
+                    .. "phase is trustworthy." },
+
+            -- Step one of replacing the chat log. Additive, and reversible in
+            -- one command.
+            { cmd = "/myui chat", act = "Type /myui chat",
+              expect = "It reports the override installed and finds Blizzard's "
+                    .. "send box.",
+              check = function()
+                  local Chat = ns.Chat
+                  if not Chat then return false, "no chat module" end
+                  if not Chat.IsOverriding() then
+                      return false, "override not installed"
+                  end
+                  if not Chat.SendBox() then
+                      return false, "Blizzard's send box not found -- sending would fail"
+                  end
+                  return true, "override installed, send box found"
+              end },
+            { act = "Press Enter.",
+              expect = "A thin input appears at the bottom left, above the "
+                    .. "rail's line, labelled with what you are talking into. "
+                    .. "Blizzard's chat box does NOT open." },
+            { act = "Type something and press Enter.",
+              expect = "It sends, and the input disappears. Blizzard's edit box "
+                    .. "did the routing -- if this works, the chat frame can be "
+                    .. "hidden later without losing the ability to reply." },
+            { act = "Press Enter, type something, then press Escape.",
+              expect = "The input disappears and nothing was sent." },
+            { act = "Press the / key.",
+              expect = "BLIZZARD's chat box opens, not ours, already holding a "
+                    .. "slash. That fall-through is deliberate: it is why the "
+                    .. "chat frame gets hidden and never removed." },
+            { act = "Bind a key to MyUI -> Reply in the game's Key Bindings, "
+                 .. "then press it.",
+              expect = "Our box opens already holding \"/r \". Type and send "
+                    .. "and it whispers whoever last messaged you -- Blizzard's "
+                    .. "own parser resolves the target, we never look it up." },
+
+            -- The house without furniture.
+            { cmd = "/myui chat hide", act = "Type /myui chat hide",
+              expect = "The chat log, its tabs, the dock and the buttons all "
+                    .. "leave the screen. It reports how many frames it stowed.",
+              check = function()
+                  local Chat = ns.Chat
+                  if not Chat then return false, "no chat module" end
+                  if not Chat.logHidden then return false, "not hidden" end
+                  if Chat.StowedCount() < 1 then
+                      return false, "hidden but nothing was stowed -- the frame "
+                                 .. "names did not match this client"
+                  end
+                  if not Chat.editBoxFreed then
+                      return false, "the edit box is still inside the chat frame"
+                  end
+                  if not Chat.SendBox() then
+                      return false, "Blizzard's send box went with it -- sending would fail"
+                  end
+                  return true, ("%d frames stowed, send box still reachable")
+                               :format(Chat.StowedCount())
+              end },
+            { act = "Look at the bottom left of the screen.",
+              expect = "Nothing. No tabs, no chat backdrop, no buttons." },
+            { act = "Press Enter, type something, and send it.",
+              expect = "It still sends. This is the check that matters: the "
+                    .. "frames are stowed under a hidden parent rather than "
+                    .. "hidden, precisely so Blizzard still believes they are "
+                    .. "there and sending keeps working." },
+            { act = "Press / and send something.",
+              expect = "Blizzard's edit box still appears and still works, "
+                    .. "because it was moved out of the chat frame before the "
+                    .. "frame was stowed." },
+            { act = "Have someone whisper you, or whisper yourself from an alt.",
+              expect = "A blue dot on the rail. The message is not on screen "
+                    .. "anywhere else, which is the point and also the risk -- "
+                    .. "if you cannot get back to it, say so." },
+            -- The centre. It exists because the rail was made lossy on
+            -- purpose, and until now nothing could read the record back.
+            { cmd = "/myui center", act = "Type /myui center",
+              expect = "A dark panel opens along the rail's own line, growing "
+                    .. "rightward. The dots do not move.",
+              check = function()
+                  local C = ns.Center
+                  if not C then return false, "no centre module" end
+                  if not C.IsOpen() then return false, "did not open" end
+                  if ns.Log.Count() == 0 then
+                      return false, "open but the log is empty -- nothing to read"
+                  end
+                  return true, ("open over %d entries"):format(ns.Log.Count())
+              end },
+            { act = "Read the top row against the newest dot on the rail.",
+              expect = "The same thing, with its name, count and age. This is "
+                    .. "the answer to a whisper being a dot and nothing else." },
+            { act = "Click one of the coloured dots along the top.",
+              expect = "The list narrows to that hue and the others dim. Click "
+                    .. "it again to clear the filter." },
+            { act = "With the centre open, make something happen -- loot "
+                 .. "something, or type /myui notify blue Test in another window.",
+              expect = "It appears at the top of the list WITHOUT a toast "
+                    .. "speaking. While you are looking at the record, nothing "
+                    .. "needs to announce itself." },
+            { act = "Press Escape.",
+              expect = "The centre closes. Nothing is left on screen and the "
+                    .. "left edge passes clicks to the world again." },
+            { act = "Bind a key to MyUI -> Open the notification centre, then "
+                 .. "press it twice.",
+              expect = "It opens and closes. A key rather than a click on the "
+                    .. "rail, because the rail deliberately takes no mouse." },
+
+            { cmd = "/myui chat show", act = "Type /myui chat show",
+              expect = "The chat frame and all its furniture come back. A "
+                    .. "/reload restores Blizzard's exact layout." },
         },
     },
 }
