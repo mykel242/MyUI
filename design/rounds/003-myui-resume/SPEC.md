@@ -363,11 +363,10 @@ ships a clean screen and can put it back.
 
 Three techniques, by what each frame permits:
 
-**Filtered — the player frame.** Nothing in Blizzard's twenty-three unit-frame settings or
-thirty-six account settings hides it; only an addon can. Tag it with a roleset no UI mode
-includes and let Blizzard's own visibility system filter it out. Pre-12.1 addons call
-`Hide()`; do not — the audited addon claiming 12.1 support stopped doing that for a reason.
-A few lines, reversible.
+**~~Filtered — the player frame.~~ Superseded in R3b (2026-11-14).** The roleset filter was
+probed in game and does not hide the frame: an unknown roleset is filtered only while a UI
+mode's allowlist is active (API-NOTES § 13). The player, target and focus frames are
+unregistered and hidden instead — see the table below.
 
 **Hidden — the action bars.** MyUI creates and activates an Edit Mode layout named `MyUI`
 with every bar disabled, recording the player's previous layout name in saved variables.
@@ -379,8 +378,11 @@ alpha 0 and revealed by the ordinary engine (§ 2, § 4). This is the § 1 premi
 Blizzard's frames rather than ours: hidden must never mean lost, and a chat frame you cannot
 summon is lost. Chat additionally reveals on an incoming whisper and holds for 8s.
 
-Everything else the mock removes — target frame, cast bar, buffs, party and raid frames — the
-player already turns off in Edit Mode, and MyUI's layout does it for them.
+~~Everything else the mock removes — target frame, cast bar, buffs, party and raid frames — the
+player already turns off in Edit Mode, and MyUI's layout does it for them.~~ **Corrected in R3b:**
+Edit Mode's "Target and Focus", "Cast Bar" and "Buffs and Debuffs" settings only preview those
+frames while Edit Mode is open; they hide nothing in play (API-NOTES § 13). Each is handled
+in the table below. Party and raid frames are not yet decided.
 
 **Combat lockdown is the whole risk here.** Protected frames may only be hidden or shown out
 of combat. All filtering and layout activation happens on `PLAYER_ENTERING_WORLD` and on
@@ -398,8 +400,9 @@ be summoned. Never for a protected frame.
 
 | Frame | Technique |
 |---|---|
-| Player frame | Filtered (roleset), out of combat only |
-| Action bars | Hidden by the `MyUI` Edit Mode layout |
+| Player, target, focus frames | **Unregistered and hidden** (`UnregisterAllEvents` + `Hide`), out of combat only; a post-hook answers any later `Show` with a `Hide`. Restored by `/myui restore` plus `/reload` (R3b ruling) |
+| Action bars | The `MyUI` Edit Mode layout sets every bar with a visibility setting to **in combat only** (R3b ruling) |
+| Buffs, debuffs, player cast bar | **Adopted** (R3b ruling). The cast bar sets its own alpha when a cast starts, so it shows while casting |
 | Chat log, tabs, dock, buttons | Adopted now; **stowed** once MyUI's chat view exists. The edit box is freed first |
 | Raid manager tab (`CompactRaidFrameManager`) | **Stowed**, queued out of combat |
 | Minimap, bags | Adopted until replaced; decided when built |

@@ -2769,6 +2769,69 @@ do
     _G.InCombatLockdown = was
     check("  never in combat: SetRolesets is protected", r2.error ~= nil and rolesets == "unitFrames")
     _G.PlayerFrame = nil
+
+    -- Unit frames: unregister and hide (R3b ruling), out of combat only.
+    local units = {}
+    for _, name in ipairs(Clear.UNITS) do
+        local f = mock.frame({ name = name, shown = true })
+        f.unregistered = false
+        f.UnregisterAllEvents = function() f.unregistered = true end
+        units[name] = f
+        _G[name] = f
+    end
+    local was2 = _G.InCombatLockdown
+    _G.InCombatLockdown = function() return true end
+    Clear.hiddenUnits = {}
+    Clear.queue = {}
+    local done = Clear.Defer("units", Clear.HideUnits)
+    check("in combat the unit frames wait", done == false and units.PlayerFrame:IsShown()
+          and not units.PlayerFrame.unregistered)
+    _G.InCombatLockdown = was2
+    Clear.Flush()
+    check("  and are unregistered and hidden when combat ends", (function()
+        for name, f in pairs(units) do
+            if f:IsShown() or not f.unregistered then return false, name end
+        end
+        return true
+    end)())
+    units.TargetFrame:Show()
+    check("  anything that shows one again is answered with a Hide", not units.TargetFrame:IsShown())
+
+    -- The MyUI layout: bars in combat only, through C_EditMode alone.
+    mock.layouts.activeLayout = 3
+    Clear.queue = {}
+    local changed = Clear.ApplyLayout()
+    local saved = mock.editMode.saved
+    local mine
+    for i, l in ipairs(saved.layouts) do if l.layoutName == "MyUI" then mine = i end end
+    check("a MyUI layout is made from the active one", mine ~= nil, mine)
+    check("  as an account layout, before the character ones", mine == 2
+          and saved.layouts[mine].layoutType == 1 and saved.layouts[3].layoutName == "Alt")
+    check("  every action bar with a visibility setting goes in-combat only", changed == 2, changed)
+    check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
+    check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
+    check("  and it is selected", mock.editMode.active == 2 + mine, mock.editMode.active)
+    check("  the previous layout is remembered by name", ns.db.clear.prevLayout == "XYZ - Ultra",
+          tostring(ns.db.clear.prevLayout))
+    check("applying again reuses it rather than making another", (function()
+        Clear.ApplyLayout()
+        local n = 0
+        for _, l in ipairs(mock.layouts.layouts) do if l.layoutName == "MyUI" then n = n + 1 end end
+        return n == 1 and ns.db.clear.prevLayout == "XYZ - Ultra", n
+    end)())
+    check("restore reselects the previous layout", (function()
+        Clear.RestoreLayout()
+        return mock.editMode.active == 3, mock.editMode.active
+    end)())
+    check("a preset is remembered and restored by index", (function()
+        mock.layouts.activeLayout = 1
+        Clear.ApplyLayout()
+        local prev = ns.db.clear.prevLayout
+        Clear.RestoreLayout()
+        return prev == "preset:1" and mock.editMode.active == 1, prev
+    end)())
+
+    for name in pairs(units) do _G[name] = nil end
     for _, spec in ipairs(Clear.ADOPT) do _G[spec[2]] = nil end
 end
 

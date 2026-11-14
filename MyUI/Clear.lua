@@ -7,6 +7,13 @@
 -- hidden never means lost, because proximity and peek summon them. Alpha only,
 -- so nothing here is protected and nothing here waits for combat to end.
 --
+-- Then the parts that touch protected frames, all out of combat only:
+--   * player, target and focus frames: UnregisterAllEvents + Hide (Mykel's R3b
+--     ruling, after the in-game probe showed the roleset filter does not hide
+--     anything -- API-NOTES 13). Undone by /myui restore plus a /reload, since
+--     Blizzard's event registrations cannot be put back from outside.
+--   * a "MyUI" Edit Mode layout with the action bars visible only in combat.
+--
 -- It also carries the PROBE for the player frame. SPEC 11 filters it by
 -- roleset; whether an undefined roleset actually filters with no UI mode
 -- active has never been seen in game (API-NOTES 7), and Rebar measured the
@@ -31,6 +38,13 @@ Clear.ADOPT = {
     { "ChatButtons", "ChatFrame1ButtonFrame" },
     { "Minimap",  "MinimapCluster" },
     { "Bags",     "BagsBar" },
+    -- R3b ruling: buffs and the cast bar are adopted too -- nothing MyUI draws
+    -- replaces them. The cast bar sets its own alpha when a cast starts
+    -- (CastingBarMixin:ApplyAlpha), so it shows while casting and rests at 0:
+    -- summoned by the cast itself.
+    { "Buffs",    "BuffFrame" },
+    { "Debuffs",  "DebuffFrame" },
+    { "CastBar",  "PlayerCastingBarFrame" },
 }
 
 Clear.WHISPER_HOLD = 8.0   -- SPEC 11: "holds for 8s"
@@ -145,19 +159,204 @@ function Clear.ProbePlayer()
 end
 
 -- ---------------------------------------------------------------------------
+-- Combat: queue, flush on PLAYER_REGEN_ENABLED (RULES)
+-- ---------------------------------------------------------------------------
+
+Clear.queue = {}
+
+function Clear.Defer(key, fn)
+    if not InCombatLockdown() then
+        fn()
+        return true
+    end
+    Clear.queue[key] = fn
+    if Clear.driver then Clear.driver:RegisterEvent("PLAYER_REGEN_ENABLED") end
+    return false
+end
+
+function Clear.Flush()
+    local todo = Clear.queue
+    Clear.queue = {}
+    for _, fn in pairs(todo) do fn() end
+end
+
+-- ---------------------------------------------------------------------------
+-- Unit frames: unregister and hide
+-- ---------------------------------------------------------------------------
+
+Clear.UNITS = { "PlayerFrame", "TargetFrame", "FocusFrame" }
+Clear.hiddenUnits = {}
+
+function Clear.HideUnits()
+    local n = 0
+    for _, name in ipairs(Clear.UNITS) do
+        local frame = _G[name]
+        if frame and not Clear.hiddenUnits[name] then
+            frame:UnregisterAllEvents()
+            frame:Hide()
+            -- Belt and braces: anything that still calls Show() is answered
+            -- with a Hide, out of combat now or as soon as combat ends. A
+            -- post-hook, so Blizzard's own call runs untouched.
+            if not frame.__myuiHooked then
+                hooksecurefunc(frame, "Show", function(self)
+                    if Clear.hiddenUnits[name] then
+                        Clear.Defer("hide:" .. name, function() self:Hide() end)
+                    end
+                end)
+                frame.__myuiHooked = true
+            end
+            Clear.hiddenUnits[name] = true
+            n = n + 1
+        end
+    end
+    return n
+end
+
+-- ---------------------------------------------------------------------------
+-- The MyUI Edit Mode layout: action bars in combat only
+-- ---------------------------------------------------------------------------
+-- Through C_EditMode only, never EditModeManagerFrame's methods (that is how
+-- Edit Mode gets tainted, and action bars with it). SaveLayouts then
+-- SetActiveLayout; the client answers with EDIT_MODE_LAYOUTS_UPDATED, which
+-- Blizzard's own handler applies in its own context.
+
+Clear.LAYOUT = "MyUI"
+
+local function DeepCopy(t)
+    if type(t) ~= "table" then return t end
+    local out = {}
+    for k, v in pairs(t) do out[k] = DeepCopy(v) end
+    return out
+end
+
+local function Presets()
+    local meta = _G.Enum and _G.Enum.EditModePresetLayoutsMeta
+    return meta and meta.NumValues or 2
+end
+
+--- The active layout's name (presets by their Blizzard name).
+function Clear.ActiveLayoutName()
+    local info = C_EditMode.GetLayouts()
+    local idx, presets = info.activeLayout, Presets()
+    if idx <= presets then
+        return "preset:" .. idx, idx
+    end
+    local l = info.layouts[idx - presets]
+    return l and l.layoutName, idx
+end
+
+--- Set every action bar that has a visibility setting to in-combat only.
+-- Returns how many bars were changed.
+function Clear.BarsInCombat(layout)
+    local E = _G.Enum
+    local n = 0
+    for _, sys in ipairs(layout.systems or {}) do
+        if sys.system == E.EditModeSystem.ActionBar then
+            for _, st in ipairs(sys.settings or {}) do
+                if st.setting == E.EditModeActionBarSetting.VisibleSetting then
+                    st.value = E.ActionBarVisibleSetting.InCombat
+                    n = n + 1
+                end
+            end
+        end
+    end
+    return n
+end
+
+function Clear.ApplyLayout()
+    if not _G.C_EditMode or not _G.C_EditMode.GetLayouts then return nil, "no C_EditMode" end
+    local E = _G.Enum
+    local info = C_EditMode.GetLayouts()
+    local presets = Presets()
+    local current, activeIdx = Clear.ActiveLayoutName()
+    if current ~= Clear.LAYOUT then
+        DB().prevLayout = current
+    end
+
+    -- Find or make the layout.
+    local mine
+    for i, l in ipairs(info.layouts) do
+        if l.layoutName == Clear.LAYOUT then mine = i end
+    end
+    if not mine then
+        local source
+        if activeIdx > presets then
+            source = info.layouts[activeIdx - presets]
+        elseif _G.EditModePresetLayoutManager then
+            -- Reading a copy of Blizzard's preset table; nothing is written back.
+            local copies = _G.EditModePresetLayoutManager:GetCopyOfPresetLayouts()
+            source = copies and copies[activeIdx]
+        end
+        if not source then return nil, "could not read the active layout" end
+        local accounts = 0
+        for _, l in ipairs(info.layouts) do
+            if l.layoutType == E.EditModeLayoutType.Account then accounts = accounts + 1 end
+        end
+        if accounts >= 5 then return nil, "five account layouts already -- delete one in Edit Mode" end
+        local new = DeepCopy(source)
+        new.layoutName = Clear.LAYOUT
+        new.layoutType = E.EditModeLayoutType.Account
+        -- Account layouts sort before character ones.
+        mine = accounts + 1
+        table.insert(info.layouts, mine, new)
+        if info.activeLayout > presets + accounts then
+            info.activeLayout = info.activeLayout + 1
+        end
+    end
+
+    local changed = Clear.BarsInCombat(info.layouts[mine])
+    info.activeLayout = presets + mine
+    C_EditMode.SaveLayouts(info)
+    C_EditMode.SetActiveLayout(presets + mine)
+    return changed
+end
+
+function Clear.RestoreLayout()
+    if not _G.C_EditMode or not _G.C_EditMode.GetLayouts then return nil, "no C_EditMode" end
+    local prev = DB().prevLayout
+    if not prev then return nil, "no previous layout recorded" end
+    local presets = Presets()
+    local preset = prev:match("^preset:(%d+)$")
+    if preset then
+        C_EditMode.SetActiveLayout(tonumber(preset))
+        return true
+    end
+    local info = C_EditMode.GetLayouts()
+    for i, l in ipairs(info.layouts) do
+        if l.layoutName == prev then
+            C_EditMode.SetActiveLayout(presets + i)
+            return true
+        end
+    end
+    return nil, ("layout %q no longer exists"):format(prev)
+end
+
+-- ---------------------------------------------------------------------------
 -- On and off
 -- ---------------------------------------------------------------------------
 
+--- Everything R3b clears. Adoption is alpha and happens now; the unit frames
+-- and the layout wait for combat to end.
 function Clear.Apply()
     DB().off = nil
-    return Clear.Adopt()
+    local adopted = Clear.Adopt()
+    Clear.Defer("units", Clear.HideUnits)
+    Clear.Defer("layout", function()
+        local ok, err = Clear.ApplyLayout()
+        DB().layoutResult = ok and ("bars changed: " .. tostring(ok)) or tostring(err)
+    end)
+    return adopted
 end
 
---- /myui restore: put back everything R3b took. Alpha only so far, so no
--- combat queue is needed; the filter and the layout will need one.
+--- /myui restore: put back everything R3b took. The layout switches back
+-- and adoption releases now (or when combat ends); the unit frames need a
+-- /reload, because their event registrations are Blizzard's to make.
 function Clear.Restore()
     DB().off = true
-    return Clear.Release()
+    local n = Clear.Release()
+    local needsReload = next(Clear.hiddenUnits) ~= nil
+    Clear.Defer("layout", function() Clear.RestoreLayout() end)
+    return n, needsReload
 end
 
 function Clear.OnLogin()
@@ -166,9 +365,12 @@ function Clear.OnLogin()
     driver:RegisterEvent("PLAYER_ENTERING_WORLD")
     driver:RegisterEvent("CHAT_MSG_WHISPER")
     driver:RegisterEvent("CHAT_MSG_BN_WHISPER")
-    driver:SetScript("OnEvent", function(_, event)
+    driver:SetScript("OnEvent", function(self, event)
         if event == "PLAYER_ENTERING_WORLD" then
-            if Clear.Enabled() then Clear.Adopt() end
+            if Clear.Enabled() then Clear.Apply() end
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            self:UnregisterEvent("PLAYER_REGEN_ENABLED")
+            Clear.Flush()
         else
             Clear.OnWhisper()
         end

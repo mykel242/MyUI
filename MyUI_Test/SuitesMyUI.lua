@@ -413,12 +413,33 @@ T.Suite("myui-clear", {
                      ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
           end,
           teardown = function(api) api.ns().Reveal.Release("whisper") end },
+        { id = "units-hidden", shot = false,
+          what = "Player, target and focus frames unregistered and hidden (R3b ruling).",
+          check = function(api)
+              local shown = {}
+              for _, name in ipairs(api.ns().Clear.UNITS) do
+                  local f = _G[name]
+                  if f and f:IsShown() then shown[#shown + 1] = name end
+              end
+              return #shown == 0, #shown == 0 and "all hidden" or ("shown: " .. table.concat(shown, ", "))
+          end },
+        { id = "layout-active", shot = false,
+          what = "The MyUI Edit Mode layout is active: action bars in combat only.",
+          check = function(api)
+              local Clear = api.ns().Clear
+              local name = Clear.ActiveLayoutName()
+              local db = api.ns().db.clear or {}
+              return name == Clear.LAYOUT, ("active %s; previous %s; %s"):format(
+                  tostring(name), tostring(db.prevLayout), tostring(db.layoutResult))
+          end },
         { id = "player-frame-probe", shot = false,
           what = "SPEC 11's roleset filter on PlayerFrame: does it actually filter? (records, restores)",
           check = function(api)
+              -- Informational since R3b's ruling: the filter is known not to
+              -- hide (API-NOTES 13). Kept so a patch that changes that shows up.
               local r = api.ns().Clear.ProbePlayer()
               if r.error then return false, r.error end
-              return r.filtered == true and r.restored and not r.filteredAfter,
+              return r.restored and not r.filteredAfter,
                      ("set %s, filtered %s, visible %s->%s, restored %s, blocked before [%s]"):format(
                          tostring(r.setOk), tostring(r.filtered), tostring(r.visibleBefore),
                          tostring(r.visibleDuring), tostring(r.restored), tostring(r.blockedBefore))

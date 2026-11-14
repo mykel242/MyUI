@@ -74,6 +74,9 @@ do
     player.IsVisible = function() return rolesets ~= "myuiCleared" end
     _G.PlayerFrame = player
 end
+for _, name in ipairs({ "TargetFrame", "FocusFrame" }) do
+    _G[name] = mock.frame({ name = name, shown = true })
+end
 _G.MyUIClearDriver:Fire("PLAYER_ENTERING_WORLD")
 
 local T = mock.loadAddon("../MyUI_Test", "MyUI_Test")

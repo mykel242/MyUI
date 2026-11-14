@@ -500,9 +500,13 @@ local HANDLERS = {
                  .. "peek or hover summons them. |cffadb1b8/myui restore|r undoes it.")
     end,
     restore      = function()
-        local n = ns.Clear.Restore()
-        ns.Print(("restored -- %d adopted frame(s) back at their own alpha. "):format(n)
-                 .. "|cffadb1b8/myui clear|r clears again.")
+        local n, needsReload = ns.Clear.Restore()
+        ns.Print(("restored -- %d adopted frame(s) back at their own alpha, "):format(n)
+                 .. "your previous Edit Mode layout reselected.")
+        if needsReload then
+            ns.Raw("  |cffffd159/reload|r to bring back the player, target and focus frames.")
+        end
+        ns.Raw("  |cffadb1b8/myui clear|r clears again.")
     end,
     panel        = function()
         if not ns.Panel then return end
