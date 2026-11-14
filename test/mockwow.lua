@@ -238,6 +238,7 @@ function M.frame(spec)
     f.RegisterEvent   = function(...) end
     f.UnregisterEvent = function() end
     f.UnregisterAllEvents = function() f.__unregisteredAll = true end
+    f.GetChildren = function() return end
     f.SetScript = function(_, name, fn) f.scripts[name] = fn end
     f.HookScript = function(_, name, fn)
         local prev = f.scripts[name]

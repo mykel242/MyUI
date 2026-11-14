@@ -421,6 +421,30 @@ T.Suite("myui-clear", {
               return main == 1 and chat == 0, ("main bar %s, chat %s"):format(tostring(main), tostring(chat))
           end,
           teardown = function(api) api.ns().Reveal.Release("combat") end },
+        { id = "leftovers", shot = false,
+          what = "Lists every top-level frame still drawn at rest, so nothing is left unnamed. "
+              .. "Informational: always passes; the detail is the list.",
+          setup = function(api) Baseline(api) end,
+          check = function(api)
+              local ns = api.ns()
+              local mine = {}
+              ns.Registry.Each(function(e) mine[e.frame] = true end)
+              local out = {}
+              for _, f in ipairs({ UIParent:GetChildren() }) do
+                  local ok, vis, alpha = pcall(function() return f:IsVisible(), f:GetEffectiveAlpha() end)
+                  local name = f.GetName and f:GetName()
+                  if ok and vis and type(alpha) == "number" and alpha > 0.01 and not mine[f]
+                     and not (name and (name:find("^MyUI") or name == "MyUITestBackdrop")) then
+                      local l, b, w, h = f:GetRect()
+                      if l and w and h and w > 1 and h > 1 then
+                          out[#out + 1] = ("%s@%d,%d %dx%d"):format(name or tostring(f):sub(-8),
+                              math.floor(l), math.floor(b), math.floor(w), math.floor(h))
+                      end
+                  end
+              end
+              table.sort(out)
+              return true, #out .. ": " .. table.concat(out, "; ")
+          end },
         { id = "units-hidden", shot = false,
           what = "Player, target and focus frames unregistered and hidden (R3b ruling).",
           check = function(api)
