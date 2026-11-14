@@ -134,8 +134,17 @@ and diffed, with Mykel touching no files; Claude reads the results from the repo
 SPEC § 9. Port the grid, snapping and persistence into MyUI; inspector and overlap behind
 `/myui dev`. Migrate positions from Rebar's SavedVariables. Remove the Rebar addon from `newui`.
 
+**Pixel-exact scale per screen** (added 2026-11-14). Rebar set `uiScale 0.8` for the 5120×2880
+display, where it is exactly 3 px/unit; it is one account-wide number, the maximised window
+takes whatever display it opens on, and nothing recomputed it — 2.33 px/unit on the laptop
+panel. On login and on a display change, out of combat, the layout layer measures the window
+and applies the nearest scale giving a whole number of physical pixels per unit (laptop
+3456×2234 → 0.6876 at 2 px/unit; 5120×2880 → 0.8 at 3), within the client's limits. It reports
+what it chose; the player can pin a scale instead.
+
 **Acceptance:** saved positions survive the migration; Rebar's never-run drag-snap test
-passes; the grid is pixel-exact per the harness; `check_deps.py` clean.
+passes; the grid is pixel-exact per the harness **on every screen it runs on**, and the
+harness's `pixel-perfect` check passes; `check_deps.py` clean.
 
 ---
 
