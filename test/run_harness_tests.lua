@@ -62,6 +62,23 @@ ns.Registry.Each(function(entry)
     entry.frame:Show()
 end)
 
+-- Blizzard's frames that R3b adopts, and a PlayerFrame for the probe.
+for _, spec in ipairs(ns.Clear.ADOPT) do
+    _G[spec[2]] = mock.frame({ name = spec[2] })
+end
+do
+    local rolesets = "unitFrames"
+    local player = mock.frame({ name = "PlayerFrame" })
+    player.SetRolesets = function(_, r) rolesets = r end
+    player.IsRolesetFiltered = function() return rolesets == "myuiCleared" end
+    player.IsVisible = function() return rolesets ~= "myuiCleared" end
+    _G.PlayerFrame = player
+end
+for _, name in ipairs({ "TargetFrame", "FocusFrame" }) do
+    _G[name] = mock.frame({ name = name, shown = true })
+end
+_G.MyUIClearDriver:Fire("PLAYER_ENTERING_WORLD")
+
 local T = mock.loadAddon("../MyUI_Test", "MyUI_Test")
 for i = 1, #mock.created do
     mock.created[i]:Fire("ADDON_LOADED", "MyUI_Test")

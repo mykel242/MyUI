@@ -170,7 +170,14 @@ function api.registryFrames()
     local out = {}
     local ns = api.ns()
     if ns and ns.Registry then
-        ns.Registry.Each(function(entry) out[entry.name] = entry.frame end)
+        -- MyUI's own frames only. Adopted Blizzard frames (chat, minimap,
+        -- bags) are never shot: a chat crop is other people's names and
+        -- words, and none of them is deterministic.
+        ns.Registry.Each(function(entry)
+            if not (ns.Clear and ns.Clear.IsAdopted(entry.name)) then
+                out[entry.name] = entry.frame
+            end
+        end)
     end
     return out
 end

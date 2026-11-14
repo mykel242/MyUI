@@ -358,3 +358,131 @@ T.Suite("myui-toasts", {
           end },
     },
 })
+
+-- ---------------------------------------------------------------------------
+-- R3b -- clearing the screen (SPEC 11)
+-- ---------------------------------------------------------------------------
+-- Checks, not shots: adopted frames are Blizzard's chat, minimap and bags, and
+-- a crop of chat is other people's names and words.
+
+local function Target(api, name)
+    local e = api.ns().Registry.Get(name)
+    return e and e.target
+end
+
+T.Suite("myui-clear", {
+    title = "R3b -- clearing the screen",
+    requires = function(api)
+        local ok, why = NeedMyUI(api)
+        if not ok then return ok, why end
+        if not api.ns().Clear then return false, "no Clear module" end
+        return true
+    end,
+    before = function(api) Baseline(api) end,
+    after = function(api)
+        local ns = api.ns()
+        ns.Reveal.Release("peek")
+        ns.Reveal.Release("whisper")
+        ns.Reveal.Snap()
+    end,
+    tests = {
+        { id = "adopted", shot = false,
+          what = "Chat, minimap and bags adopted at resting alpha 0.",
+          check = function(api)
+              local Clear = api.ns().Clear
+              if not Clear.Enabled() then return false, "clearing is off (/myui restore)" end
+              local missing = {}
+              for _, spec in ipairs(Clear.ADOPT) do
+                  if Target(api, spec[1]) ~= 0 then missing[#missing + 1] = spec[1] end
+              end
+              return #missing == 0, #missing == 0 and "all at 0" or ("not at 0: " .. table.concat(missing, ", "))
+          end },
+        { id = "peek-reveals", shot = false,
+          what = "Peek summons them.",
+          setup = function(api) api.ns().Reveal.Claim("peek") end,
+          check = function(api)
+              return Target(api, "Chat") == 1 and Target(api, "Minimap") == 1,
+                     ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
+          end,
+          teardown = function(api) api.ns().Reveal.Release("peek") end },
+        { id = "whisper-reveals-chat", shot = false,
+          what = "A whisper summons chat, and only chat.",
+          setup = function(api) api.ns().Clear.OnWhisper() end,
+          check = function(api)
+              return Target(api, "Chat") == 1 and Target(api, "Minimap") == 0,
+                     ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
+          end,
+          teardown = function(api) api.ns().Reveal.Release("whisper") end },
+        { id = "combat-reveals-bars", shot = false,
+          what = "Combat brings back the adopted bars and group frames, not chat or the minimap.",
+          setup = function(api) api.ns().Reveal.Claim("combat") end,
+          check = function(api)
+              local main, chat = Target(api, "MainBar"), Target(api, "Chat")
+              return main == 1 and chat == 0, ("main bar %s, chat %s"):format(tostring(main), tostring(chat))
+          end,
+          teardown = function(api) api.ns().Reveal.Release("combat") end },
+        { id = "leftovers", shot = false,
+          what = "Lists every top-level frame still drawn at rest, so nothing is left unnamed. "
+              .. "Informational: always passes; the detail is the list.",
+          setup = function(api) Baseline(api) end,
+          check = function(api)
+              local ns = api.ns()
+              local mine = {}
+              ns.Registry.Each(function(e) mine[e.frame] = true end)
+              local out = {}
+              for _, f in ipairs({ UIParent:GetChildren() }) do
+                  -- Forbidden frames (Blizzard's secure store and the like)
+                  -- refuse every method from addon code; skip them.
+                  local forbidden = f.IsForbidden and f:IsForbidden()
+                  local ok, vis, alpha = false, nil, nil
+                  local name
+                  if not forbidden then
+                      ok, vis, alpha = pcall(function() return f:IsVisible(), f:GetEffectiveAlpha() end)
+                      local okName, n = pcall(f.GetName, f)
+                      name = okName and n or nil
+                  end
+                  if ok and vis and type(alpha) == "number" and alpha > 0.01 and not mine[f]
+                     and not (name and (name:find("^MyUI") or name == "MyUITestBackdrop")) then
+                      local l, b, w, h = f:GetRect()
+                      if l and w and h and w > 1 and h > 1 then
+                          out[#out + 1] = ("%s@%d,%d %dx%d"):format(name or tostring(f):sub(-8),
+                              math.floor(l), math.floor(b), math.floor(w), math.floor(h))
+                      end
+                  end
+              end
+              table.sort(out)
+              return true, #out .. ": " .. table.concat(out, "; ")
+          end },
+        { id = "units-hidden", shot = false,
+          what = "Player, target and focus frames unregistered and hidden (R3b ruling).",
+          check = function(api)
+              local shown = {}
+              for _, name in ipairs(api.ns().Clear.UNITS) do
+                  local f = _G[name]
+                  if f and f:IsShown() then shown[#shown + 1] = name end
+              end
+              return #shown == 0, #shown == 0 and "all hidden" or ("shown: " .. table.concat(shown, ", "))
+          end },
+        { id = "layout-active", shot = false,
+          what = "The MyUI Edit Mode layout is active: action bars in combat only.",
+          check = function(api)
+              local Clear = api.ns().Clear
+              local name = Clear.ActiveLayoutName()
+              local db = api.ns().db.clear or {}
+              return name == Clear.LAYOUT, ("active %s; previous %s; %s"):format(
+                  tostring(name), tostring(db.prevLayout), tostring(db.layoutResult))
+          end },
+        { id = "player-frame-probe", shot = false,
+          what = "SPEC 11's roleset filter on PlayerFrame: does it actually filter? (records, restores)",
+          check = function(api)
+              -- Informational since R3b's ruling: the filter is known not to
+              -- hide (API-NOTES 13). Kept so a patch that changes that shows up.
+              local r = api.ns().Clear.ProbePlayer()
+              if r.error then return false, r.error end
+              return r.restored and not r.filteredAfter,
+                     ("set %s, filtered %s, visible %s->%s, restored %s, blocked before [%s]"):format(
+                         tostring(r.setOk), tostring(r.filtered), tostring(r.visibleBefore),
+                         tostring(r.visibleDuring), tostring(r.restored), tostring(r.blockedBefore))
+          end },
+    },
+})

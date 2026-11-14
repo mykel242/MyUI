@@ -34,6 +34,18 @@ function Registry.Add(name, frame, restingAlpha)
     return entry
 end
 
+--- Unregister a frame. Only adopted Blizzard frames ever leave (R3b's
+-- /myui restore); MyUI's own frames are registered once and stay.
+function Registry.Remove(name)
+    local entry = byName[name]
+    if not entry then return nil end
+    byName[name] = nil
+    for i = #entries, 1, -1 do
+        if entries[i] == entry then table.remove(entries, i) end
+    end
+    return entry
+end
+
 function Registry.Get(name)
     return byName[name]
 end

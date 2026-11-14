@@ -151,6 +151,14 @@ layout; zero Lua errors.
 
 ---
 
+## Order from here (Mykel, 2026-11-14)
+
+**R3b → Phase 4 → R4 → R5**, then the rest of Phases 5–7. Phase 4 moves ahead of R4 and R5:
+R3b hides Blizzard's player and target frames, and until Phase 4's bars carry real data
+nothing on screen shows health. R4 and R5 are unchanged in content.
+
+---
+
 ## R4 — Fold Rebar in as the layout layer
 
 SPEC § 9. Port the grid, snapping and persistence into MyUI; inspector and overlap behind
@@ -204,7 +212,8 @@ The build does not invent these. Where one is needed and missing, raise it.
 ## Phases 4–7 — from round 002, renamed
 
 - **Phase 4 — Bars and low health.** As round 002, `/rebar` read as `/myui`. Riskiest
-  compliance surface in v1; audit after each sub-step.
+  compliance surface in v1; audit after each sub-step. **Runs right after R3b** (see "Order
+  from here").
 - **Phase 5 — Edit mode.** Now SPEC § 9, on top of the R4 layout layer.
 - **Phase 6 — Polish and persistence.** As round 002.
 - **Phase 6b — The replacements.** The D1 minimap, chat view and bags; each replaces its

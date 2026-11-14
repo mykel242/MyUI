@@ -60,11 +60,14 @@ Reveal.FADE_OUT = 0.260   -- SPEC 8, slower so release settles rather than snaps
 -- lowhealth joins this table in Phase 4, as the only channel that can claim
 -- without the player having done anything -- which is why SPEC 4 ranks it top.
 Reveal.CHANNELS = {
-    cursor = 1.0,
-    combat = 1.0,
-    target = 1.0,
-    peek   = 1.0,
-    debug  = 1.0,
+    cursor  = 1.0,
+    combat  = 1.0,
+    target  = 1.0,
+    -- SPEC 11: adopted chat "additionally reveals on an incoming whisper and
+    -- holds for 8s". A state change, event-driven, scoped to the chat frames.
+    whisper = 1.0,
+    peek    = 1.0,
+    debug   = 1.0,
 }
 
 -- SPEC.md 4 says "highest claim wins" and says nothing about ties -- but every
@@ -86,15 +89,20 @@ Reveal.CHANNELS = {
 -- debug leads because it is not a SPEC channel at all but a diagnostic
 -- override, and an audit that hid it would be lying about why a frame is lit.
 -- lowhealth slots in directly after it in Phase 4.
-Reveal.PRECEDENCE = { "debug", "combat", "target", "peek", "cursor" }
+Reveal.PRECEDENCE = { "debug", "combat", "target", "whisper", "peek", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
 -- and the rest are inferred. Flagged in STATUS.
 -- nil means every registered frame.
 local SCOPE = {
-    combat = { SelfStack = true, Cooldowns = true },
+    -- R3b: the adopted bars come back in combat like the Edit Mode bars do,
+    -- and the group frames with them.
+    combat = { SelfStack = true, Cooldowns = true,
+               MainBar = true, StanceBar = true, PetBar = true,
+               Party = true, CompactParty = true, Raid = true },
     target = { TargetStrip = true },
+    whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
 }
 
 -- ---------------------------------------------------------------------------
@@ -271,6 +279,11 @@ function Reveal.Resolve()
         end
 
         if entry.target ~= target then
+            -- A frame that draws through alpha (the minimap's arrow and
+            -- blips) is shown again before it fades in.
+            if entry.hideAtZero and target > 0 and not entry.frame:IsShown() then
+                entry.frame:Show()
+            end
             entry.fadeFrom  = entry.current or entry.resting
             entry.fadeStart = now
             if target > (entry.current or entry.resting) then
@@ -289,7 +302,11 @@ function Reveal.Snap()
     Registry.Each(function(entry)
         entry.current = entry.target
         entry.fadeStart = nil
+        if entry.hideAtZero and entry.target > 0 and not entry.frame:IsShown() then
+            entry.frame:Show()
+        end
         entry.frame:SetAlpha(entry.current)
+        Reveal.HideIfSettled(entry)
     end)
 end
 
@@ -406,6 +423,7 @@ local function StepFade(entry, now)
         entry.current = entry.resting
     end
     if entry.current == entry.target then
+        Reveal.HideIfSettled(entry)
         return
     end
     if not entry.fadeStart or not entry.fadeDuration or entry.fadeDuration <= 0 then
@@ -420,6 +438,17 @@ local function StepFade(entry, now)
         end
     end
     entry.frame:SetAlpha(entry.current)
+    Reveal.HideIfSettled(entry)
+end
+
+--- R3b: some adopted frames draw parts of themselves regardless of alpha --
+-- the minimap's player arrow and blips. Those are flagged hideAtZero, and
+-- once a fade has fully settled at 0 they are hidden as well. Never a
+-- protected frame: only Clear flags them, and only unprotected ones.
+function Reveal.HideIfSettled(entry)
+    if entry.hideAtZero and entry.current == 0 and entry.target == 0 and entry.frame:IsShown() then
+        entry.frame:Hide()
+    end
 end
 
 function Reveal.Tick()

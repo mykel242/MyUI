@@ -237,6 +237,8 @@ function M.frame(spec)
     f.scripts = {}
     f.RegisterEvent   = function(...) end
     f.UnregisterEvent = function() end
+    f.UnregisterAllEvents = function() f.__unregisteredAll = true end
+    f.GetChildren = function() return end
     f.SetScript = function(_, name, fn) f.scripts[name] = fn end
     f.HookScript = function(_, name, fn)
         local prev = f.scripts[name]
@@ -294,6 +296,48 @@ function M.install()
         AddOnRestrictionType  = { Combat = 0, Encounter = 1, ChallengeMode = 2, PvPMatch = 3 },
         AddOnRestrictionState = { Inactive = 0, Activating = 1, Active = 2 },
     }
+
+    -- Edit Mode, as far as R3b uses it: a saved-layout list (presets are not
+    -- in it), an active index that counts the two presets first, and the
+    -- enums. M.editMode records what was saved and selected.
+    M.editMode = { saved = nil, active = nil }
+    _G.Enum.EditModeSystem = { ActionBar = 0, UnitFrame = 3 }
+    _G.Enum.EditModeActionBarSetting = { Orientation = 0, VisibleSetting = 6 }
+    _G.Enum.ActionBarVisibleSetting = { Always = 0, InCombat = 1, OutOfCombat = 2, Hidden = 3 }
+    _G.Enum.EditModeLayoutType = { Preset = 0, Account = 1, Character = 2, Server = 3 }
+    _G.Enum.EditModePresetLayoutsMeta = { NumValues = 2 }
+    M.layouts = {
+        layouts = {
+            { layoutName = "XYZ - Ultra", layoutType = 1, systems = {
+                { system = 0, systemIndex = 1, settings = { { setting = 0, value = 0 } } },
+                { system = 0, systemIndex = 2, settings = { { setting = 6, value = 0 } } },
+                { system = 0, systemIndex = 3, settings = { { setting = 6, value = 0 } } },
+                { system = 3, systemIndex = 1, settings = { { setting = 6, value = 0 } } },
+            } },
+            { layoutName = "Alt", layoutType = 2, systems = {} },
+        },
+        activeLayout = 3,
+    }
+    local function copy(t)
+        if type(t) ~= "table" then return t end
+        local o = {}
+        for k, v in pairs(t) do o[k] = copy(v) end
+        return o
+    end
+    _G.C_EditMode = {
+        GetLayouts = function() return copy(M.layouts) end,
+        SaveLayouts = function(info) M.layouts = copy(info); M.editMode.saved = copy(info) end,
+        SetActiveLayout = function(i) M.layouts.activeLayout = i; M.editMode.active = i end,
+    }
+    _G.hooksecurefunc = function(obj, method, fn)
+        if type(obj) == "string" then obj, method, fn = _G, obj, method end
+        local orig = obj[method]
+        obj[method] = function(...)
+            local r = { orig(...) }
+            fn(...)
+            return unpack(r)
+        end
+    end
 
     _G.GetBuildInfo = function() return "12.1.5", "70783", "Nov 2026", 120105 end
     _G.InCombatLockdown = function() return false end

@@ -19,6 +19,16 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
   Round 003 supersedes it (the rail is cut).
 - `wip/aug28` was merged in R3 (2026-11-14) and its docs repointed to `design/current`.
 
+### R3b — clear the screen (2026-11-14, `v0.5.1-r3b`)
+
+- At rest the screen is empty but for SelfStack: verified in the harness's rest shot.
+- Player, target and focus frames unregistered and hidden (the roleset filter probed in game
+  and does not hide — API-NOTES § 13); a `MyUI` Edit Mode layout with 7 bars in combat only;
+  chat, minimap (map hidden at rest), bags, buffs, cast bar, bar 1, stance and pet bars, micro
+  menu, social button, party and raid adopted. Bars and group frames return in combat.
+- `/myui restore` (+ `/reload` for the unit frames) verified in game by Mykel.
+- **No health on screen until Phase 4** — next.
+
 ### R3 — reconcile (2026-11-14, `v0.5.0-r3`)
 
 - `wip/aug28` merged; the rail cut; toasts at `ToastAnchor` (`Toast.lua`), the history
@@ -26,7 +36,8 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
   Rulings in `design/current/DECISIONS-003.md` and SPEC § 7 / § 11. Inventory: `R3-INVENTORY.md`.
 - Harness: 58/58 frames pass at UI scale 1.0 (laptop); `pixel-perfect` fails at 2.91 until R4.
 - UI scale moved 0.8 → 1.0 by hand: 0.8 was unreadable on the laptop. R4 sets it per screen.
-- Next: **R3b** (SPEC § 11's clearing, pulled forward), then R4.
+- Next: **R3b** (SPEC § 11's clearing, pulled forward), then **Phase 4**, then R4, then R5
+  (reordered 2026-11-14: R3b hides the unit frames, and only Phase 4 puts health back).
 
 ### R2 — capture harness (2026-11-14)
 

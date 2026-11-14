@@ -550,3 +550,40 @@ itself away. `MyUI/Chat.lua` hooks `ClearChatFocusOverride`, re-asserts through
 **The reference source cannot answer this on its own.** Reading it tells you the override
 exists and who clears it, but not that ordinary play calls that clearer constantly. Only
 the hook did.
+
+---
+
+## 13. Edit Mode's "Frames" checkboxes do not hide anything in play (R3b, 2026-11-14)
+
+SPEC § 11 says target frame, cast bar, buffs, party and raid frames are things "the player
+already turns off in Edit Mode, and MyUI's layout does it for them." Read against the source,
+that is not what those settings are.
+
+`ShowTargetAndFocus`, `ShowCastBar`, `ShowBuffsAndDebuffs` and their siblings are
+**account settings that show a frame while Edit Mode is open, so it can be positioned**:
+
+- `EditModeAccountSettingsMixin:RefreshTargetAndFocus` (`Blizzard_EditMode/Shared/
+  EditModeManager.lua:1932`) targets *yourself* so the target frame appears, and highlights it.
+- `RefreshCastBar` (`:2206`) sets `PlayerCastingBarFrame.isInEditMode` and highlights it.
+
+They are previews, not gameplay visibility. What Edit Mode *can* hide in play is the action
+bars (`VisibleSetting`: always / in combat / out of combat / hidden). So a `MyUI` layout clears
+the bars and nothing else; the target and focus frames, cast bar and buffs each need their own
+technique, decided per frame like the player frame.
+
+**Probed in game, 2026-11-14 18:18, 12.1.5.70783: the roleset filter does not hide
+`PlayerFrame`.** `SetRolesets("myuiCleared")` succeeded out of combat, but
+`IsRolesetFiltered()` stayed false and the frame stayed visible; no UI mode was active
+(`GetActiveBlockedRolesets()` empty). Put back to `unitFrames` cleanly, no errors. An unknown
+roleset is only filtered when a mode's allowlist is active — so oUF's `'alwaysBlocked'` does
+not hide anything either, it only stops Blizzard's modes from *showing* the frame. SPEC § 11's
+"filtered" technique is dead for normal play.
+
+Two more facts for that decision:
+
+- **No `GetRolesets`.** Only `SetRolesets`, `AddRoleset` and `IsRolesetFiltered`. Restoring a
+  frame means knowing its XML roleset (`PlayerFrame.xml`: `unitFrames`).
+- **`C_Roleset.ApplyRolesetFilters` belongs to `UIModeManagerMixin`** (`Blizzard_UIModes`),
+  which recomputes and reapplies the global filter whenever a mode is pushed or popped, and
+  applies `{}`/`{}` when none is. An addon calling it directly would be overwritten, and
+  calling the manager's methods would taint it. Neither is a route.

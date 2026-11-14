@@ -51,7 +51,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 21, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 22, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -1479,7 +1479,8 @@ end
 
 check("bare /myui prints help", output(""):find("audit", 1, true) ~= nil)
 check("prefix 'aud' resolves to audit", output("aud"):find("audit --", 1, true) ~= nil)
-check("prefix 'r' resolves to rules", output("r"):find("Forwarding a secret", 1, true) ~= nil)
+-- "r" is ambiguous since R3b added restore; "ru" is not.
+check("prefix 'ru' resolves to rules", output("ru"):find("Forwarding a secret", 1, true) ~= nil)
 check("unknown command is reported", output("zzz"):find("unknown command", 1, true) ~= nil)
 
 Guard.Reset()
@@ -2686,6 +2687,167 @@ check("  and refuses a hue that does not exist", (function()
     return ns.GetOutput():find("unknown hue", 1, true) ~= nil
 end)())
 run("center close")
+
+-- ---------------------------------------------------------------------------
+section("Clearing -- SPEC 11, R3b")
+-- ---------------------------------------------------------------------------
+-- Adoption: Blizzard's chat, minimap and bags at resting alpha 0, revealed by
+-- the ordinary engine. Alpha only, so no combat queue.
+
+do
+    local Clear = ns.Clear
+    local made = {}
+    for _, spec in ipairs(Clear.ADOPT) do
+        made[spec[2]] = mock.frame({ name = spec[2] })
+        _G[spec[2]] = made[spec[2]]
+        made[spec[2]]:SetAlpha(0.9)
+    end
+    local before = Registry.Count()
+
+    local n = Clear.Apply()
+    check("every adopted frame is registered", n == #Clear.ADOPT
+          and Registry.Count() == before + #Clear.ADOPT, n)
+    check("  at resting alpha 0", (function()
+        for _, spec in ipairs(Clear.ADOPT) do
+            local e = Registry.Get(spec[1])
+            if not e or e.resting ~= 0 or e.target ~= 0 then return false, spec[1] end
+        end
+        return true
+    end)())
+    check("  and the chat edit box left the log first", ns.Chat.editBoxFreed == true
+          or _G.ChatFrame1EditBox == nil)
+    check("applying twice adopts nothing new", Clear.Apply() == 0)
+
+    Reveal.Claim("peek")
+    check("peek reveals them", Registry.Get("Minimap").target == 1 and Registry.Get("Chat").target == 1)
+    Reveal.Release("peek")
+    check("  and they settle back to 0", Registry.Get("Minimap").target == 0)
+
+    -- The minimap draws its arrow and blips through alpha, so the map itself
+    -- is hidden once a fade settles at 0, and shown again before it fades in.
+    mock.advance(ns, 0.3, 3)
+    check("the minimap map is hidden at rest", not made.Minimap:IsShown())
+    Reveal.Claim("peek")
+    check("  shown when summoned", made.Minimap:IsShown())
+    Reveal.Release("peek")
+    mock.advance(ns, 0.3, 3)
+    check("  and hidden again once the fade-out finishes", not made.Minimap:IsShown())
+
+    Reveal.Claim("combat")
+    check("combat does not reveal chat or the minimap",
+          Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0
+          and Registry.Get("SelfStack").target == 1)
+    check("  but does bring back the adopted bars and group frames, like the Edit Mode bars",
+          Registry.Get("MainBar").target == 1 and Registry.Get("Party").target == 1
+          and Registry.Get("Raid").target == 1)
+    Reveal.Release("combat")
+
+    Clear.OnWhisper()
+    check("a whisper reveals chat", Registry.Get("Chat").target == 1
+          and Registry.Get("ChatDock").target == 1)
+    check("  and only chat", Registry.Get("Minimap").target == 0
+          and Registry.Get("SelfStack").target == 0.35)
+    mock.advance(ns, Clear.WHISPER_HOLD - 1)
+    check("  held for the 8s", Registry.Get("Chat").target == 1)
+    Clear.OnWhisper()
+    mock.advance(ns, Clear.WHISPER_HOLD - 1)
+    check("  a second whisper restarts the hold", Registry.Get("Chat").target == 1)
+    mock.advance(ns, 2)
+    check("  then lets go", Registry.Get("Chat").target == 0)
+
+    run("restore")
+    check("/myui restore unregisters them", Registry.Count() == before, Registry.Count())
+    check("  and gives back their own alpha", made.MinimapCluster:GetAlpha() == 0.9,
+          made.MinimapCluster:GetAlpha())
+    check("  and is remembered", Clear.Enabled() == false)
+    run("clear")
+    check("/myui clear turns it back on", Clear.Enabled() and Registry.Get("Bags") ~= nil)
+    run("restore")
+
+    -- The probe: SPEC 11's filter on PlayerFrame, tried and put back.
+    local player = mock.frame({ name = "PlayerFrame" })
+    local rolesets = "unitFrames"
+    player.SetRolesets = function(_, r) rolesets = r end
+    player.IsRolesetFiltered = function() return rolesets == "myuiCleared" end
+    player.IsVisible = function() return rolesets ~= "myuiCleared" end
+    _G.PlayerFrame = player
+    local r = Clear.ProbePlayer()
+    check("the probe tries the filter and reads it", r.setOk and r.filtered == true
+          and r.visibleDuring == false)
+    check("  and puts the frame back exactly", rolesets == "unitFrames" and r.filteredAfter == false)
+    check("  and records it for reading off disk", ns.db.clear.probe == r)
+    local was = _G.InCombatLockdown
+    _G.InCombatLockdown = function() return true end
+    rolesets = "unitFrames"
+    local r2 = Clear.ProbePlayer()
+    _G.InCombatLockdown = was
+    check("  never in combat: SetRolesets is protected", r2.error ~= nil and rolesets == "unitFrames")
+    _G.PlayerFrame = nil
+
+    -- Unit frames: unregister and hide (R3b ruling), out of combat only.
+    local units = {}
+    for _, name in ipairs(Clear.UNITS) do
+        local f = mock.frame({ name = name, shown = true })
+        f.unregistered = false
+        f.UnregisterAllEvents = function() f.unregistered = true end
+        units[name] = f
+        _G[name] = f
+    end
+    local was2 = _G.InCombatLockdown
+    _G.InCombatLockdown = function() return true end
+    Clear.hiddenUnits = {}
+    Clear.queue = {}
+    local done = Clear.Defer("units", Clear.HideUnits)
+    check("in combat the unit frames wait", done == false and units.PlayerFrame:IsShown()
+          and not units.PlayerFrame.unregistered)
+    _G.InCombatLockdown = was2
+    Clear.Flush()
+    check("  and are unregistered and hidden when combat ends", (function()
+        for name, f in pairs(units) do
+            if f:IsShown() or not f.unregistered then return false, name end
+        end
+        return true
+    end)())
+    units.TargetFrame:Show()
+    check("  anything that shows one again is answered with a Hide", not units.TargetFrame:IsShown())
+
+    -- The MyUI layout: bars in combat only, through C_EditMode alone.
+    mock.layouts.activeLayout = 3
+    Clear.queue = {}
+    local changed = Clear.ApplyLayout()
+    local saved = mock.editMode.saved
+    local mine
+    for i, l in ipairs(saved.layouts) do if l.layoutName == "MyUI" then mine = i end end
+    check("a MyUI layout is made from the active one", mine ~= nil, mine)
+    check("  as an account layout, before the character ones", mine == 2
+          and saved.layouts[mine].layoutType == 1 and saved.layouts[3].layoutName == "Alt")
+    check("  every action bar with a visibility setting goes in-combat only", changed == 2, changed)
+    check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
+    check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
+    check("  and it is selected", mock.editMode.active == 2 + mine, mock.editMode.active)
+    check("  the previous layout is remembered by name", ns.db.clear.prevLayout == "XYZ - Ultra",
+          tostring(ns.db.clear.prevLayout))
+    check("applying again reuses it rather than making another", (function()
+        Clear.ApplyLayout()
+        local n = 0
+        for _, l in ipairs(mock.layouts.layouts) do if l.layoutName == "MyUI" then n = n + 1 end end
+        return n == 1 and ns.db.clear.prevLayout == "XYZ - Ultra", n
+    end)())
+    check("restore reselects the previous layout", (function()
+        Clear.RestoreLayout()
+        return mock.editMode.active == 3, mock.editMode.active
+    end)())
+    check("a preset is remembered and restored by index", (function()
+        mock.layouts.activeLayout = 1
+        Clear.ApplyLayout()
+        local prev = ns.db.clear.prevLayout
+        Clear.RestoreLayout()
+        return prev == "preset:1" and mock.editMode.active == 1, prev
+    end)())
+
+    for name in pairs(units) do _G[name] = nil end
+    for _, spec in ipairs(Clear.ADOPT) do _G[spec[2]] = nil end
+end
 
 -- ---------------------------------------------------------------------------
 print("")
