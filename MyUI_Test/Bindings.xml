@@ -1,0 +1,7 @@
+<Bindings>
+    <!-- Loaded by the client by filename; deliberately not listed in the TOC
+         (see MyUI/Bindings.xml for why). -->
+    <Binding name="MYUI_TEST_RUN" header="MYUITEST" category="MyUI">
+        MyUI_Test_Run()
+    </Binding>
+</Bindings>

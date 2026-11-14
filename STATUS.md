@@ -20,6 +20,21 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
 - `wip/aug28`'s copies of `STATUS.md`, `CONTINUATION.md` and `README.md` still name
   `UI - Rebar/in/current`; repoint them to `design/current` when R3 merges it.
 
+### R2 — capture harness (2026-11-14)
+
+- `MyUI_Test/` (dev env only) runs suites from code and screenshots each state over a
+  flat backdrop; `tools/` files (`watch_shots.py`), diffs (`diff_shots.py`), approves
+  (`approve_shots.py`) and polices dependencies (`check_deps.py`). Results land in
+  `shots/results/LATEST.md`. Laptop baseline (3456x2234) committed under `shots/approved/`;
+  a run from a second location came back 66/66 pass.
+- **Two presses, not one.** On 12.1.5 `ReloadUI()` from a timer is `ADDON_ACTION_BLOCKED`,
+  and only a reload writes SavedVariables. Press 1 runs, press 2 saves. Deviation from PLAN
+  R2's acceptance -- **accepted by Mykel 2026-11-14.**
+- **Finding for R3:** uiScale 0.8 is not pixel-perfect on the laptop (2.33 px/unit at
+  3456x2234); it was chosen for the 5K display (exactly 3).
+- Ultrawide baseline **deferred**: Pallas is dead (2026-11-14). SPEC § 15's both-shapes
+  rule is owed; take the ultrawide baseline when a widescreen machine is back.
+
 ---
 
 ## Where things stand

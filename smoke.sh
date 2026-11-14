@@ -29,10 +29,22 @@ if [ -z "$lua" ]; then
     fail=1
 else
     run "addon tests ($lua)" bash -c "cd test && $lua run_tests.lua >/dev/null"
+    run "harness tests ($lua)" bash -c "cd test && $lua run_harness_tests.lua >/dev/null"
 fi
 
-run "compliance lint"      python3 rules_lint.py
+run "compliance lint"      python3 rules_lint.py MyUI MyUI_Test
+run "dependencies"         python3 tools/check_deps.py
 run "lint self-test"       bash -c "python3 test/test_lint.py >/dev/null"
+
+# The screenshot tools need Pillow, which lives in tools/.venv (dev only).
+if [ -x tools/.venv/bin/python ]; then
+    run "screenshot tools"     bash -c "tools/.venv/bin/python test/test_shot_tools.py >/dev/null 2>&1"
+else
+    echo
+    echo "--- screenshot tools"
+    echo "    FAIL -- no tools/.venv: python3 -m venv tools/.venv && tools/.venv/bin/pip install Pillow"
+    fail=1
+fi
 
 echo
 if [ "$fail" -eq 0 ]; then
