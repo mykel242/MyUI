@@ -3171,9 +3171,6 @@ do
     mock.drivers = {}
     check("built out of combat", A.Build() == true and A.header ~= nil)
     A.Register()
-    for _, row in pairs(A.rows) do
-        for _, b in ipairs(row) do b.HotKey = mock.frame({ objectType = "FontString" }) end
-    end
     A.PaintKeys()
     local header, b1, b8 = A.header, A.rows["1"][1], A.rows["1"][8]
     local a1, c1, ac1 = A.rows.a[1], A.rows.c[1], A.rows.ac[1]
@@ -3198,8 +3195,9 @@ do
     check("at rest: bar 1 shown with slots 1-8, the rest hidden, no label", shown("1") and hidden("a")
           and hidden("c") and hidden("ac") and b1:GetAttribute("action") == 1
           and b8:GetAttribute("action") == 8 and not A.labels.a:IsShown())
-    check("  keybind text from the player's bindings, not ACTIONBUTTON0",
-          b1.HotKey:GetText() == "1" and a1.HotKey:GetText() == "ALT-1")
+    check("  MyUI's own keybind text, top-left, from the player's bindings",
+          b1.__myuiKey:GetText() == "1" and a1.__myuiKey:GetText() == "ALT-1"
+          and b1.__myuiKey:GetPoint(1) == "TOPLEFT")
 
     check("the player's keys click MyUI's buttons: every key on every command", (function()
         local o = mock.overrides
@@ -3248,6 +3246,28 @@ do
           and mock.overrides["1"] and mock.overrides["1"].button == "MyUIActionButton1"
           and mock.overrides["ALT-CTRL-1"] and mock.overrides["ALT-CTRL-1"].button == "MyUIActionAC1")
 
+    -- Blizzard's bars, as the client has them: dragging a spell shows them all.
+    local blz = {}
+    for _, spec in ipairs(ns.Clear.BLIZZARD_BARS) do
+        _G[spec[1]] = mock.frame({ name = spec[1], shown = true })
+        for i = 1, 12 do
+            local b = mock.frame({ name = spec[2] .. i, shown = true })
+            _G[spec[2] .. i] = b
+            blz[#blz + 1] = b
+        end
+    end
+    ns.Clear.PinBars()
+    check("every Blizzard action bar and button held at 0, mouse off", (function()
+        for _, b in ipairs(blz) do
+            local m
+            for i = #b.__calls, 1, -1 do if b.__calls[i].method == "EnableMouse" then m = b.__calls[i][1] break end end
+            if b:GetAlpha() ~= 0 or m ~= false then return false, b:GetName() end
+        end
+        _G.MultiBarBottomLeft:SetAlpha(1)      -- Blizzard showing it for the drag
+        _G.MultiBarBottomLeftButton3:SetAlpha(1)
+        return _G.MultiBarBottomLeft:GetAlpha() == 0 and _G.MultiBarBottomLeftButton3:GetAlpha() == 0
+    end)())
+
     A.events:Fire("ACTIONBAR_SHOWGRID")
     check("picking something up stacks every page, labelled, to drop it on", (function()
         local _, _, _, _, y1 = b1:GetPoint(1)
@@ -3265,6 +3285,23 @@ do
               local _, _, _, _, ya = a1:GetPoint(1)
               return ya == 0
           end)())
+
+    check("/myui actions lists every Blizzard bar's alpha and mouse", (function()
+        ns.ClearOutput()
+        run("actions")
+        return ns.GetOutput():find("MultiBarBottomLeft: shown, alpha 0", 1, true) ~= nil
+    end)())
+    check("unpinning gives them back", (function()
+        ns.Clear.UnpinBars()
+        _G.MultiBarBottomLeftButton3:SetAlpha(0.7)
+        local ok = _G.MultiBarBottomLeftButton3:GetAlpha() == 0.7
+        ns.Clear.PinBars()
+        return ok and _G.MultiBarBottomLeftButton3:GetAlpha() == 0
+    end)())
+    for _, spec in ipairs(ns.Clear.BLIZZARD_BARS) do
+        _G[spec[1]] = nil
+        for i = 1, 12 do _G[spec[2] .. i] = nil end
+    end
 
     check("registered resting at 0, in the combat scope; Blizzard's bar 1 left the registry",
           Registry.Get("ActionBar") ~= nil and Registry.Get("ActionBar").resting == 0

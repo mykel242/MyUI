@@ -51,6 +51,11 @@ MyUI's. Second pass:
 - Blizzard's bar 1 pinned at alpha 0 (`Clear.Pin` hooks `SetAlpha`).
 - Assign: anything on the cursor stacks all four rows, labelled (`assign` reveal channel).
 - `/myui mods`: what the client sees of the modifiers, 10 s — the mouse-mapped ALT question.
+- Screenshot of the drag: Blizzard shows EVERY action bar while a spell is on the cursor (Edit
+  Mode's Hidden too) and raises them to TOOLTIP strata (`ActionBarMixin:SetShowGrid`) — over
+  MyUI's rows, catching the drop. Now all eight Blizzard bars and their buttons are pinned at
+  alpha 0 with the mouse off (`Clear.PinBars`); `/myui actions` lists each one's state.
+  MyUI draws its own keybind text (Blizzard's HotKey re-anchors itself top-right).
 - Health % default is now **above** the bar (Mykel: "much cleaner"); SelfStack gained name and
   level, laid out like the target strip.
 

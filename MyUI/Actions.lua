@@ -155,18 +155,15 @@ local function KeyText(cmd)
     return text or ""
 end
 
--- Blizzard's UpdateHotkeys reads ACTIONBUTTON..GetID(), and these buttons
--- have no ID; it runs on its own events, so the right text goes on after it.
+-- MyUI's own keybind text, top-left (button grammar, round 004). Blizzard's
+-- HotKey reads ACTIONBUTTON..GetID() -- these buttons have no ID -- and
+-- re-anchors itself top-right on its own events, so it is muted for good.
 local function PaintKey(b)
-    local hk = b.HotKey
-    if not hk then return end
+    local key = b.__myuiKey
+    if not key then return end
     local text = KeyText(Actions.Command(b.__myuiBar, b.__myuiIndex))
-    hk:SetText(text)
-    if text ~= "" then hk:Show() else hk:Hide() end
-    -- Button grammar (round 004): the keybind top-left.
-    hk:ClearAllPoints()
-    hk:SetPoint("TOPLEFT", b, "TOPLEFT", U(3), -U(3))
-    hk:SetJustifyH("LEFT")
+    key:SetText(text)
+    if text ~= "" then key:Show() else key:Hide() end
 end
 
 --- Labels for the page now showing. `state` is the driver's value: "hide",
@@ -276,9 +273,10 @@ local function MakeButton(header, name, bar, i, action)
     b.__myuiIndex, b.__myuiBar = i, bar
     -- Quieter than Blizzard's frame art: the icon, the sweep, the count.
     if b.NormalTexture then b.NormalTexture:SetAlpha(0) end
-    if type(b.UpdateHotkeys) == "function" then
-        hooksecurefunc(b, "UpdateHotkeys", PaintKey)
-    end
+    if b.HotKey then b.HotKey:SetAlpha(0) end
+    local key = ns.Frames.Text(b, 10, "textPrimary", "LEFT")
+    key:SetPoint("TOPLEFT", b, "TOPLEFT", U(3), -U(3))
+    b.__myuiKey = key
     return b
 end
 
@@ -378,6 +376,18 @@ function Actions.Probe()
     r.mainAlpha = main and main:GetAlpha()
     r.button1Alpha = blz and blz.GetEffectiveAlpha and blz:GetEffectiveAlpha()
     r.combat = InCombatLockdown()
+    -- Every Blizzard bar: shown, alpha, strata, and its button 1's drawn alpha.
+    r.blizzard = {}
+    for _, spec in ipairs(ns.Clear and ns.Clear.BLIZZARD_BARS or {}) do
+        local bar, b = _G[spec[1]], _G[spec[2] .. "1"]
+        if bar then
+            r.blizzard[#r.blizzard + 1] = ("%s: %s, alpha %s, %s; button 1 drawn at %s, mouse %s"):format(
+                spec[1], bar:IsShown() and "shown" or "hidden", tostring(bar:GetAlpha()),
+                tostring(bar.GetFrameStrata and bar:GetFrameStrata()),
+                tostring(b and b.GetEffectiveAlpha and b:GetEffectiveAlpha()),
+                tostring(b and b.IsMouseEnabled and b:IsMouseEnabled()))
+        end
+    end
     if ns.db then ns.db.actionsProbe = r end
     return r
 end
@@ -435,6 +445,7 @@ function Actions.Start()
             Actions.rebind = not Actions.Bind()
             Actions.PaintKeys()
         elseif event == "ACTIONBAR_SHOWGRID" then
+            if ns.Clear and ns.Clear.barsPinned then ns.Clear.PinBars() end
             Actions.SetAssign(true)
         elseif event == "ACTIONBAR_HIDEGRID" then
             Actions.SetAssign(false)
@@ -459,10 +470,8 @@ end
 function Actions.Register()
     if not Actions.header or ns.Registry.Get("ActionBar") then return end
     ns.Registry.Add("ActionBar", Actions.header, 0)
-    if ns.Registry.Get("MainBar") then
-        ns.Registry.Remove("MainBar")
-        if _G.MainActionBar and ns.Clear and ns.Clear.Pin then ns.Clear.Pin(_G.MainActionBar) end
-    end
+    if ns.Registry.Get("MainBar") then ns.Registry.Remove("MainBar") end
+    if ns.Clear and ns.Clear.PinBars then ns.Clear.PinBars() end
     ns.Reveal.Resolve()
     ns.Reveal.Snap()
 end

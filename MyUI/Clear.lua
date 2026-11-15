@@ -141,6 +141,60 @@ function Clear.Pin(frame)
     frame:SetAlpha(0)
 end
 
+-- Round 004 play: picking up a spell shows EVERY Blizzard action bar --
+-- Edit Mode's Hidden included -- raised to TOOLTIP strata
+-- (ActionBarMixin:SetShowGrid), over MyUI's bar, catching the drop at its
+-- own misaligned positions. With MyUI's bar built, all of them are held at
+-- alpha 0 and their buttons stop taking the mouse. Keybinds still fire them:
+-- a binding clicks a button, it does not need the pointer.
+Clear.BLIZZARD_BARS = {
+    { "MainActionBar",       "ActionButton" },
+    { "MultiBarBottomLeft",  "MultiBarBottomLeftButton" },
+    { "MultiBarBottomRight", "MultiBarBottomRightButton" },
+    { "MultiBarRight",       "MultiBarRightButton" },
+    { "MultiBarLeft",        "MultiBarLeftButton" },
+    { "MultiBar5",           "MultiBar5Button" },
+    { "MultiBar6",           "MultiBar6Button" },
+    { "MultiBar7",           "MultiBar7Button" },
+}
+
+--- Pin every Blizzard action bar and button at 0, mouse off. Mouse is
+-- protected in combat; then only the alpha is pinned and the mouse waits.
+function Clear.PinBars()
+    local mouse = not InCombatLockdown()
+    Clear.barsPinned = true
+    for _, spec in ipairs(Clear.BLIZZARD_BARS) do
+        local bar = _G[spec[1]]
+        if bar then Clear.Pin(bar) end
+        for i = 1, 12 do
+            local b = _G[spec[2] .. i]
+            if b then
+                Clear.Pin(b)
+                if mouse and b.EnableMouse then b:EnableMouse(false) end
+            end
+        end
+    end
+    return mouse
+end
+
+function Clear.UnpinBars()
+    if not Clear.barsPinned or InCombatLockdown() then return false end
+    Clear.barsPinned = false
+    for _, spec in ipairs(Clear.BLIZZARD_BARS) do
+        local bar = _G[spec[1]]
+        if bar and Clear.pinned[bar] then Clear.pinned[bar] = false; bar:SetAlpha(Clear.IsAdopted("MainBar") and 0 or 1) end
+        for i = 1, 12 do
+            local b = _G[spec[2] .. i]
+            if b and Clear.pinned[b] then
+                Clear.pinned[b] = false
+                b:SetAlpha(1)
+                if b.EnableMouse then b:EnableMouse(true) end
+            end
+        end
+    end
+    return true
+end
+
 function Clear.Release()
     local n = 0
     for _, a in pairs(Clear.adopted) do Clear.pinned[a.frame] = Clear.pinned[a.frame] and false end
@@ -458,6 +512,7 @@ end
 -- /reload, because their event registrations are Blizzard's to make.
 function Clear.Restore()
     DB().off = true
+    Clear.UnpinBars()
     local n = Clear.Release()
     local needsReload = next(Clear.hiddenUnits) ~= nil
     Clear.Defer("layout", function() Clear.RestoreLayout() end)

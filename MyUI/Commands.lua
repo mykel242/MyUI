@@ -279,8 +279,8 @@ local HANDLERS = {
                :format(tostring(r.state), tostring(r.parsed), tostring(r.action1)))
         ns.Raw(("  %s keys moved onto MyUI's buttons%s"):format(tostring(r.nbinds),
                r.unbound and " -- handed back to Blizzard right now (vehicle?)" or ""))
-        ns.Raw(("  Blizzard bar 1: %s, alpha %s; its button 1 drawn at %s (want 0)")
-               :format(r.mainShown and "shown" or "hidden", tostring(r.mainAlpha), tostring(r.button1Alpha)))
+        ns.Raw("  Blizzard's bars (want alpha 0, drawn at 0, mouse false):")
+        for _, line in ipairs(r.blizzard or {}) do ns.Raw("    " .. line) end
         ns.Raw("  saved to MyUIDB.actionsProbe. /myui mods checks the modifier keys.")
     end,
     mods         = function()
