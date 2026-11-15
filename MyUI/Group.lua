@@ -472,7 +472,7 @@ end
 -- ---------------------------------------------------------------------------
 -- Blizzard's pet bar is ten fixed slots, so a hunter's three abilities and
 -- three stances sit far apart. MyUI's own: only the slots that hold
--- something, packed, at mini-page size, in the gap over the pet stack --
+-- something, packed, at mini-page size, right of the pet stack --
 -- and drawn only while the pointer is on the pet stack or on the bar itself
 -- (lingering a moment so it can be reached). Secure action buttons of type
 -- "pet": click uses the ability or stance; right-click toggles autocast by
@@ -594,11 +594,11 @@ function Group.LayoutPetBar()
         end
     end
     bar:SetWidth(math.max(1, n * (size + gap) - gap))
-    -- Over the pet stack, in the gap below the action bar.
+    -- Right of the pet stack, level with its bars (Mykel).
     local pet = Group.petButton
     bar:ClearAllPoints()
     if pet then
-        bar:SetPoint("BOTTOMLEFT", pet, "TOPLEFT", 0, U(2))
+        bar:SetPoint("LEFT", pet.__health or pet, "RIGHT", U(10), -U(3))
     else
         bar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(60))
     end

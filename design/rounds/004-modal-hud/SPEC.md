@@ -586,7 +586,7 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   overrides in the restricted environment, so Blizzard's override bar takes over; a form's bonus
   bar (stealth, cat form, skyriding) still pages bar 1.
 - **Pet bar** (round 004 play, Mykel: "I really hate this pet bar") — MyUI's own: only the slots
-  that hold something, packed, at 18, in the gap over the pet stack, drawn only while the pointer
+  that hold something, packed, at 18, right of the pet stack (level with its bars), drawn only while the pointer
   is on the pet stack or the bar (lingering 0.6 s). Secure buttons of type `pet`; right-click
   toggles autocast (`/petautocasttoggle`); edges show autocast (amber) and the active stance.
   Blizzard's pet bar is held at alpha 0, its keybinds still firing.
