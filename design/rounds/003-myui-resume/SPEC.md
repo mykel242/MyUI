@@ -401,12 +401,14 @@ be summoned. Never for a protected frame.
 | Frame | Technique |
 |---|---|
 | Player, target, focus frames | **Unregistered and hidden** (`UnregisterAllEvents` + `Hide`), out of combat only; a post-hook answers any later `Show` with a `Hide`. Restored by `/myui restore` plus `/reload` (R3b ruling) |
-| Action bars | The `MyUI` Edit Mode layout sets every bar with a visibility setting to **in combat only** (R3b ruling) |
+| Action bars | The `MyUI` Edit Mode layout **hides** every bar with a visibility setting (Phase 4 play ruling; was in-combat in R3b). Keybinds still work |
+| Cooldown Manager | The `MyUI` layout shows its viewers **in combat only** — they carry cooldowns until the v2 rhythm line |
 | Buffs, debuffs, player cast bar | **Adopted** (R3b ruling). The cast bar sets its own alpha when a cast starts, so it shows while casting |
-| Main action bar, stance and pet bars | **Adopted**, revealed in combat like the Edit Mode bars (they have no visibility setting) |
+| Main action bar, stance and pet bars | **Adopted**; hover or peek only (no visibility setting to hide them with) |
+| Objective tracker, damage meter, XP bar | **Adopted** (Phase 4 play). Tracker: alpha on its frame only, never the manager |
 | Micro menu; the chat panel's social button | **Adopted** (the social button also answers whispers) |
 | The minimap's own map | **Adopted, and hidden once it settles at 0** — its arrow and blips draw regardless of alpha. Shown again before it fades in |
-| Party and raid frames | **Adopted**, revealed in combat (R3b ruling) |
+| Party and raid frames | **Adopted**; in combat **by role or preference** — `/myui group auto` (healers), `combat`, `hover` |
 | Chat log, tabs, dock, buttons | Adopted now; **stowed** once MyUI's chat view exists. The edit box is freed first |
 | Raid manager tab (`CompactRaidFrameManager`) | **Stowed**, queued out of combat |
 | Minimap, bags | Adopted until replaced; decided when built |

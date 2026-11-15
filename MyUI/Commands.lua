@@ -240,6 +240,7 @@ local COMMANDS = {
     { "panel",        "the dev panel: the toggles as switches" },
     { "clear",        "clear the screen (SPEC 11): on | probe -- tests the player-frame filter" },
     { "restore",      "put back everything clearing took" },
+    { "group",        "group frames in combat: auto (healers) | combat | hover" },
     { "text",         "legibility over bright scenery: shadow | outline | none" },
     { "contrast",     "the dim grey: lift is SPEC 7; normal is the value it replaced" },
     { "rules",        "the 12.1 compliance contract, printed" },
@@ -511,6 +512,16 @@ local HANDLERS = {
         local n = Clear.Apply()
         ns.Print(("clearing on -- %d Blizzard frame(s) adopted at alpha 0; "):format(n)
                  .. "peek or hover summons them. |cffadb1b8/myui restore|r undoes it.")
+    end,
+    group        = function(arg)
+        local Clear = ns.Clear
+        arg = (arg or ""):lower():gsub("%s+$", "")
+        if arg ~= "" and not Clear.SetGroupMode(arg) then
+            ns.Print(("unknown mode %q -- auto, combat or hover"):format(arg))
+            return
+        end
+        ns.Print(("group frames: %s -- %s in combat (role %s)"):format(Clear.GroupMode(),
+            Clear.GroupInCombat() and "shown" or "not shown", Clear.Role()))
     end,
     restore      = function()
         local n, needsReload = ns.Clear.Restore()

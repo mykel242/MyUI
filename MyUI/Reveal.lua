@@ -101,9 +101,13 @@ Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "peek
 local SCOPE = {
     -- R3b: the adopted bars come back in combat like the Edit Mode bars do,
     -- and the group frames with them.
+    -- Phase 4 play: the bars no longer come back in combat (the Cooldown
+    -- Manager carries cooldowns; keybinds still work). Group frames come back
+    -- by role or preference -- Clear.GroupInCombat().
     combat = { SelfStack = true, Cooldowns = true,
-               MainBar = true, StanceBar = true, PetBar = true,
-               Party = true, CompactParty = true, Raid = true },
+               Party = function() return ns.Clear and ns.Clear.GroupInCombat() end,
+               CompactParty = function() return ns.Clear and ns.Clear.GroupInCombat() end,
+               Raid = function() return ns.Clear and ns.Clear.GroupInCombat() end },
     target = { TargetStrip = true },
     lowhealth = { SelfStack = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
@@ -170,7 +174,13 @@ local function InScope(channel, name)
     if scope == nil then
         return true
     end
-    return scope[name] == true
+    local rule = scope[name]
+    -- A function decides at claim time (R3b: group frames in combat depend
+    -- on role or preference).
+    if type(rule) == "function" then
+        return rule() == true
+    end
+    return rule == true
 end
 
 --- Assert a claim. name omitted claims every frame the channel may reach.

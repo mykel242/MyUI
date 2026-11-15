@@ -413,12 +413,17 @@ T.Suite("myui-clear", {
                      ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
           end,
           teardown = function(api) api.ns().Reveal.Release("whisper") end },
-        { id = "combat-reveals-bars", shot = false,
-          what = "Combat brings back the adopted bars and group frames, not chat or the minimap.",
+        { id = "combat-reveals", shot = false,
+          what = "Combat brings back SelfStack, and group frames only by role or preference; "
+              .. "never the bars, chat or the minimap.",
           setup = function(api) api.ns().Reveal.Claim("combat") end,
           check = function(api)
-              local main, chat = Target(api, "MainBar"), Target(api, "Chat")
-              return main == 1 and chat == 0, ("main bar %s, chat %s"):format(tostring(main), tostring(chat))
+              local Clear = api.ns().Clear
+              local main, chat, party = Target(api, "MainBar"), Target(api, "Chat"), Target(api, "Party")
+              local wantParty = Clear.GroupInCombat() and 1 or 0
+              return main == 0 and chat == 0 and (party == nil or party == wantParty),
+                     ("main bar %s, chat %s, party %s (mode %s, role %s)"):format(tostring(main),
+                         tostring(chat), tostring(party), Clear.GroupMode(), Clear.Role())
           end,
           teardown = function(api) api.ns().Reveal.Release("combat") end },
         { id = "leftovers", shot = false,
@@ -464,7 +469,7 @@ T.Suite("myui-clear", {
               return #shown == 0, #shown == 0 and "all hidden" or ("shown: " .. table.concat(shown, ", "))
           end },
         { id = "layout-active", shot = false,
-          what = "The MyUI Edit Mode layout is active: action bars in combat only.",
+          what = "The MyUI Edit Mode layout is active: action bars hidden, Cooldown Manager in combat.",
           check = function(api)
               local Clear = api.ns().Clear
               local name = Clear.ActiveLayoutName()

@@ -2893,9 +2893,24 @@ do
     check("combat does not reveal chat or the minimap",
           Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0
           and Registry.Get("SelfStack").target == 1)
-    check("  but does bring back the adopted bars and group frames, like the Edit Mode bars",
-          Registry.Get("MainBar").target == 1 and Registry.Get("Party").target == 1
-          and Registry.Get("Raid").target == 1)
+    check("  nor the bars (hidden always since Phase 4 play), nor a DPS's group frames",
+          Registry.Get("MainBar").target == 0 and Registry.Get("Party").target == 0)
+    Reveal.Release("combat")
+    _G.UnitGroupRolesAssigned = function() return "HEALER" end
+    Reveal.Claim("combat")
+    check("  but a healer's group frames do come back (auto)",
+          Registry.Get("Party").target == 1 and Registry.Get("Raid").target == 1)
+    Reveal.Release("combat")
+    run("group hover")
+    Reveal.Claim("combat")
+    check("  unless pinned to hover", Registry.Get("Party").target == 0)
+    Reveal.Release("combat")
+    run("group combat")
+    _G.UnitGroupRolesAssigned = function() return "DAMAGER" end
+    Reveal.Claim("combat")
+    check("  or pinned to combat, whatever the role", Registry.Get("Party").target == 1)
+    run("group auto")
+    _G.UnitGroupRolesAssigned = nil
     Reveal.Release("combat")
 
     Clear.OnWhisper()
@@ -2977,7 +2992,8 @@ do
     check("a MyUI layout is made from the active one", mine ~= nil, mine)
     check("  as an account layout, before the character ones", mine == 2
           and saved.layouts[mine].layoutType == 1 and saved.layouts[3].layoutName == "Alt")
-    check("  every action bar with a visibility setting goes in-combat only", changed == 2, changed)
+    check("  every action bar with a visibility setting is hidden", changed == 2
+          and saved.layouts[mine].systems[2].settings[1].value == 3, changed)
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
     check("  and it is selected", mock.editMode.active == 2 + mine, mock.editMode.active)

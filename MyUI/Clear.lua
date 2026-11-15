@@ -57,6 +57,11 @@ Clear.ADOPT = {
     -- The experience / reputation bar (seen in Phase 4 play on a levelling
     -- character).
     { "StatusBars", "StatusTrackingBarManager" },
+    -- Phase 4 play (Mykel): the objective tracker and the damage meter.
+    -- Alpha on the tracker frame only -- never ObjectiveTrackerManager or
+    -- Blizzard's alpha globals, which taint (SPEC 13, ChatQuiet's lesson).
+    { "Tracker",    "ObjectiveTrackerFrame" },
+    { "DamageMeter", "DamageMeter" },
     { "MinimapMap", "Minimap", hideAtZero = true },
     -- The social button on the chat panel: friends and guild online.
     { "ChatSocial", "QuickJoinToastButton" },
@@ -267,7 +272,42 @@ function Clear.ActiveLayoutName()
     return l and l.layoutName, idx
 end
 
---- Set every action bar that has a visibility setting to in-combat only, and
+-- ---------------------------------------------------------------------------
+-- Group frames in combat: by role or by preference
+-- ---------------------------------------------------------------------------
+-- "auto" (default): a healer's group frames come back in combat; everyone
+-- else summons them by hover or peek. "combat" and "hover" pin it.
+
+Clear.GROUP_MODES = { auto = true, combat = true, hover = true }
+
+function Clear.Role()
+    local role = _G.UnitGroupRolesAssigned and _G.UnitGroupRolesAssigned("player")
+    if (role == nil or role == "NONE") and _G.GetSpecialization and _G.GetSpecializationRole then
+        local spec = _G.GetSpecialization()
+        role = spec and _G.GetSpecializationRole(spec) or role
+    end
+    return role or "NONE"
+end
+
+function Clear.GroupMode()
+    local m = DB().group
+    return Clear.GROUP_MODES[m] and m or "auto"
+end
+
+function Clear.GroupInCombat()
+    local m = Clear.GroupMode()
+    if m == "combat" then return true end
+    if m == "hover" then return false end
+    return Clear.Role() == "HEALER"
+end
+
+function Clear.SetGroupMode(m)
+    if not Clear.GROUP_MODES[m] then return nil end
+    DB().group = m
+    return m
+end
+
+--- Hide every action bar that has a visibility setting, and
 -- stop bars drawing their empty slots (Phase 4 play: a grid of empty boxes
 -- came up with the bars in combat). The Cooldown Manager's viewers go
 -- in-combat only too: cooldown information belongs to the fight, and the
@@ -280,7 +320,9 @@ function Clear.BarsInCombat(layout)
         if sys.system == E.EditModeSystem.ActionBar then
             for _, st in ipairs(sys.settings or {}) do
                 if st.setting == bar.VisibleSetting then
-                    st.value = E.ActionBarVisibleSetting.InCombat
+                    -- Phase 4 play (Mykel): hidden always. The Cooldown
+                    -- Manager carries cooldowns in combat; keybinds work.
+                    st.value = E.ActionBarVisibleSetting.Hidden
                     n = n + 1
                 elseif bar.AlwaysShowButtons and st.setting == bar.AlwaysShowButtons then
                     st.value = 0
