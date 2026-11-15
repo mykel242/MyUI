@@ -36,7 +36,11 @@ Layout.PRESETS = {
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 76 },
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 162 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
-        ZoneAbility = { "BOTTOMRIGHT", "BOTTOM", -224, 176 },
+        -- Left of the strip, mirroring the group list: the Cooldown
+        -- Manager's tracked buff bars (round 004 play: they sat on top of
+        -- the zone button), and the zone / extra ability button beyond them.
+        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 176 },
+        ZoneAbility = { "BOTTOMRIGHT", "BOTTOM", -460, 176 },
         wingGap     = 32,
         iconPadding = 6,
     },
@@ -46,6 +50,7 @@ Layout.PRESETS = {
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 48 },
         TargetStrip = { "TOP", "TOP", 0, -20 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 140, 150 },
+        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 150 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
         wingGap     = 32,
         iconPadding = 2,
@@ -59,6 +64,7 @@ Layout.ALIASES = {
     target = "TargetStrip", bar = "ActionBar", bars = "ActionBar",
     group = "Group", party = "Group", raid = "Group",
     zone = "ZoneAbility", extra = "ZoneAbility", ability = "ZoneAbility",
+    timers = "BuffBars", buffbars = "BuffBars",
 }
 
 local function DB()

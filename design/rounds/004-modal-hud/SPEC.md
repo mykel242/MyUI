@@ -518,8 +518,9 @@ the group frames sit, plus the wing gap and icon padding, in SPEC units. Built i
 
 - **focus** (default) — bottom up: SelfStack (24), the bar (76), the row above it (stance, pet,
   utility, chosen buffs), then the target strip just over that row (162); the group list right
-  of the target strip and Blizzard's zone / extra ability button left of it (±224, 176), both
-  clear of the wings; icons 6 apart. The top of the screen is left free — boss mode's bar and
+  of the target strip (224, 176) and, mirroring it on the left, the Cooldown Manager's tracked
+  buff bars (-224) with Blizzard's zone / extra ability button beyond them (-460), all clear of
+  the wings; icons 6 apart. The top of the screen is left free — boss mode's bar and
   timeline (§ 21) are the natural tenants.
 - **spec** — SPEC 2's positions (SelfStack 214 up, target strip 20 from the top, bar at 48).
 

@@ -559,6 +559,15 @@ function Clear.PlaceWings(layout)
                     n = n + 1
                 end
             end
+        elseif sys.system == E.EditModeSystem.CooldownViewer and idx.BuffBar == sys.systemIndex then
+            -- The tracked buff bars: not a wing, placed by the profile.
+            local point, rel, x, y = ns.Layout.Pos("BuffBars")
+            sys.isInDefaultPosition = false
+            sys.anchorInfo = {
+                point = point, relativeTo = "UIParent", relativePoint = rel,
+                offsetX = ns.Scale.U(x), offsetY = ns.Scale.U(y),
+            }
+            n = n + 1
         elseif sys.system == E.EditModeSystem.CooldownViewer then
             for key, w in pairs(Clear.WINGS) do
                 if idx[key] == sys.systemIndex then

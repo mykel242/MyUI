@@ -3094,7 +3094,10 @@ do
            and b.point == "BOTTOMLEFT" and near(b.offsetX, half + Scale.U(32)) and near(b.offsetY, bottom + row + gap)
            and setting(sys(7), 2) == 1
     end)())
-    check("  the buff bars are not moved", sys(8).anchorInfo == nil)
+    check("  the tracked buff bars left of the target strip, mirroring the group list", (function()
+        local a = sys(8).anchorInfo
+        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(176))
+    end)())
     check("  debuffs on you: right of bar 1's row, ~bar-1 size, dispel types shown, growing away", (function()
         local d = sys(9)
         local a = d.anchorInfo
@@ -3103,9 +3106,9 @@ do
            and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
     end)())
     check("  the buff frame is left alone", sys(10).anchorInfo == nil)
-    check("  the zone / extra ability button left of the target strip, opposite the group list", (function()
+    check("  the zone / extra ability button beyond the buff bars", (function()
         local a = sys(11).anchorInfo
-        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(176))
+        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-460)) and near(a.offsetY, Scale.U(176))
     end)())
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
