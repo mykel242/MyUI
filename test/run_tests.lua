@@ -3182,7 +3182,16 @@ do
           and b1.__template == "ActionBarButtonTemplate" and header.__template == "SecureHandlerStateTemplate")
     check("  centred, low on the screen", (function()
         local p, rel, rp, x, y = header:GetPoint(1)
-        return p == "BOTTOM" and rel == UIParent and rp == "BOTTOM" and x == 0 and near(y, Scale.U(48))
+        return p == "BOTTOM" and rel == UIParent and rp == "BOTTOM" and x == 0
+           and near(y * A.Scale(), Scale.U(48))
+    end)())
+    check("  buttons kept at Blizzard's 45, the bar scaled to SPEC's 44 (glows stay centred)", (function()
+        local w, h = b1:GetSize()
+        local sc
+        for i = #header.__calls, 1, -1 do
+            if header.__calls[i].method == "SetScale" then sc = header.__calls[i][1] break end
+        end
+        return w == 45 and h == 45 and sc ~= nil and near(45 * sc, Scale.U(44))
     end)())
     check("  every page's row in bar 1's place (Swap)", (function()
         local _, _, _, x1, y1 = b1:GetPoint(1)

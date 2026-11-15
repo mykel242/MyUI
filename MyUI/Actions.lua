@@ -43,6 +43,17 @@ Actions.GAP = 6
 Actions.ROW_GAP = 10      -- between stacked rows while assigning
 Actions.BOTTOM = 48       -- SPEC 17: low on the screen
 
+-- Blizzard's action button is built at 45 x 45, and some of its art -- the
+-- drop and new-action highlights -- is pinned TOPLEFT at its atlas size, so
+-- a button resized with SetSize draws those glows off-centre (round 004
+-- play). Buttons stay 45 and the whole bar is SCALED to SPEC's 44, as
+-- Blizzard scales its own bars. Positions below are in the bar's units.
+Actions.NATIVE = 45
+
+function Actions.Scale()
+    return U(Actions.SIZE) / Actions.NATIVE
+end
+
 -- Blizzard's binding command prefix for each bar, and its first action slot
 -- minus one (Blizzard_ActionBar/Shared/MultiActionBars.lua, *_ACTIONBAR_PAGE).
 Actions.BAR_OFFSET = {
@@ -189,10 +200,11 @@ end
 -- ---------------------------------------------------------------------------
 
 function Actions.Layout(stacked)
-    local size, gap = U(Actions.SIZE), U(Actions.GAP)
+    local sc = Actions.Scale()
+    local size, gap = Actions.NATIVE, U(Actions.GAP) / sc
     for id, row in pairs(Actions.rows) do
         local k = stacked and Actions.stackOf[id] or 0
-        local y = k * (size + U(Actions.ROW_GAP))
+        local y = k * (size + U(Actions.ROW_GAP) / sc)
         for i, b in ipairs(row) do
             b:ClearAllPoints()
             b:SetPoint("BOTTOMLEFT", Actions.header, "BOTTOMLEFT", (i - 1) * (size + gap), y)
@@ -200,7 +212,7 @@ function Actions.Layout(stacked)
         local label = Actions.labels[id]
         if label then
             label:ClearAllPoints()
-            label:SetPoint("RIGHT", Actions.header, "BOTTOMLEFT", -U(8), y + size / 2)
+            label:SetPoint("RIGHT", Actions.header, "BOTTOMLEFT", -U(8) / sc, y + size / 2)
         end
     end
 end
@@ -266,9 +278,8 @@ end
 -- ---------------------------------------------------------------------------
 
 local function MakeButton(header, name, bar, i, action)
-    local size = U(Actions.SIZE)
     local b = CreateFrame("CheckButton", name, header, "ActionBarButtonTemplate")
-    b:SetSize(size, size)
+    b:SetSize(Actions.NATIVE, Actions.NATIVE)
     b:SetAttribute("action", action)
     b.__myuiIndex, b.__myuiBar = i, bar
     -- Quieter than Blizzard's frame art: the icon, the sweep, the count.
@@ -303,9 +314,12 @@ function Actions.Build()
 
     local header = CreateFrame("Frame", "MyUIActionHeader", UIParent, "SecureHandlerStateTemplate")
     header:SetFrameStrata("HIGH")
-    local n, size, gap = Actions.BUTTONS, U(Actions.SIZE), U(Actions.GAP)
+    local sc = Actions.Scale()
+    local n, size, gap = Actions.BUTTONS, Actions.NATIVE, U(Actions.GAP) / sc
+    header:SetScale(sc)   -- lint:allow R3 a constant from SPEC sizes, never a unit value
     header:SetSize(n * size + (n - 1) * gap, size)
-    header:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(Actions.BOTTOM))
+    -- A scaled frame's offsets are in its own units.
+    header:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(Actions.BOTTOM) / sc)
     Actions.header = header
 
     Actions.rows, Actions.labels, Actions.stackOf = {}, {}, { ["1"] = 0 }

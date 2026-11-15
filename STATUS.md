@@ -56,6 +56,12 @@ MyUI's. Second pass:
   MyUI's rows, catching the drop. Now all eight Blizzard bars and their buttons are pinned at
   alpha 0 with the mouse off (`Clear.PinBars`); `/myui actions` lists each one's state.
   MyUI draws its own keybind text (Blizzard's HotKey re-anchors itself top-right).
+- Drop glow off-centre (spellbook screenshot): Blizzard's button art is 45 px with highlights
+  pinned TOPLEFT at atlas size. Buttons now stay 45 and the bar is scaled to 44.
+- `/myui mods` on Mykel's mouse: keyboard ALT/CTRL report down/up and the page follows; the
+  mouse buttons report nothing held (at most a 30 ms LALT blip). The mouse software puts ALT on
+  the key event only, so no state driver can see it. Fix is on the mouse side (a held modifier,
+  e.g. Karabiner-Elements); the binds still fire the right slot either way.
 - Health % default is now **above** the bar (Mykel: "much cleaner"); SelfStack gained name and
   level, laid out like the target strip.
 
