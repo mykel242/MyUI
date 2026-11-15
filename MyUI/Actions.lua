@@ -51,6 +51,8 @@ Actions.ROW_GAP = 10      -- between stacked rows while assigning
 -- its own page is up in bar 1's place, and while arranging.
 Actions.MINI_SCALE = 0.45
 Actions.MINI_GAP = 6      -- SPEC units between bar 1 and the mini rows
+Actions.MINI_SPACE = 24   -- SPEC units between two mini rows
+Actions.MINI_ALPHA = 0.6  -- round 004 play: "a little more transparency"
 Actions.STYLES = { mini = true, swap = true }
 
 function Actions.Style()
@@ -255,11 +257,17 @@ function Actions.LayoutMinis()
     if k == 0 then return end
     local sc = Actions.Scale()
     local width = Actions.header:GetWidth()
-    local s = math.min(Actions.MINI_SCALE, 0.95 / k)
+    local space = U(Actions.MINI_SPACE) / sc
+    local s = math.min(Actions.MINI_SCALE, (width - (k - 1) * space) / (k * width))
+    -- Centred as a group over bar 1 (round 004 play: they sat left of
+    -- centre), in the bar's units; a scaled frame's offsets are in its own.
+    local miniW = width * s
+    local left = (width - (k * miniW + (k - 1) * space)) / 2
     for i, f in ipairs(frames) do
         f:SetScale(s)   -- lint:allow R3 a constant from SPEC sizes, never a unit value
+        f:SetAlpha(Actions.MINI_ALPHA)
         f:ClearAllPoints()
-        f:SetPoint("BOTTOMLEFT", Actions.header, "TOPLEFT", (i - 1) * (width / k) / s,
+        f:SetPoint("BOTTOMLEFT", Actions.header, "TOPLEFT", (left + (i - 1) * (miniW + space)) / s,
                    (U(Actions.MINI_GAP) / sc) / s)
     end
 end

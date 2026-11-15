@@ -2771,6 +2771,17 @@ do
 
     mock.units.target = true
     Bars.driver:Fire("UNIT_HEALTH", "target")
+    check("a red-to-clear gradient under the self, low and target health fills, over the first 35%", (function()
+        for _, bar in ipairs({ stack.health, Bars.low.health, strip.health }) do
+            local g = bar.danger
+            if not g then return false end
+            local w = g:GetWidth()
+            local found
+            for i = #g.__calls, 1, -1 do if g.__calls[i].method == "SetGradient" then found = g.__calls[i] break end end
+            if not found or found[1] ~= "HORIZONTAL" or found[3].a ~= 0 then return false end
+        end
+        return near(stack.health.danger:GetWidth(), Scale.U(240) * 0.35)
+    end)())
     check("the target's percentage, formatted in C, on its bar (round 004)", (function()
         local c = lastCall(strip.number, "SetFormattedText")
         local p, rel = strip.pill:GetPoint(1)
@@ -3308,10 +3319,20 @@ do
     check("mini style (default): the other pages small over bar 1, side by side", A.Style() == "mini"
           and minis("a", true) and minis("c", true) and minis("ac", true)
           and A.miniButtons.a[1]:GetAttribute("action") == 61 and A.miniButtons.c[1]:GetAttribute("action") == 49)
-    check("  ALT left of CTRL, both above the bar", (function()
+    check("  ALT left of CTRL, centred as a group over the bar, a little transparent", (function()
         local pa, rel, rp, xa = A.minis.a:GetPoint(1)
-        local _, _, _, xc = A.minis.c:GetPoint(1)
-        return pa == "BOTTOMLEFT" and rel == header and rp == "TOPLEFT" and xa == 0 and xc > xa
+        local _, _, _, xc = A.minis.ac:GetPoint(1)
+        local s
+        for i = #A.minis.a.__calls, 1, -1 do
+            if A.minis.a.__calls[i].method == "SetScale" then s = A.minis.a.__calls[i][1] break end
+        end
+        local w = header:GetWidth()
+        -- the left margin of the first equals the right margin of the last
+        local leftMargin = xa * s
+        local rightMargin = w - (xc * s + w * s)
+        return pa == "BOTTOMLEFT" and rel == header and rp == "TOPLEFT" and xa > -0.01
+           and near(leftMargin, rightMargin, 0.01) and A.minis.a:GetAlpha() == A.MINI_ALPHA,
+           ("%s %s %s %s"):format(tostring(xa), tostring(s), tostring(leftMargin), tostring(rightMargin))
     end)())
     check("  no keybind text on the minis", A.miniButtons.a[1].__myuiKey == nil)
     check("  minis never take the player's keys", (function()

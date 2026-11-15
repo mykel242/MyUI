@@ -152,6 +152,7 @@ local function BuildLowLayer(stack)
     inner:SetAllPoints(low)
 
     local health = Frames.Bar(inner, 240, 4)
+    Frames.DangerGradient(health, 240, 4)
     health:SetPoint("TOPLEFT", stack.health, "TOPLEFT", 0, 0)
     local tick20 = Frames.Fill(health, "tickDark", "OVERLAY")
     tick20:SetSize(Scale.Hairline(), U(4))

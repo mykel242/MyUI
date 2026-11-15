@@ -250,6 +250,26 @@ end
 
 Frames.Bar, Frames.Fill = Bar, Fill
 
+-- Round 004 (Mykel): a red-to-clear gradient under a health bar's fill, over
+-- its first 35% -- the low-health warning's threshold. The fill covers it;
+-- as health falls the empty part uncovers it from the clear end, so red
+-- shows only when low, and more of it the lower. A static texture: it reads
+-- nothing, and needs no curve. Danger's hue fading to clear (no new colour).
+Frames.DANGER_SPAN = 0.35
+
+function Frames.DangerGradient(bar, w, h)
+    local g = bar:CreateTexture(nil, "BORDER")
+    g:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
+    g:SetSize(U(w) * Frames.DANGER_SPAN, U(h))
+    g:SetColorTexture(1, 1, 1, 1)
+    local r, gg, b, a = Palette.Get("danger")
+    if g.SetGradient and _G.CreateColor then
+        g:SetGradient("HORIZONTAL", _G.CreateColor(r, gg, b, a), _G.CreateColor(r, gg, b, 0))
+    end
+    bar.danger = g
+    return g
+end
+
 -- ---------------------------------------------------------------------------
 -- SelfStack -- BOTTOM, centred, 214 up. 240 wide, resting 0.35.
 -- ---------------------------------------------------------------------------
@@ -265,6 +285,7 @@ local function BuildSelfStack()
     Frames.PlaceOne(group, "SelfStack")
 
     local health = Bar(group, 240, 4)
+    Frames.DangerGradient(health, 240, 4)
     health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(13))
 
     -- Round 004 (Mykel): name left, level right, the percentage between them
@@ -328,6 +349,7 @@ local function BuildTargetStrip()
     Frames.PlaceOne(group, "TargetStrip")   -- SPEC 2: TOP, 20 down; now the profile
 
     local health = Bar(group, 400, 3)
+    Frames.DangerGradient(health, 400, 3)
     health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(31))
 
     -- Name left, level right, on the percentage's row just above the bar

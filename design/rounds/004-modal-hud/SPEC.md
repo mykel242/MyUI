@@ -72,6 +72,10 @@ resting alpha 0, revealed by the engine, alpha only. Adoption is the interim, no
 - Health number — 12pt, **centred, just above the health bar** (round 004, Mykel: "much
   cleaner"; was 40 wide, right-aligned, 8 left of the bar group). `/myui pct pill` puts it on the
   bar on a `rgba(0,0,0,0.55)` pill instead.
+- Danger gradient (round 004, Mykel) — under the health fill, over the first 35% (the low-health
+  threshold): danger red at the empty end fading to clear. The fill hides it; falling health
+  uncovers it from the clear end, so red appears only when low. Static; the same on the target
+  strip and the low-health copy.
 - Threshold ticks on the health bar — static geometry, always present:
   - 20% mark at x = 48, `rgba(0,0,0,0.55)` (reads against the fill)
   - 40% mark at x = 96, `rgba(255,255,255,0.25)` (reads against the empty trough)
