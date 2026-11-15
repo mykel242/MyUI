@@ -530,20 +530,63 @@ end
 Group.FOCUS_DRIVER = "[@focus,exists] show; hide"
 local FOCUS_W, FOCUS_H = 240, 16   -- a 3 px bar under an 11pt text row
 
+-- Round 004 play (Mykel: "the focus should move down? ... we could try
+-- it"): with no target, the focus drops into the target strip's place --
+-- its bar where the target's bar would be; with a target it sits above.
+-- A secure state driver moves it, so it follows targets in combat too: the
+-- snippet re-anchors it to the action bar's header (protected, fixed) by
+-- one of two offsets computed out of combat.
+Group.FOCUS_SLOT_DRIVER = "[@target,exists] high; low"
+local FOCUS_SLOT = [[
+    local a = self:GetFrameRef("anchor")
+    if not a then return end
+    self:ClearAllPoints()
+    local y = (newstate == "high") and self:GetAttribute("yhigh") or self:GetAttribute("ylow")
+    self:SetPoint("BOTTOM", a, "BOTTOM", self:GetAttribute("xoff") or 0, y or 0)
+]]
+
+--- The two slots, as offsets from the action bar's bottom centre, or nil
+-- when the profile places the focus or the target strip some other way.
+function Group.FocusSlots()
+    local fp, frel, fx, fy = ns.Layout.Pos("Focus")
+    local tp, trel, _, ty = ns.Layout.Pos("TargetStrip")
+    local _, brel, bx, by = ns.Layout.Pos("ActionBar")
+    if fp ~= "BOTTOM" or frel ~= "BOTTOM" or tp ~= "BOTTOM" or trel ~= "BOTTOM" or brel ~= "BOTTOM" then
+        return nil
+    end
+    -- The strip's bar sits 15 up from its bottom (Frames.BuildTargetStrip).
+    return U(fx - bx), U(fy - by), U(ty + 15 - by)
+end
+
 function Group.PlaceFocus()
     local b = Group.focusButton
     if not b or InCombatLockdown() then return false end
-    local point, rel, x, y = ns.Layout.Pos("Focus")
     b:SetSize(U(FOCUS_W), U(FOCUS_H))
+    local header = ns.Actions and ns.Actions.header
+    local x, high, low = Group.FocusSlots()
+    if header and x then
+        b:SetFrameRef("anchor", header)
+        b:SetAttribute("xoff", x)
+        b:SetAttribute("yhigh", high)
+        b:SetAttribute("ylow", low)
+        b:SetAttribute("_onstate-slot", FOCUS_SLOT)
+        if not Group.focusSlotDriver then
+            RegisterStateDriver(b, "slot", Group.FOCUS_SLOT_DRIVER)
+            Group.focusSlotDriver = true
+        end
+        b:Execute("local newstate = self:GetAttribute('state-slot') or 'high'\n" .. FOCUS_SLOT)
+        return true
+    end
+    local point, rel, px, py = ns.Layout.Pos("Focus")
     b:ClearAllPoints()
-    b:SetPoint(point, UIParent, rel, U(x), U(y))
+    b:SetPoint(point, UIParent, rel, U(px), U(py))
     return true
 end
 
 function Group.BuildFocus()
     if Group.focusButton or InCombatLockdown() then return Group.focusButton ~= nil end
     local F = ns.Frames
-    local b = CreateFrame("Button", "MyUIFocusButton", UIParent, "SecureUnitButtonTemplate")
+    local b = CreateFrame("Button", "MyUIFocusButton", UIParent, "SecureUnitButtonTemplate, SecureHandlerStateTemplate")
     b:SetFrameStrata("HIGH")
     b:RegisterForClicks("AnyUp")
     b:SetAttribute("unit", "focus")
@@ -564,6 +607,28 @@ function Group.BuildFocus()
     label:SetText("FOCUS")
     label:SetPoint("RIGHT", b, "LEFT", -U(8), 0)
     b.__label = label
+
+    -- An x after the bar clears the focus (round 004 play). A secure macro
+    -- button (/clearfocus is a protected action), drawn as two thin strokes
+    -- in the dim text grey, danger red under the pointer.
+    local x = CreateFrame("Button", "MyUIFocusClear", b, "SecureActionButtonTemplate")
+    x:SetSize(U(14), U(14))
+    x:SetPoint("LEFT", b, "RIGHT", U(8), 0)
+    x:RegisterForClicks("AnyUp", "AnyDown")
+    x:SetAttribute("type", "macro")
+    x:SetAttribute("macrotext", "/clearfocus")
+    x.__strokes = {}
+    for _, angle in ipairs({ 45, -45 }) do
+        local t = x:CreateTexture(nil, "OVERLAY")
+        t:SetColorTexture(Palette.Get("textDim"))
+        t:SetSize(U(14), Scale.Hairline() * 2)
+        t:SetPoint("CENTER", x, "CENTER", 0, 0)
+        if t.SetRotation then t:SetRotation(math.rad(angle)) end
+        x.__strokes[#x.__strokes + 1] = t
+    end
+    x:HookScript("OnEnter", function(self) for _, t in ipairs(self.__strokes) do t:SetColorTexture(Palette.Get("danger")) end end)
+    x:HookScript("OnLeave", function(self) for _, t in ipairs(self.__strokes) do t:SetColorTexture(Palette.Get("textDim")) end end)
+    b.__clear = x
     Group.focusButton = b
     Group.PlaceFocus()
     RegisterStateDriver(b, "visibility", Group.FOCUS_DRIVER)

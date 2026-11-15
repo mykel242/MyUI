@@ -3775,11 +3775,28 @@ do
           tb ~= nil and tb:GetAttribute("unit") == "target" and tb:GetAttribute("ctrl-type1") == "focus"
           and tb:GetAttribute("*type2") == "togglemenu" and G.TARGET_DRIVER == "[@target,exists] show; hide")
     local fb = G.focusButton
+    G.PlaceFocus()   -- the Actions section rebuilt the bar's header since login
     check("the focus strip is labelled FOCUS, like the ALT and CTRL pages", fb.__label:GetText() == "FOCUS")
+    check("an x after the focus bar clears it (/clearfocus, a secure macro)", fb.__clear ~= nil
+          and fb.__clear:GetAttribute("type") == "macro" and fb.__clear:GetAttribute("macrotext") == "/clearfocus")
+    check("the focus drops into the target strip's place with no target, and rises above it with one", (function()
+        local x, high, low = G.FocusSlots()
+        local _, _, _, by = ns.Layout.Pos("ActionBar")
+        local _, _, _, ty = ns.Layout.Pos("TargetStrip")
+        return x == 0 and near(low, Scale.U(ty + 15 - by)) and high > low
+           and fb:GetAttribute("_onstate-slot") ~= nil and fb:GetFrameRef("anchor") == ns.Actions.header
+    end)())
+    check("  the snippet puts it at the low slot when told 'low'", (function()
+        local chunk = assert(loadstring("local newstate = 'low'\n" .. fb:GetAttribute("_onstate-slot")))
+        setfenv(chunk, { self = fb })
+        chunk()
+        local _, rel, _, _, y = fb:GetPoint(1)
+        return rel == ns.Actions.header and near(y, fb:GetAttribute("ylow"))
+    end)())
     check("your focus: a strip over the target strip, on a secure button -- click targets it",
           fb ~= nil and fb:GetAttribute("unit") == "focus" and fb:GetAttribute("*type1") == "target"
           and fb:GetAttribute("*type2") == "togglemenu" and G.FOCUS_DRIVER == "[@focus,exists] show; hide"
-          and select(5, fb:GetPoint(1)) > select(5, ns.Registry.Get("TargetStrip").frame:GetPoint(1)))
+          and select(2, G.FocusSlots()) > select(3, G.FocusSlots()))
     mock.units.focus = true
     Guard.Reset()
     G.events:Fire("PLAYER_FOCUS_CHANGED")
