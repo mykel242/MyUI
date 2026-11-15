@@ -3412,6 +3412,13 @@ do
     check("the leave-vehicle button stays visible though bar 1, its parent, is at 0",
           leave.__ignoreParentAlpha == true)
     _G.MainMenuBarVehicleLeaveButton = nil
+    check("  and the bars' own frames stop taking the mouse too (bar 1 sat over your clickable bar)", (function()
+        for i = #_G.MainActionBar.__calls, 1, -1 do
+            local c = _G.MainActionBar.__calls[i]
+            if c.method == "EnableMouse" then return c[1] == false end
+        end
+        return false
+    end)())
     check("every Blizzard action bar and button held at 0, mouse off", (function()
         for _, b in ipairs(blz) do
             local m

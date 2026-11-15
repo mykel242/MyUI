@@ -178,7 +178,12 @@ function Clear.PinBars()
     if leave and leave.SetIgnoreParentAlpha then leave:SetIgnoreParentAlpha(true) end
     for _, spec in ipairs(Clear.BLIZZARD_BARS) do
         local bar = _G[spec[1]]
-        if bar then Clear.Pin(bar) end
+        if bar then
+            Clear.Pin(bar)
+            -- Round 004 play: bar 1's own frame (561 x 45, bottom centre)
+            -- took the mouse, invisibly, over MyUI's clickable SelfStack.
+            if mouse and bar.EnableMouse then bar:EnableMouse(false) end
+        end
         for i = 1, 12 do
             local b = _G[spec[2] .. i]
             if b then
@@ -195,7 +200,11 @@ function Clear.UnpinBars()
     Clear.barsPinned = false
     for _, spec in ipairs(Clear.BLIZZARD_BARS) do
         local bar = _G[spec[1]]
-        if bar and Clear.pinned[bar] then Clear.pinned[bar] = false; bar:SetAlpha(Clear.IsAdopted("MainBar") and 0 or 1) end
+        if bar and Clear.pinned[bar] then
+            Clear.pinned[bar] = false
+            bar:SetAlpha(Clear.IsAdopted("MainBar") and 0 or 1)
+            if bar.EnableMouse then bar:EnableMouse(true) end
+        end
         for i = 1, 12 do
             local b = _G[spec[2] .. i]
             if b and Clear.pinned[b] then

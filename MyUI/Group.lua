@@ -349,7 +349,9 @@ end
 function Group.BuildSelf()
     if Group.selfButton or InCombatLockdown() then return Group.selfButton ~= nil end
     local b = CreateFrame("Button", "MyUISelfButton", UIParent, "SecureUnitButtonTemplate")
-    b:SetFrameStrata(ns.Frames.STRATA or "MEDIUM")
+    -- Over anything of Blizzard's left at the bottom of the screen, as the
+    -- action bar is (round 004 play: bar 1's frame sat on top of it).
+    b:SetFrameStrata("HIGH")
     b:RegisterForClicks("AnyUp")
     b:SetAttribute("unit", "player")
     b:SetAttribute("*type1", "target")
