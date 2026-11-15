@@ -207,6 +207,12 @@ function Layout.Apply()
         if ns.Clear and ns.Clear.Enabled and ns.Clear.Enabled() and ns.Clear.ApplyLayout then
             ns.Clear.ApplyLayout()
             if ns.Reveal then ns.Reveal.Snap() end
+            -- Saving an Edit Mode layout from addon code taints what Edit
+            -- Mode touches; a reload starts Blizzard's frames clean.
+            if ns.Clear.layoutUntouched == false and not Layout.reloadHinted then
+                Layout.reloadHinted = true
+                ns.Print("|cffadb1b8/reload when you're done moving things, so Blizzard's frames start clean|r")
+            end
         end
     end
     if ns.Clear and ns.Clear.Defer then

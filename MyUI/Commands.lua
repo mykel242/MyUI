@@ -243,6 +243,7 @@ local COMMANDS = {
     { "restore",      "put back everything clearing took" },
     { "group",        "group frames in combat: combat (default) | auto (healers only) | hover" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
+    { "taint",        "which Blizzard frames MyUI has tainted (Edit Mode, debuffs, cooldown viewers)" },
     { "map",          "the minimap: calm (up out of combat, default) | peek (only when summoned)" },
     { "layout",       "preview where everything goes, even what isn't up (debuffs, zone button): toggles" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
@@ -290,6 +291,29 @@ local HANDLERS = {
         ns.Raw("  saved to MyUIDB.actionsProbe. /myui mods checks the modifier keys.")
     end,
     bars         = function() _G.MyUI_ArrangeBars() end,
+    taint        = function()
+        local check = _G.issecurevariable
+        if not check then ns.Print("no issecurevariable on this client") return end
+        ns.Print(("taint check (layout %s this session)"):format(
+            ns.Clear.layoutUntouched and "untouched" or "saved by MyUI"))
+        local probes = {
+            { "EditModeManagerFrame", "layoutInfo" },
+            { "DebuffFrame", "showDispelType" },
+            { "DebuffFrame", "auraFrames" },
+            { "BuffFrame", "auraFrames" },
+            { "EssentialCooldownViewer", "iconScale" },
+            { "BuffIconCooldownViewer", "iconScale" },
+            { "BuffBarCooldownViewer", "iconScale" },
+        }
+        for _, pr in ipairs(probes) do
+            local t = _G[pr[1]]
+            if t then
+                local ok, secure, by = pcall(check, t, pr[2])
+                ns.Raw(("  %s.%s: %s"):format(pr[1], pr[2],
+                    not ok and "?" or secure and "secure" or ("TAINTED by " .. tostring(by))))
+            end
+        end
+    end,
     map          = function(arg)
         local R = ns.Reveal
         if arg and R.MAP_MODES[arg] then

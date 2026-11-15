@@ -3142,6 +3142,19 @@ do
         for _, l in ipairs(mock.layouts.layouts) do if l.layoutName == "MyUI" then n = n + 1 end end
         return n == 1 and ns.db.clear.prevLayout == "XYZ - Ultra", n
     end)())
+    check("applying again with nothing to change never calls C_EditMode (no taint)", (function()
+        mock.editMode.saved = nil
+        local n = Clear.ApplyLayout()
+        return n == 0 and mock.editMode.saved == nil and Clear.layoutUntouched == true
+    end)())
+    check("  but a change is saved", (function()
+        ns.Layout.Set("iconPadding", 9)
+        Clear.ApplyLayout()
+        local saved = mock.editMode.saved ~= nil
+        ns.Layout.Delete("mine")
+        Clear.ApplyLayout()
+        return saved
+    end)())
     check("restore reselects the previous layout", (function()
         Clear.RestoreLayout()
         return mock.editMode.active == 3, mock.editMode.active

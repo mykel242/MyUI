@@ -65,6 +65,11 @@ MyUI's. Second pass:
 - 2026-11-15: mouse modifiers fixed outside the addon (Karabiner; Options+ held the side
   buttons). Mykel: "works pretty well". Then: arranging held still (spellbook / macros open,
   `/myui bars` or a key), and the bar comes up with a target.
+- Taint: Blizzard aura code hit secrets from a tainted call (AuraUtil.lua:21, 6x). Calling
+  C_EditMode from MyUI runs Edit Mode's update inside MyUI's call. ApplyLayout now touches
+  nothing when the MyUI layout is already active and correct, so a normal login never calls
+  C_EditMode; after /myui move etc. a reload is suggested. `/myui taint` reports which Blizzard
+  fields MyUI has tainted. Confirm in game.
 - **Was "pick up here" (end of 2026-11-14):** Mykel sets up Karabiner-Elements (MX Master 4,
   Options+ can't hold a modifier): side buttons → held ⌥ / ⌃, then `/myui mods` should show
   `held ALT`. Still to confirm in game: drop glow centred (bar now scaled, buttons 45), Blizzard

@@ -357,6 +357,18 @@ local function DeepCopy(t)
     return out
 end
 
+local function DeepEqual(a, b)
+    if type(a) ~= type(b) then return false end
+    if type(a) ~= "table" then
+        if type(a) == "number" then return math.abs(a - b) < 0.01 end
+        return a == b
+    end
+    for k, v in pairs(a) do if not DeepEqual(v, b[k]) then return false end end
+    for k in pairs(b) do if a[k] == nil then return false end end
+    return true
+end
+Clear.DeepEqual = DeepEqual
+
 local function Presets()
     local meta = _G.Enum and _G.Enum.EditModePresetLayoutsMeta
     return meta and meta.NumValues or 2
@@ -712,8 +724,21 @@ function Clear.ApplyLayout()
         end
     end
 
+    local before = DeepCopy(info.layouts[mine])
     local changed = Clear.BarsInCombat(info.layouts[mine])
     changed = changed + Clear.PlaceWings(info.layouts[mine])
+    -- Round 004 play: Blizzard's aura code hit secret values from a tainted
+    -- call ("attempted to index a table that cannot be indexed with secret
+    -- keys", AuraUtil.lua). C_EditMode called from addon code fires Edit
+    -- Mode's update inside MyUI's call, so whatever it sets is tainted.
+    -- When the MyUI layout is already active and already right, touch
+    -- nothing: then a normal login never calls C_EditMode at all.
+    local isActive = info.activeLayout == presets + mine
+    if isActive and DeepEqual(before, info.layouts[mine]) then
+        Clear.layoutUntouched = true
+        return 0
+    end
+    Clear.layoutUntouched = false
     info.activeLayout = presets + mine
     C_EditMode.SaveLayouts(info)
     C_EditMode.SetActiveLayout(presets + mine)
