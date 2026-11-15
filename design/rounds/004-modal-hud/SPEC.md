@@ -547,7 +547,10 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
 - **Paging is the client's**, by the modifier conditionals the parser knows (`[mod:alt]`,
   `[mod:ctrl]`, `[mod:alt,mod:ctrl]` — long-standing macro conditionals, unlike any health one;
   confirmed in game by probe P5).
-- **Display style is a player setting** (default **Swap**):
+- **Display style is a player setting** (round 004 play: default **Mini**):
+  - *Mini* (Mykel) — Swap, plus the pages not in bar 1's place drawn at 45% side by side over it
+    (ALT left, CTRL right), so their cooldowns are visible but quiet; a page's mini row hides while
+    it is up full size, and while arranging. `/myui pages mini|swap`.
   - *Swap* — only one row drawn; holding a modifier puts that page in bar 1's place, labelled.
   - *Ghost* — unheld pages as thin strips, one tick per button, dark while cooling down.
 - **Built as MyUI's own secure action buttons on Blizzard's action slots.** Blizzard's bars stay

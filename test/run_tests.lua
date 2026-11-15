@@ -324,7 +324,7 @@ local EXPECTED = {
     -- Round 004: positions from the default layout profile ("focus").
     { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,   24 },   -- grew a text row; under the bar
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
-    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  132 },   -- just over the bar
+    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  154 },   -- over bar 1 and its mini page rows
 }
 
 for _, e in ipairs(EXPECTED) do
@@ -3098,9 +3098,10 @@ do
            and b.point == "BOTTOMRIGHT" and near(b.offsetX, -(half + Scale.U(32)))
            and near(b.offsetY, bottom + 55 + gap + 30 + gap) and setting(sys(7), 2) == 0
     end)())
-    check("  the tracked buff bars over the left wing, growing up (vertical, direction Right)", (function()
-        local a = sys(8).anchorInfo
-        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(236))
+    check("  the tracked buff bars just over the chosen buffs' row, growing up (vertical, direction Right)", (function()
+        local a, b = sys(8).anchorInfo, sys(7).anchorInfo
+        local _, _, _, gap = ns.Actions.Extent()
+        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, b.offsetY + 32 + gap)
            and setting(sys(8), 0) == 1 and setting(sys(8), 2) == 1
     end)())
     check("  debuffs on you: anchored to MyUI's debuff anchor, ~bar-1 size, dispel types shown", (function()
@@ -3300,6 +3301,23 @@ do
     check("at rest: bar 1 shown with slots 1-8, the rest hidden, no label", shown("1") and hidden("a")
           and hidden("c") and hidden("ac") and b1:GetAttribute("action") == 1
           and b8:GetAttribute("action") == 8 and not A.labels.a:IsShown())
+    local function minis(id, want)
+        for _, b in ipairs(A.miniButtons[id]) do if b:IsShown() ~= want then return false end end
+        return true
+    end
+    check("mini style (default): the other pages small over bar 1, side by side", A.Style() == "mini"
+          and minis("a", true) and minis("c", true) and minis("ac", true)
+          and A.miniButtons.a[1]:GetAttribute("action") == 61 and A.miniButtons.c[1]:GetAttribute("action") == 49)
+    check("  ALT left of CTRL, both above the bar", (function()
+        local pa, rel, rp, xa = A.minis.a:GetPoint(1)
+        local _, _, _, xc = A.minis.c:GetPoint(1)
+        return pa == "BOTTOMLEFT" and rel == header and rp == "TOPLEFT" and xa == 0 and xc > xa
+    end)())
+    check("  no keybind text on the minis", A.miniButtons.a[1].__myuiKey == nil)
+    check("  minis never take the player's keys", (function()
+        for _, o in pairs(mock.overrides) do if o.button:find("Mini") then return false end end
+        return true
+    end)())
     check("  MyUI's own keybind text, top-left, from the player's bindings",
           b1.__myuiKey:GetText() == "1" and a1.__myuiKey:GetText() == "ALT-1"
           and b1.__myuiKey:GetPoint(1) == "TOPLEFT")
@@ -3324,6 +3342,7 @@ do
     mock.mods.alt = true
     mock.UpdateStateDrivers()
     check("holding ALT swaps the ALT row into bar 1's place", shown("a") and hidden("1") and hidden("c"))
+    check("  its mini row steps aside; CTRL's stays", minis("a", false) and minis("c", true))
     check("  labelled ALT", A.labels.a:IsShown() and not A.labels.c:IsShown())
     mock.mods.ctrl = true
     mock.UpdateStateDrivers()
@@ -3341,6 +3360,10 @@ do
     mock.bonusbar = nil
     mock.UpdateStateDrivers()
 
+    run("pages swap")
+    check("/myui pages swap: no minis", minis("a", false) and minis("c", false) and A.Style() == "swap")
+    run("pages mini")
+    check("/myui pages mini brings them back", minis("a", true) and minis("c", true))
     mock.known.vehicleui = true
     mock.UpdateStateDrivers()
     check("a vehicle hides every row and hands the keys back to Blizzard",
@@ -3384,6 +3407,7 @@ do
            and A.labels.a:IsShown() and A.labels.c:IsShown() and A.labels.ac:IsShown()
     end)())
     check("  and shows the bar while it is held", Registry.Get("ActionBar").target == 1)
+    check("  minis hidden while arranging", minis("a", false) and minis("c", false))
     A.events:Fire("ACTIONBAR_HIDEGRID")
     check("  putting it down goes back to one row", shown("1") and hidden("a") and hidden("ac")
           and Registry.Get("ActionBar").target == 0 and (function()
@@ -3616,7 +3640,7 @@ do
     local strip = Registry.Get("TargetStrip").frame
     local function y(f) local _, _, _, _, v = f:GetPoint(1) return v end
     check("the default profile: you under the bar, the target just over the bar",
-          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(132))
+          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(154))
           and strip:GetPoint(1) == "BOTTOM")
     check("  the order bottom-up: you, the bar, the target strip, with room between", (function()
         local _, _, _, sy = L.Pos("SelfStack")
@@ -3631,7 +3655,7 @@ do
     run("profile focus")
     run("move target 0 20")
     check("/myui move on a built-in profile copies it to \"mine\" first", L.Active() == "mine"
-          and near(y(strip), Scale.U(152)) and L.PRESETS.focus.TargetStrip[4] == 132)
+          and near(y(strip), Scale.U(174)) and L.PRESETS.focus.TargetStrip[4] == 154)
     run("move group -10 5")
     check("  and moves the group frames too", (function()
         local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
@@ -3660,7 +3684,7 @@ do
     run("profile delete raid")
     run("profile delete mine")
     check("deleting the active one falls back to the default", L.Active() == "focus"
-          and near(y(strip), Scale.U(132)))
+          and near(y(strip), Scale.U(154)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
     check("a stray bracket on a command word is forgiven", (function()
         ns.ClearOutput()

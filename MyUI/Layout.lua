@@ -35,12 +35,13 @@ Layout.PRESETS = {
     focus = {
         SelfStack   = { "BOTTOM", "BOTTOM", 0, 24 },
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 76 },
-        TargetStrip = { "BOTTOM", "BOTTOM", 0, 132 },
+        TargetStrip = { "BOTTOM", "BOTTOM", 0, 154 },   -- over the mini page rows
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
         -- Left of the strip, mirroring the group list: the Cooldown
-        -- Manager's tracked buff bars, over the left wing's rows (cooldowns,
-        -- utility, chosen buffs), growing up.
-        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 236 },
+        -- Manager's tracked buff bars, over the left wing's rows, growing up.
+        -- Only x is a position: y is how far above the chosen buffs' row
+        -- (the preview showed a fixed height overlapping it).
+        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 0 },
         -- On bar 1's row, past button 8 (Mykel: "line it up with the action
         -- bars"). Its container lays the button out off-centre (~39 right of
         -- this anchor); the height is Mykel's own, set in game with
@@ -57,7 +58,7 @@ Layout.PRESETS = {
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 48 },
         TargetStrip = { "TOP", "TOP", 0, -20 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 140, 150 },
-        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 150 },
+        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 0 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
         debuffGap   = 32,
         wingGap     = 32,
@@ -244,7 +245,7 @@ Layout.PREVIEW = {
     -- The zone button's centre lands ~27 right of and ~71 above its anchor
     -- (measured from the preview in game).
     { key = "ZoneAbility",  label = "Zone",          w = 50,     h = 50, dx = 27, dy = 71, centre = true },
-    { key = "Group",        label = "Group",         w = 150,    h = 5 * 32, group = true },
+    { key = "Group",        label = "Group",         w = 150,    h = 5 * 32, group = true, spec = true },
 }
 
 local boxes = {}
@@ -282,7 +283,12 @@ function Layout.PlaceBoxes()
     for _, spec in ipairs(Layout.PREVIEW) do
         local b = Box(spec)
         local point, x, y, rel = Clear.Anchor(spec.key)
-        b:SetSize(spec.w, spec.h)
+        -- MyUI's own frames are sized in SPEC units; Blizzard's in its own.
+        if spec.spec then
+            b:SetSize(ns.Scale.U(spec.w), ns.Scale.U(spec.h))
+        else
+            b:SetSize(spec.w, spec.h)
+        end
         b:ClearAllPoints()
         if spec.centre then
             b:SetPoint("CENTER", UIParent, rel or "BOTTOM", x + ns.Scale.U(spec.dx or 0), y + ns.Scale.U(spec.dy or 0))

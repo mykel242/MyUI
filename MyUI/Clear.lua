@@ -552,6 +552,13 @@ function Clear.Anchor(key)
                   or ns.Layout.Value("wingGap")
         return "BOTTOMLEFT", barX + half + ns.Scale.U(g), bottom
     end
+    if key == "BuffBars" then
+        -- Over the chosen buffs' row, whatever its height; the profile's y
+        -- is an extra lift.
+        local point, rel, x, lift = ns.Layout.Pos(key)
+        local _, _, under = Clear.Anchor("BuffIcon")
+        return point, ns.Scale.U(x), under + Clear.WingIconHeight("BuffIcon") + rowGap + ns.Scale.U(lift or 0), rel
+    end
     local point, rel, x, y = ns.Layout.Pos(key)
     return point, ns.Scale.U(x), ns.Scale.U(y), rel
 end

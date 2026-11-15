@@ -44,6 +44,19 @@ Actions.BUTTONS = 8       -- SPEC 17: 8 shown
 Actions.SIZE = 44         -- SPEC 17: bar 1 at 44
 Actions.GAP = 6
 Actions.ROW_GAP = 10      -- between stacked rows while assigning
+
+-- Round 004 play (Mykel): the pages not in bar 1's place drawn small, side
+-- by side over it, "so cooldowns are visible but not noisy" -- the "mini"
+-- style (default); "swap" draws one row only. A page's mini row hides while
+-- its own page is up in bar 1's place, and while arranging.
+Actions.MINI_SCALE = 0.45
+Actions.MINI_GAP = 6      -- SPEC units between bar 1 and the mini rows
+Actions.STYLES = { mini = true, swap = true }
+
+function Actions.Style()
+    local s = ns.db and ns.db.pages
+    return Actions.STYLES[s] and s or "mini"
+end
 -- Where the bar sits comes from the layout profile (Layout.lua).
 
 -- Blizzard's action button is built at 45 x 45, and some of its art -- the
@@ -132,6 +145,7 @@ function Actions.Snippet(rows, n)
     local L = {
         "local hidden = newstate == 'hide'",
         "local assign = self:GetAttribute('assign')",
+        "local mini = self:GetAttribute('mini')",
         "local show = '1'",
     }
     for _, id in ipairs(rows) do
@@ -146,6 +160,14 @@ function Actions.Snippet(rows, n)
         L[#L + 1] = ("  local b = self:GetFrameRef('%s-' .. i)"):format(id)
         L[#L + 1] = ("  if not hidden and (assign or show == '%s') then b:Show() else b:Hide() end"):format(id)
         L[#L + 1] = "end"
+    end
+    for _, id in ipairs(rows) do
+        if id ~= "1" then
+            L[#L + 1] = ("for i = 1, %d do"):format(n)
+            L[#L + 1] = ("  local b = self:GetFrameRef('m%s-' .. i)"):format(id)
+            L[#L + 1] = ("  if not hidden and not assign and mini and show ~= '%s' then b:Show() else b:Hide() end"):format(id)
+            L[#L + 1] = "end"
+        end
     end
     L[#L + 1] = "if hidden then"
     L[#L + 1] = "  if not self:GetAttribute('unbound') then self:ClearBindings(); self:SetAttribute('unbound', true) end"
@@ -218,6 +240,39 @@ function Actions.Layout(stacked)
             label:SetPoint("RIGHT", Actions.header, "BOTTOMLEFT", -U(8) / sc, y + size / 2)
         end
     end
+    Actions.LayoutMinis()
+end
+
+--- The mini rows: side by side in equal slots over bar 1, left to right in
+-- the order ALT, CTRL, ALT+CTRL. A scaled frame's offsets are in its own
+-- units, hence the divisions.
+function Actions.LayoutMinis()
+    local frames = {}
+    for _, page in ipairs({ "a", "c", "ac" }) do
+        if Actions.minis and Actions.minis[page] then frames[#frames + 1] = Actions.minis[page] end
+    end
+    local k = #frames
+    if k == 0 then return end
+    local sc = Actions.Scale()
+    local width = Actions.header:GetWidth()
+    local s = math.min(Actions.MINI_SCALE, 0.95 / k)
+    for i, f in ipairs(frames) do
+        f:SetScale(s)   -- lint:allow R3 a constant from SPEC sizes, never a unit value
+        f:ClearAllPoints()
+        f:SetPoint("BOTTOMLEFT", Actions.header, "TOPLEFT", (i - 1) * (width / k) / s,
+                   (U(Actions.MINI_GAP) / sc) / s)
+    end
+end
+
+--- /myui pages: mini (the other pages small over bar 1) or swap (one row).
+function Actions.SetStyle(style)
+    if not Actions.STYLES[style] then return nil end
+    if ns.db then ns.db.pages = style end
+    if Actions.header and not InCombatLockdown() then
+        Actions.header:SetAttribute("mini", style == "mini" or nil)
+        Actions.header:Execute("local newstate = self:GetAttribute('state-page') or '1'\n" .. Actions.snippet)
+    end
+    return style
 end
 
 --- Where the bar sits on screen, in UIParent units: half its width, its
@@ -436,8 +491,26 @@ function Actions.Build()
                 Actions.rows[page.id][i] = b
             end
             Actions.labels[page.id] = MakeLabel(header, page.label)
+
+            -- The page's mini row: same slots, small, display first (a click
+            -- still works), no keybind text -- the full row carries the keys.
+            local mf = CreateFrame("Frame", nil, header)
+            mf:SetSize(n * Actions.NATIVE + (n - 1) * (U(Actions.GAP) / Actions.Scale()), Actions.NATIVE)
+            Actions.minis = Actions.minis or {}
+            Actions.minis[page.id] = mf
+            Actions.miniButtons = Actions.miniButtons or {}
+            Actions.miniButtons[page.id] = {}
+            for i = 1, n do
+                local b = MakeButton(mf, "MyUIActionMini" .. page.name .. i, f.bar, i, f.offset + i)
+                b:SetPoint("BOTTOMLEFT", mf, "BOTTOMLEFT", (i - 1) * (Actions.NATIVE + U(Actions.GAP) / Actions.Scale()), 0)
+                if b.__myuiKey then b.__myuiKey:Hide(); b.__myuiKey = nil end
+                header:SetFrameRef("m" .. page.id .. "-" .. i, b)
+                b:Hide()
+                Actions.miniButtons[page.id][i] = b
+            end
         end
     end
+    header:SetAttribute("mini", Actions.Style() == "mini" or nil)
     Actions.buttons = Actions.rows["1"]
     Actions.order = order
     Actions.Layout(false)

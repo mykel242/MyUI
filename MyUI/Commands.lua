@@ -243,6 +243,7 @@ local COMMANDS = {
     { "restore",      "put back everything clearing took" },
     { "group",        "group frames in combat: combat (default) | auto (healers only) | hover" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
+    { "pages",        "the pages not in bar 1's place: mini (small, over it; default) | swap (hidden)" },
     { "taint",        "which Blizzard frames MyUI has tainted (Edit Mode, debuffs, cooldown viewers)" },
     { "map",          "the minimap: calm (up out of combat, default) | peek (only when summoned)" },
     { "layout",       "preview where everything goes, even what isn't up (debuffs, zone button): toggles" },
@@ -291,6 +292,14 @@ local HANDLERS = {
         ns.Raw("  saved to MyUIDB.actionsProbe. /myui mods checks the modifier keys.")
     end,
     bars         = function() _G.MyUI_ArrangeBars() end,
+    pages        = function(arg)
+        local A = ns.Actions
+        if arg and A.SetStyle(arg) then
+            ns.Print(arg == "mini" and "pages: the others small over bar 1" or "pages: one row, swapped on a modifier")
+        else
+            ns.Print(("pages: %s -- mini | swap"):format(A.Style()))
+        end
+    end,
     taint        = function()
         local check = _G.issecurevariable
         if not check then ns.Print("no issecurevariable on this client") return end
