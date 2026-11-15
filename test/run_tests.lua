@@ -3634,6 +3634,11 @@ do
     check("deleting the active one falls back to the default", L.Active() == "focus"
           and near(y(strip), Scale.U(132)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
+    check("a stray bracket on a command word is forgiven", (function()
+        ns.ClearOutput()
+        run("profile]")
+        return ns.GetOutput():find("layout profile:", 1, true) ~= nil
+    end)())
     run("layout")
     check("/myui layout boxes every placed part, even what is not up, and holds the HUD visible",
           L.previewing == true and Registry.Get("ActionBar").target == 1)

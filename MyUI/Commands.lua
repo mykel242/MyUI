@@ -907,7 +907,9 @@ local function Run(input)
         return
     end
 
-    local name, ambiguous = Resolve(word:lower())
+    -- A stray bracket or full stop on the command word (round 004 play:
+    -- "/myui what]") should not make a known command unknown.
+    local name, ambiguous = Resolve((word:lower():gsub("[^%w]+$", "")))
     if not name then
         if ambiguous and #ambiguous > 1 then
             ns.Print(("%q is ambiguous: %s"):format(word, table.concat(ambiguous, ", ")))
