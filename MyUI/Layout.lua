@@ -28,19 +28,21 @@ Layout.PRESETS = {
     -- (utility, stance, chosen buffs), then the target strip where your
     -- health used to sit, with room left between each so it reads open.
     -- The group list sits right of the target strip, above the right wing.
-    -- Round 004 play: the target strip brought down to sit just over the
-    -- row above the bar (stance, pet); the group list and Blizzard's zone /
-    -- extra ability button either side of it, both clear of the wings.
+    -- Round 004 play: stances moved under the cooldowns, so the target
+    -- strip comes down to just over the bar (its cast tick clear of it).
+    -- The zone / extra ability button, shrunk, sits right of SelfStack,
+    -- under bar 1's last buttons (Mykel: "under the [8] button").
     focus = {
         SelfStack   = { "BOTTOM", "BOTTOM", 0, 24 },
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 76 },
-        TargetStrip = { "BOTTOM", "BOTTOM", 0, 162 },
+        TargetStrip = { "BOTTOM", "BOTTOM", 0, 132 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
         -- Left of the strip, mirroring the group list: the Cooldown
-        -- Manager's tracked buff bars (round 004 play: they sat on top of
-        -- the zone button), and the zone / extra ability button beyond them.
+        -- Manager's tracked buff bars.
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 176 },
-        ZoneAbility = { "BOTTOMRIGHT", "BOTTOM", -460, 176 },
+        -- Its container centres the button and is 120 tall (84 scaled):
+        -- the button lands about 42 up from this point.
+        ZoneAbility = { "BOTTOM", "BOTTOM", 175, 6 },
         wingGap     = 32,
         iconPadding = 6,
     },

@@ -324,7 +324,7 @@ local EXPECTED = {
     -- Round 004: positions from the default layout profile ("focus").
     { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,   24 },   -- grew a text row; under the bar
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
-    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  162 },   -- just over the row above the bar
+    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  132 },   -- just over the bar
 }
 
 for _, e in ipairs(EXPECTED) do
@@ -3071,11 +3071,12 @@ do
     check("  every action bar with a visibility setting is hidden", changed >= 2
           and saved.layouts[mine].systems[2].settings[1].value == 3, changed)
     local function sys(i) return saved.layouts[mine].systems[i + 2] end
-    check("  stance and pet bars on the row above bar 1, inside its edges", (function()
+    check("  stance under the cooldowns, pet under the debuffs, outer edges with the wings", (function()
         local st, pet = saved.layouts[mine].systems[5].anchorInfo, saved.layouts[mine].systems[6].anchorInfo
         local half, bottom, row, gap = ns.Actions.Extent()
-        return st and st.point == "BOTTOMLEFT" and near(st.offsetX, -half) and near(st.offsetY, bottom + row + gap)
-           and pet and pet.point == "BOTTOMRIGHT" and near(pet.offsetX, half)
+        local wing = half + Scale.U(32)
+        return st and st.point == "BOTTOMRIGHT" and near(st.offsetX, -wing) and near(st.offsetY, bottom - gap - 30)
+           and pet and pet.point == "BOTTOMLEFT" and near(pet.offsetX, wing)
     end)())
     local function setting(s, id) for _, st in ipairs(s.settings) do if st.setting == id then return st.value end end end
     check("  the wings are always shown to Blizzard (the reveal engine decides); buff bars in combat only",
@@ -3106,9 +3107,9 @@ do
            and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
     end)())
     check("  the buff frame is left alone", sys(10).anchorInfo == nil)
-    check("  the zone / extra ability button beyond the buff bars", (function()
+    check("  the zone / extra ability button under bar 1's last buttons (offsets in its 0.7 scale)", (function()
         local a = sys(11).anchorInfo
-        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-460)) and near(a.offsetY, Scale.U(176))
+        return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(175) / 0.7) and near(a.offsetY, Scale.U(6) / 0.7)
     end)())
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
@@ -3559,14 +3560,14 @@ do
     local stack = Registry.Get("SelfStack").frame
     local strip = Registry.Get("TargetStrip").frame
     local function y(f) local _, _, _, _, v = f:GetPoint(1) return v end
-    check("the default profile: you under the bar, the target where your health was",
-          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(162))
+    check("the default profile: you under the bar, the target just over the bar",
+          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(132))
           and strip:GetPoint(1) == "BOTTOM")
     check("  the order bottom-up: you, the bar, the target strip, with room between", (function()
         local _, _, _, sy = L.Pos("SelfStack")
         local _, _, _, by = L.Pos("ActionBar")
         local _, _, _, ty = L.Pos("TargetStrip")
-        return sy + 33 < by and by + 44 + 10 + 30 <= ty   -- clear of the stance row
+        return sy + 33 < by and by + 44 < ty
     end)())
     run("profile spec")
     check("/myui profile spec puts SPEC 2's positions back, bar included", L.Active() == "spec"
@@ -3575,7 +3576,7 @@ do
     run("profile focus")
     run("move target 0 20")
     check("/myui move on a built-in profile copies it to \"mine\" first", L.Active() == "mine"
-          and near(y(strip), Scale.U(182)) and L.PRESETS.focus.TargetStrip[4] == 162)
+          and near(y(strip), Scale.U(152)) and L.PRESETS.focus.TargetStrip[4] == 132)
     run("move group -10 5")
     check("  and moves the group frames too", (function()
         local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
@@ -3604,7 +3605,7 @@ do
     run("profile delete raid")
     run("profile delete mine")
     check("deleting the active one falls back to the default", L.Active() == "focus"
-          and near(y(strip), Scale.U(162)))
+          and near(y(strip), Scale.U(132)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
 end
 

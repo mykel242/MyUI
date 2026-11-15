@@ -483,12 +483,19 @@ end
 -- layout profile (Layout.lua: wingGap, iconPadding).
 
 -- Round 004 play: the stance (forms) and pet bars were adopted and never came
--- back. They sit on the row above bar 1, inside its edges -- stance from the
--- left, pet from the right -- at their own 30 px, and return with the bar.
+-- back. First they sat on the row above bar 1; then (Mykel) "stances belong
+-- below the CDs": under each wing, outer edge aligned with the bar's, at
+-- their own 30 px -- stance under the cooldowns, pet under the debuffs.
 Clear.OVER_BAR = {
     StanceBar    = { side = -1 },
     PetActionBar = { side =  1 },
 }
+Clear.UNDER_WING_HEIGHT = 30
+
+-- Blizzard's zone / extra ability container is 250 x 120 of layout at full
+-- size with an ornate frame (Mykel: "I really dislike that giant zone
+-- button"). Scaled down and the frame art hidden.
+Clear.EXTRA_SCALE = 0.7
 
 local function SetSetting(sys, setting, value)
     for _, st in ipairs(sys.settings) do
@@ -517,11 +524,11 @@ function Clear.PlaceWings(layout)
                     local left = o.side < 0
                     sys.isInDefaultPosition = false
                     sys.anchorInfo = {
-                        point = left and "BOTTOMLEFT" or "BOTTOMRIGHT",
+                        point = left and "BOTTOMRIGHT" or "BOTTOMLEFT",
                         relativeTo = "UIParent",
                         relativePoint = "BOTTOM",
-                        offsetX = barX + o.side * half,
-                        offsetY = bottom + row + rowGap,
+                        offsetX = barX + o.side * (half + gap),
+                        offsetY = bottom - rowGap - Clear.UNDER_WING_HEIGHT,
                     }
                     n = n + 1
                 end
@@ -529,11 +536,14 @@ function Clear.PlaceWings(layout)
         elseif E.EditModeSystem.ExtraAbilities and sys.system == E.EditModeSystem.ExtraAbilities then
             -- Blizzard's zone / extra ability button (round 004 play: it sat
             -- mid-screen over the character). Placed by the profile.
+            -- The container is scaled (Clear.StyleExtra), and a scaled frame's
+            -- offsets are in its own units.
             local point, rel, x, y = ns.Layout.Pos("ZoneAbility")
+            local sc = Clear.EXTRA_SCALE
             sys.isInDefaultPosition = false
             sys.anchorInfo = {
                 point = point, relativeTo = "UIParent", relativePoint = rel,
-                offsetX = ns.Scale.U(x), offsetY = ns.Scale.U(y),
+                offsetX = ns.Scale.U(x) / sc, offsetY = ns.Scale.U(y) / sc,
             }
             n = n + 1
         elseif E.EditModeSystem.AuraFrame and sys.system == E.EditModeSystem.AuraFrame then
@@ -596,6 +606,22 @@ function Clear.PlaceWings(layout)
         end
     end
     return n
+end
+
+--- Shrink Blizzard's zone / extra ability button and drop its frame art.
+-- Out of combat (the container holds secure buttons). Undone by restore.
+function Clear.StyleExtra(on)
+    if InCombatLockdown() then return false end
+    local c = _G.ExtraAbilityContainer
+    if c and c.SetScale then c:SetScale(on == false and 1 or Clear.EXTRA_SCALE) end   -- lint:allow R3 a constant, never a unit value
+    local art = {
+        _G.ZoneAbilityFrame and _G.ZoneAbilityFrame.Style,
+        _G.ExtraActionButton1 and _G.ExtraActionButton1.style,
+    }
+    for _, t in pairs(art) do
+        if t and t.SetAlpha then t:SetAlpha(on == false and 1 or 0) end
+    end
+    return true
 end
 
 function Clear.ApplyLayout()
@@ -680,6 +706,7 @@ function Clear.Apply()
     Clear.Defer("layout", function()
         local ok, err = Clear.ApplyLayout()
         DB().layoutResult = ok and ("bars changed: " .. tostring(ok)) or tostring(err)
+        Clear.StyleExtra(true)
         -- Applying a layout sets each viewer's Edit Mode opacity (SetAlpha);
         -- put the adopted ones back where the reveal engine has them.
         ns.Reveal.Snap()
@@ -696,7 +723,7 @@ function Clear.Restore()
     Clear.UnpinBars()
     local n = Clear.Release()
     local needsReload = next(Clear.hiddenUnits) ~= nil
-    Clear.Defer("layout", function() Clear.RestoreLayout() end)
+    Clear.Defer("layout", function() Clear.RestoreLayout(); Clear.StyleExtra(false) end)
     return n, needsReload
 end
 

@@ -516,8 +516,10 @@ Positions are personal preference (Mykel), so they live in **layout profiles** (
 where SelfStack, the target strip, the action bar (and with it the wings, stance and pet bars) and
 the group frames sit, plus the wing gap and icon padding, in SPEC units. Built in:
 
-- **focus** (default) — bottom up: SelfStack (24), the bar (76), the row above it (stance, pet,
-  utility, chosen buffs), then the target strip just over that row (162); the group list right
+- **focus** (default) — bottom up: SelfStack (24), the bar (76), then the target strip just over
+  the bar (132); stance under the left wing and pet under the right (Mykel: "stances belong below
+  the CDs"); Blizzard's zone / extra ability button at 0.7 with its frame art hidden, right of
+  SelfStack under bar 1's last buttons; the group list right
   of the target strip (224, 176) and, mirroring it on the left, the Cooldown Manager's tracked
   buff bars (-224) with Blizzard's zone / extra ability button beyond them (-460), all clear of
   the wings; icons 6 apart. The top of the screen is left free — boss mode's bar and
@@ -553,8 +555,8 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   not seen the modifier. A vehicle, possession or pet battle hides MyUI's bar and drops the
   overrides in the restricted environment, so Blizzard's override bar takes over; a form's bonus
   bar (stealth, cat form, skyriding) still pages bar 1.
-- **Stance (forms) and pet bars** — Blizzard's own, placed by the MyUI layout on the row above bar
-  1, inside its edges (stance from the left, pet from the right), at 30 px; they return with the
+- **Stance (forms) and pet bars** — Blizzard's own, placed by the MyUI layout under the wings
+  (stance under the cooldowns, pet under the debuffs), at 30 px; they return with the
   bar (combat, a target). Round 004 play: they had been adopted and never came back.
 - **Arranging**: every page drawn stacked above bar 1, labelled and held still — while a spell,
   item or macro is on the cursor, while the spellbook or macro window is open, or while the
