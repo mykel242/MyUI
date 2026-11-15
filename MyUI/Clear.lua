@@ -391,7 +391,9 @@ end
 
 function Clear.GroupMode()
     local m = DB().group
-    return Clear.GROUP_MODES[m] and m or "auto"
+    -- Round 004 play (Mykel): group frames in every fight, not only a
+    -- healer's. "auto" stays available.
+    return Clear.GROUP_MODES[m] and m or "combat"
 end
 
 function Clear.GroupInCombat()

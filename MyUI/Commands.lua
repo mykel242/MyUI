@@ -241,7 +241,7 @@ local COMMANDS = {
     { "panel",        "the dev panel: the toggles as switches (an extra)" },
     { "clear",        "clear the screen (SPEC 11): on | probe -- tests the player-frame filter" },
     { "restore",      "put back everything clearing took" },
-    { "group",        "group frames in combat: auto (healers) | combat | hover" },
+    { "group",        "group frames in combat: combat (default) | auto (healers only) | hover" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
     { "bars",         "arrange the action bars: every page on screen, held, until you run it again" },
     { "mods",         "for 10s, what the client sees of ALT / CTRL / SHIFT (mouse-mapped modifiers)" },

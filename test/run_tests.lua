@@ -2957,8 +2957,14 @@ do
     check("combat does not reveal chat or the minimap",
           Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0
           and Registry.Get("SelfStack").target == 1)
-    check("  nor the bags or micro menu, nor a DPS's group frames",
-          Registry.Get("Bags").target == 0 and Registry.Get("MicroMenu").target == 0 and Registry.Get("Group").target == 0)
+    check("  nor the bags or micro menu",
+          Registry.Get("Bags").target == 0 and Registry.Get("MicroMenu").target == 0)
+    check("  group frames in every fight by default (round 004 play)", Registry.Get("Group").target == 1
+          and Clear.GroupMode() == "combat")
+    Reveal.Release("combat")
+    run("group auto")
+    Reveal.Claim("combat")
+    check("  but not a DPS's when set to auto", Registry.Get("Group").target == 0)
     check("  but MyUI's own action bar does (round 004)", Registry.Get("ActionBar").target == 1)
     check("  and the wings, debuffs, stance and pet bars with it", Registry.Get("StanceBar").target == 1
           and Registry.Get("Debuffs").target == 1
@@ -3479,8 +3485,13 @@ do
         end
         return ok
     end)())
-    check("one area right of the character, in the registry, back in combat by role",
-          G.frame:GetPoint(1) == "TOPLEFT" and Registry.Get("Group") ~= nil)
+    check("right of SelfStack, clear of the right wing, growing up; in the registry", (function()
+        local p, rel, rp, x, y = G.frame:GetPoint(1)
+        local pp = party:GetPoint(1)
+        return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(140))
+           and near(y, Scale.U(150)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
+    end)())
+    check("rows 8 apart", near(party:GetAttribute("yOffset"), -Scale.U(8)))
 
     -- The engine making a unit button: CONFIG in the restricted environment,
     -- then the child attribute the header sets.

@@ -29,16 +29,21 @@ local U = function(v) return Scale.U(v) end
 -- Sizes in SPEC's units. A healer's party list is the action surface, so it
 -- grows; a DPS's stays small (SPEC 16).
 Group.SIZES = {
-    party  = { w = 150, h = 22, font = 11, bar = 3 },
+    party  = { w = 150, h = 24, font = 11, bar = 3 },
     healer = { w = 200, h = 34, font = 12, bar = 6 },
     raid   = { w = 56,  h = 28, font = 9,  bar = 3 },
 }
-Group.GAP = 4
+-- Round 004 play: 4 between rows read as one block ("too tight").
+Group.GAP = 8
+Group.RAID_GAP = 4
 Group.PARTY_MAX = 5
 Group.RAID_MAX = 40
 
--- Right of the character (the round 004 mock: x 1010, y 400 on 1600 x 900).
-Group.ANCHOR = { x = 210, y = -50 }
+-- Right of the character, close to the HUD (round 004 play: the mock's spot,
+-- far right, was "too far away"): just right of SelfStack's edge, the
+-- list's bottom clear of the right wing (debuffs, then the chosen buffs) and
+-- growing up. SPEC units from UIParent's bottom centre.
+Group.ANCHOR = { x = 140, y = 150 }
 
 local ROLE_ATLAS = {
     TANK = "roleicon-tiny-tank",
@@ -211,8 +216,8 @@ function Group.Build()
 
     local frame = CreateFrame("Frame", "MyUIGroup", UIParent)
     frame:SetFrameStrata(ns.Frames.STRATA or "MEDIUM")
-    frame:SetSize(U(Group.SIZES.raid.w * 5 + Group.GAP * 4), U(Group.SIZES.healer.h * 5))
-    frame:SetPoint("TOPLEFT", UIParent, "CENTER", U(Group.ANCHOR.x), U(Group.ANCHOR.y))
+    frame:SetSize(U(Group.SIZES.healer.w), U(Group.SIZES.healer.h * 5 + Group.GAP * 4))
+    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", U(Group.ANCHOR.x), U(Group.ANCHOR.y))
     Group.frame = frame
 
     local pw, ph = SizeAttrs(Group.SIZES[Group.Kind()])
@@ -222,18 +227,19 @@ function Group.Build()
         groupBy = "ASSIGNEDROLE", groupingOrder = "TANK,HEALER,DAMAGER,NONE",
         unitWidth = pw, unitHeight = ph,
     })
-    party:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    -- The header sizes itself to its rows; anchored by the bottom, it grows up.
+    party:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
 
     local rw, rh = SizeAttrs(Group.SIZES.raid)
     local raid = Header("MyUIRaidHeader", frame, "raid", {
         showRaid = true, showParty = false, showPlayer = true, showSolo = false,
-        point = "LEFT", xOffset = U(Group.GAP),
+        point = "LEFT", xOffset = U(Group.RAID_GAP),
         groupBy = "GROUP", groupingOrder = "1,2,3,4,5,6,7,8",
         unitsPerColumn = 5, maxColumns = 8,
-        columnSpacing = U(Group.GAP), columnAnchorPoint = "TOP",
+        columnSpacing = U(Group.RAID_GAP), columnAnchorPoint = "TOP",
         unitWidth = rw, unitHeight = rh,
     })
-    raid:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, 0)
+    raid:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
     Group.party, Group.raid = party, raid
 
     Precreate(party, Group.PARTY_MAX)
