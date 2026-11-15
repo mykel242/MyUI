@@ -35,7 +35,11 @@ Layout.PRESETS = {
     focus = {
         SelfStack   = { "BOTTOM", "BOTTOM", 0, 24 },
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 76 },
-        TargetStrip = { "BOTTOM", "BOTTOM", 0, 154 },   -- over the mini page rows
+        -- One vertical rhythm (Mykel: "consistent sizing and margins make UI
+        -- look intentional"): bar 1's bottom is 32 above SelfStack's health
+        -- bar (44), and the target's health bar is 32 above the mini pages'
+        -- top (~146) -- the strip's bar sits 15 above its own bottom.
+        TargetStrip = { "BOTTOM", "BOTTOM", 0, 163 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
         -- Left of the strip, mirroring the group list: the Cooldown
         -- Manager's tracked buff bars, over the left wing's rows, growing up.
@@ -101,16 +105,30 @@ function Layout.IsPreset(name)
     return Layout.PRESETS[name] ~= nil and DB().saved[name] == nil
 end
 
---- The active profile, every key filled (a saved profile missing a key --
--- an older one -- falls back to the default's).
+--- The active profile, every key filled. A saved profile holds only what
+-- the player changed, over the built-in it came from (`base`), so a later
+-- change to that built-in still reaches it (round 004 play: a full copy
+-- kept an old target-strip height).
 function Layout.Get()
     local name = Layout.Active()
-    local p = DB().saved[name] or Layout.PRESETS[name]
-    local base = Layout.PRESETS[Layout.DEFAULT]
+    local saved = DB().saved[name]
+    local p = saved or Layout.PRESETS[name]
+    local base = Layout.PRESETS[saved and saved.base or Layout.DEFAULT] or Layout.PRESETS[Layout.DEFAULT]
     return setmetatable({}, { __index = function(_, k)
         if p[k] ~= nil then return p[k] end
         return base[k]
     end })
+end
+
+--- The saved profile to change: the active one, or a new "mine" over the
+-- active built-in.
+local function Editable()
+    local active = Layout.Active()
+    if Layout.IsPreset(active) then
+        DB().saved.mine = { base = active }
+        DB().active = "mine"
+    end
+    return DB().saved[Layout.Active()]
 end
 
 --- A frame's anchor: point, relativePoint, x, y in SPEC units.
@@ -147,8 +165,8 @@ end
 --- Save the active profile under a new name and switch to it.
 function Layout.Save(name)
     if type(name) ~= "string" or name == "" then return nil end
-    local src = DB().saved[Layout.Active()] or Layout.PRESETS[Layout.Active()]
-    DB().saved[name] = Copy(src)
+    local active = Layout.Active()
+    DB().saved[name] = DB().saved[active] and Copy(DB().saved[active]) or { base = active }
     DB().active = name
     return name
 end
@@ -159,13 +177,9 @@ function Layout.Move(key, dx, dy)
     if not Layout.PRESETS[Layout.DEFAULT][key] or type(Layout.PRESETS[Layout.DEFAULT][key]) ~= "table" then
         return nil
     end
-    if Layout.IsPreset(Layout.Active()) then
-        local from = Layout.Active()
-        DB().saved.mine = Copy(Layout.PRESETS[from])
-        DB().active = "mine"
-    end
-    local p = DB().saved[Layout.Active()]
-    p[key] = p[key] or Copy(Layout.PRESETS[Layout.DEFAULT][key])
+    local current = Copy(Layout.Get()[key])
+    local p = Editable()
+    p[key] = current
     p[key][3] = p[key][3] + (dx or 0)
     p[key][4] = p[key][4] + (dy or 0)
     Layout.Apply()
@@ -175,11 +189,7 @@ end
 --- Set a spacing value (wingGap, iconPadding) on the active profile.
 function Layout.Set(key, value)
     if type(Layout.PRESETS[Layout.DEFAULT][key]) ~= "number" or type(value) ~= "number" then return nil end
-    if Layout.IsPreset(Layout.Active()) then
-        DB().saved.mine = Copy(Layout.PRESETS[Layout.Active()])
-        DB().active = "mine"
-    end
-    DB().saved[Layout.Active()][key] = value
+    Editable()[key] = value
     Layout.Apply()
     return value
 end

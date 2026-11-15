@@ -324,7 +324,7 @@ local EXPECTED = {
     -- Round 004: positions from the default layout profile ("focus").
     { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,   24 },   -- grew a text row; under the bar
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
-    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  154 },   -- over bar 1 and its mini page rows
+    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  163 },   -- over bar 1 and its mini page rows
 }
 
 for _, e in ipairs(EXPECTED) do
@@ -3661,8 +3661,18 @@ do
     local strip = Registry.Get("TargetStrip").frame
     local function y(f) local _, _, _, _, v = f:GetPoint(1) return v end
     check("the default profile: you under the bar, the target just over the bar",
-          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(154))
+          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(163))
           and strip:GetPoint(1) == "BOTTOM")
+    check("one rhythm: bar 1 to your health bar = mini pages to the target's health bar", (function()
+        local A = ns.Actions
+        local _, _, _, sy = L.Pos("SelfStack")
+        local _, _, _, by = L.Pos("ActionBar")
+        local _, _, _, ty = L.Pos("TargetStrip")
+        local selfBarTop = sy + 33 - 13                       -- SelfStack: text row, then the bar
+        local miniTop = by + 44 + A.MINI_GAP + 45 * A.MINI_SCALE * (44 / 45)
+        local targetBar = ty + 15                             -- the strip's bar sits 15 up
+        return math.abs((by - selfBarTop) - (targetBar - miniTop)) < 1, (by - selfBarTop) .. " vs " .. (targetBar - miniTop)
+    end)())
     check("  the order bottom-up: you, the bar, the target strip, with room between", (function()
         local _, _, _, sy = L.Pos("SelfStack")
         local _, _, _, by = L.Pos("ActionBar")
@@ -3676,7 +3686,8 @@ do
     run("profile focus")
     run("move target 0 20")
     check("/myui move on a built-in profile copies it to \"mine\" first", L.Active() == "mine"
-          and near(y(strip), Scale.U(174)) and L.PRESETS.focus.TargetStrip[4] == 154)
+          and near(y(strip), Scale.U(183)) and L.PRESETS.focus.TargetStrip[4] == 163
+          and ns.db.layout.saved.mine.base == "focus" and ns.db.layout.saved.mine.SelfStack == nil)
     run("move group -10 5")
     check("  and moves the group frames too", (function()
         local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
@@ -3705,7 +3716,7 @@ do
     run("profile delete raid")
     run("profile delete mine")
     check("deleting the active one falls back to the default", L.Active() == "focus"
-          and near(y(strip), Scale.U(154)))
+          and near(y(strip), Scale.U(163)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
     check("a stray bracket on a command word is forgiven", (function()
         ns.ClearOutput()
