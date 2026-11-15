@@ -244,7 +244,7 @@ local COMMANDS = {
     { "group",        "group frames in combat: combat (default) | auto (healers only) | hover" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
-    { "move",         "nudge a part of the HUD: self | target | bar | group <dx> <dy> (SPEC units)" },
+    { "move",         "nudge a part of the HUD: self | target | bar | group | zone <dx> <dy> (SPEC units)" },
     { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons)" },
     { "bars",         "arrange the action bars: every page on screen, held, until you run it again" },
     { "mods",         "for 10s, what the client sees of ALT / CTRL / SHIFT (mouse-mapped modifiers)" },
@@ -312,12 +312,12 @@ local HANDLERS = {
     move         = function(arg)
         local key, dx, dy = (arg or ""):match("^(%S+)%s+(%-?%d+)%s+(%-?%d+)$")
         if not key then
-            ns.Print("/myui move <self | target | bar | group> <dx> <dy> -- e.g. /myui move target 0 20")
+            ns.Print("/myui move <self | target | bar | group | zone> <dx> <dy> -- e.g. /myui move target 0 20")
             return
         end
         local which, x, y = ns.Layout.Move(key, tonumber(dx), tonumber(dy))
         if not which then
-            ns.Print(("can't move %q -- self, target, bar or group"):format(key))
+            ns.Print(("can't move %q -- self, target, bar, group or zone"):format(key))
         else
             ns.Print(("%s now at %d, %d (profile %s)"):format(which, x, y, ns.Layout.Active()))
         end

@@ -28,11 +28,15 @@ Layout.PRESETS = {
     -- (utility, stance, chosen buffs), then the target strip where your
     -- health used to sit, with room left between each so it reads open.
     -- The group list sits right of the target strip, above the right wing.
+    -- Round 004 play: the target strip brought down to sit just over the
+    -- row above the bar (stance, pet); the group list and Blizzard's zone /
+    -- extra ability button either side of it, both clear of the wings.
     focus = {
         SelfStack   = { "BOTTOM", "BOTTOM", 0, 24 },
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 76 },
-        TargetStrip = { "BOTTOM", "BOTTOM", 0, 196 },
-        Group       = { "BOTTOMLEFT", "BOTTOM", 224, 184 },
+        TargetStrip = { "BOTTOM", "BOTTOM", 0, 162 },
+        Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
+        ZoneAbility = { "BOTTOMRIGHT", "BOTTOM", -224, 176 },
         wingGap     = 32,
         iconPadding = 6,
     },
@@ -42,6 +46,7 @@ Layout.PRESETS = {
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 48 },
         TargetStrip = { "TOP", "TOP", 0, -20 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 140, 150 },
+        ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
         wingGap     = 32,
         iconPadding = 2,
     },
@@ -53,6 +58,7 @@ Layout.ALIASES = {
     self = "SelfStack", me = "SelfStack", health = "SelfStack",
     target = "TargetStrip", bar = "ActionBar", bars = "ActionBar",
     group = "Group", party = "Group", raid = "Group",
+    zone = "ZoneAbility", extra = "ZoneAbility", ability = "ZoneAbility",
 }
 
 local function DB()

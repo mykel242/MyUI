@@ -526,6 +526,16 @@ function Clear.PlaceWings(layout)
                     n = n + 1
                 end
             end
+        elseif E.EditModeSystem.ExtraAbilities and sys.system == E.EditModeSystem.ExtraAbilities then
+            -- Blizzard's zone / extra ability button (round 004 play: it sat
+            -- mid-screen over the character). Placed by the profile.
+            local point, rel, x, y = ns.Layout.Pos("ZoneAbility")
+            sys.isInDefaultPosition = false
+            sys.anchorInfo = {
+                point = point, relativeTo = "UIParent", relativePoint = rel,
+                offsetX = ns.Scale.U(x), offsetY = ns.Scale.U(y),
+            }
+            n = n + 1
         elseif E.EditModeSystem.AuraFrame and sys.system == E.EditModeSystem.AuraFrame then
             local aidx, aset = E.EditModeAuraFrameSystemIndices, E.EditModeAuraFrameSetting
             for key, w in pairs(Clear.AURA_WINGS) do

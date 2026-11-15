@@ -516,9 +516,11 @@ Positions are personal preference (Mykel), so they live in **layout profiles** (
 where SelfStack, the target strip, the action bar (and with it the wings, stance and pet bars) and
 the group frames sit, plus the wing gap and icon padding, in SPEC units. Built in:
 
-- **focus** (default) — bottom up: SelfStack (24), the bar (76), the row above it, then the
-  target strip where SelfStack used to be (196); the group list right of the target strip (224,
-  184), clear of the right wing; icons 6 apart.
+- **focus** (default) — bottom up: SelfStack (24), the bar (76), the row above it (stance, pet,
+  utility, chosen buffs), then the target strip just over that row (162); the group list right
+  of the target strip and Blizzard's zone / extra ability button left of it (±224, 176), both
+  clear of the wings; icons 6 apart. The top of the screen is left free — boss mode's bar and
+  timeline (§ 21) are the natural tenants.
 - **spec** — SPEC 2's positions (SelfStack 214 up, target strip 20 from the top, bar at 48).
 
 `/myui profile` lists and switches; `/myui move self|target|bar|group dx dy` nudges (a built-in

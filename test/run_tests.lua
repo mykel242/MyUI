@@ -324,7 +324,7 @@ local EXPECTED = {
     -- Round 004: positions from the default layout profile ("focus").
     { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,   24 },   -- grew a text row; under the bar
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
-    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  196 },   -- where your health used to be
+    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  162 },   -- just over the row above the bar
 }
 
 for _, e in ipairs(EXPECTED) do
@@ -3103,6 +3103,10 @@ do
            and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
     end)())
     check("  the buff frame is left alone", sys(10).anchorInfo == nil)
+    check("  the zone / extra ability button left of the target strip, opposite the group list", (function()
+        local a = sys(11).anchorInfo
+        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(176))
+    end)())
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
     check("  and it is selected", mock.editMode.active == 2 + mine, mock.editMode.active)
@@ -3490,7 +3494,7 @@ do
         local p, rel, rp, x, y = G.frame:GetPoint(1)
         local pp = party:GetPoint(1)
         return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(224))
-           and near(y, Scale.U(184)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
+           and near(y, Scale.U(176)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
     end)())
     check("rows 8 apart", near(party:GetAttribute("yOffset"), -Scale.U(8)))
 
@@ -3553,13 +3557,13 @@ do
     local strip = Registry.Get("TargetStrip").frame
     local function y(f) local _, _, _, _, v = f:GetPoint(1) return v end
     check("the default profile: you under the bar, the target where your health was",
-          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(196))
+          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(162))
           and strip:GetPoint(1) == "BOTTOM")
     check("  the order bottom-up: you, the bar, the target strip, with room between", (function()
         local _, _, _, sy = L.Pos("SelfStack")
         local _, _, _, by = L.Pos("ActionBar")
         local _, _, _, ty = L.Pos("TargetStrip")
-        return sy + 33 < by and by + 44 < ty
+        return sy + 33 < by and by + 44 + 10 + 30 <= ty   -- clear of the stance row
     end)())
     run("profile spec")
     check("/myui profile spec puts SPEC 2's positions back, bar included", L.Active() == "spec"
@@ -3568,11 +3572,11 @@ do
     run("profile focus")
     run("move target 0 20")
     check("/myui move on a built-in profile copies it to \"mine\" first", L.Active() == "mine"
-          and near(y(strip), Scale.U(216)) and L.PRESETS.focus.TargetStrip[4] == 196)
+          and near(y(strip), Scale.U(182)) and L.PRESETS.focus.TargetStrip[4] == 162)
     run("move group -10 5")
     check("  and moves the group frames too", (function()
         local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
-        return near(x, Scale.U(214)) and near(yy, Scale.U(189))
+        return near(x, Scale.U(214)) and near(yy, Scale.U(181))
     end)())
     run("spacing padding 8")
     check("/myui spacing padding sets the gap between wing icons", L.Value("iconPadding") == 8)
@@ -3597,7 +3601,7 @@ do
     run("profile delete raid")
     run("profile delete mine")
     check("deleting the active one falls back to the default", L.Active() == "focus"
-          and near(y(strip), Scale.U(196)))
+          and near(y(strip), Scale.U(162)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
 end
 
