@@ -3568,6 +3568,17 @@ do
     mock.units.target = nil
     check("  and it goes again without one", Registry.Get("ActionBar").target == 0)
 
+    check("a spell flyout (a hunter's Call Pet) holds the bar up while it is open", (function()
+        local fly = mock.frame({ name = "SpellFlyout" })
+        _G.SpellFlyout = fly
+        A.flyoutHooked = nil
+        A.HookFlyout()
+        fly.scripts.OnShow(fly)
+        local up = Registry.Get("ActionBar").target == 1
+        fly.scripts.OnHide(fly)
+        _G.SpellFlyout = nil
+        return up and Registry.Get("ActionBar").target == 0
+    end)())
     check("registered resting at 0, in the combat scope; Blizzard's bar 1 left the registry",
           Registry.Get("ActionBar") ~= nil and Registry.Get("ActionBar").resting == 0
           and Registry.Get("MainBar") == nil

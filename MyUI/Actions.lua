@@ -648,9 +648,20 @@ end
 -- Login
 -- ---------------------------------------------------------------------------
 
+--- Blizzard's spell flyout (Call Pet, portals, ...) opens over the bar; the
+-- bar is held up while it is open.
+function Actions.HookFlyout()
+    local fly = _G.SpellFlyout
+    if not fly or Actions.flyoutHooked then return end
+    fly:HookScript("OnShow", function() ns.Reveal.Claim("hold", "ActionBar") end)
+    fly:HookScript("OnHide", function() ns.Reveal.Release("hold", "ActionBar") end)
+    Actions.flyoutHooked = true
+end
+
 function Actions.Start()
     if not Actions.Build() then return false end
     Actions.Register()
+    Actions.HookFlyout()
     local ev = Actions.events or CreateFrame("Frame")
     Actions.events = ev
     ev:RegisterEvent("UPDATE_BINDINGS")

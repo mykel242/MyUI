@@ -74,6 +74,10 @@ Reveal.CHANNELS = {
     -- Round 004 play (Mykel: "I need enough of a map to see BugSack"): out
     -- of combat the minimap stays up. /myui map peek turns it off.
     calm    = 1.0,
+    -- Round 004 play (a hunter's pet flyout): while a popup that belongs to
+    -- the bar is open, the bar stays up -- the pointer travelling up the
+    -- flyout left the bar's proximity and it faded.
+    hold    = 1.0,
     -- Round 004: something placeable is on the cursor (a spell, item or
     -- macro picked up) -- the action bar shows every page to drop it on.
     assign  = 1.0,
@@ -98,7 +102,7 @@ Reveal.CHANNELS = {
 -- debug leads because it is not a SPEC channel at all but a diagnostic
 -- override, and an audit that hid it would be lying about why a frame is lit.
 -- lowhealth slots in directly after it in Phase 4.
-Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "assign", "peek", "calm", "cursor" }
+Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "hold", "assign", "peek", "calm", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
@@ -131,6 +135,7 @@ local SCOPE = {
                                           and not (ns.Clear and ns.Clear.IsHunter()) end },
     lowhealth = { SelfStack = true },
     calm = { Minimap = true, MinimapMap = true },
+    hold = { ActionBar = true },
     assign = { ActionBar = true, WingCooldowns = true, WingUtility = true, WingBuffs = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
 }
