@@ -8,7 +8,7 @@ Target: WoW Midnight 12.1.5, TOC `120105`. Reference source read at build **12.1
 
 ## Round 003 — Resume track (2026-11-14)
 
-The spec now lives in this repo at `design/current` (→ `design/rounds/003-myui-resume`);
+The spec now lives in this repo at `design/current` (→ `design/rounds/004-modal-hud` since round 004);
 every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
 
 - The ~3,700 lines left uncommitted at the 2026-08-28 pause are on branch `wip/aug28`,
@@ -18,6 +18,13 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
   taken in through `./rebar intake`. **It is not part of the spec — do not build from it.**
   Round 003 supersedes it (the rail is cut).
 - `wip/aug28` was merged in R3 (2026-11-14) and its docs repointed to `design/current`.
+
+### Round 004 — the modal HUD (2026-11-14, design)
+
+Designed with Mykel over an interactive mock (claude.ai artifact `CCfBPgK475QveeDx3oJFGK`):
+`design/current` → `design/rounds/004-modal-hud`. SPEC § 16–22, `DECISIONS-004.md`; PLAN's
+MVP steps reshaped (probes P1–P5, then M2 bars and wings, M3 group frames and pinnable cards).
+M1 (strip) is built on `mvp/m1-strip`.
 
 ### Phase 4 — bars and low health (in progress, `phase/4-bars`, not merged)
 
