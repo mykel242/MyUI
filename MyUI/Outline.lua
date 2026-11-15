@@ -130,6 +130,21 @@ local function Ancestry(region, depth)
     return out
 end
 
+--- Round 004 play: the clickable SelfStack did not take clicks. Its state,
+-- printed with every /myui what, so one look answers it.
+function Outline.SelfButton()
+    local b = _G.MyUISelfButton
+    if not b then ns.Raw("  your-bar button: not built") return end
+    local function q(m, ...) local ok, a, bb, c, d = pcall(b[m], b, ...) if ok then return a, bb, c, d end return "?" end
+    local l, bo, w, h = q("GetRect")
+    ns.Raw(("  your-bar button: shown %s, visible %s, mouse %s, over it %s, strata %s/%s, rect %s,%s %sx%s, alpha %s")
+        :format(tostring(q("IsShown")), tostring(q("IsVisible")), tostring(q("IsMouseEnabled")),
+                tostring(q("IsMouseOver")), tostring(q("GetFrameStrata")), tostring(q("GetFrameLevel")),
+                tostring(l), tostring(bo), tostring(w), tostring(h), tostring(q("GetEffectiveAlpha"))))
+    ns.Raw(("    unit %s, type1 %s, type2 %s"):format(tostring(b:GetAttribute("unit")),
+        tostring(b:GetAttribute("*type1")), tostring(b:GetAttribute("*type2"))))
+end
+
 --- Name whatever is under the cursor.
 function Outline.Under()
     -- 12.1 replaced GetMouseFocus with GetMouseFoci, which returns a list:
@@ -151,6 +166,7 @@ function Outline.Under()
         ns.Print("nothing under the cursor takes the mouse.")
         ns.Raw("  Which is itself an answer: a frame that ignores the mouse is "
                .. "not clickable, so it is decoration or it belongs to the world.")
+        Outline.SelfButton()
         return {}
     end
 
@@ -167,6 +183,7 @@ function Outline.Under()
             end
         end
     end
+    Outline.SelfButton()
     return named
 end
 
