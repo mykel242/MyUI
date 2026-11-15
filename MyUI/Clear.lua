@@ -492,10 +492,12 @@ Clear.OVER_BAR = {
 }
 Clear.UNDER_WING_HEIGHT = 30
 
--- Blizzard's zone / extra ability container is 250 x 120 of layout at full
--- size with an ornate frame (Mykel: "I really dislike that giant zone
--- button"). Scaled down and the frame art hidden.
-Clear.EXTRA_SCALE = 0.7
+-- Blizzard's zone / extra ability button has an ornate frame (Mykel: "I
+-- really dislike that giant zone button"): the frame art is hidden. A scale
+-- of 0.7 was tried and did not take in game (Edit Mode keeps the system's
+-- scale); without its frame the button already reads as bar-1 size, which
+-- Mykel liked -- so no scale.
+Clear.EXTRA_SCALE = 1
 
 local function SetSetting(sys, setting, value)
     for _, st in ipairs(sys.settings) do
@@ -555,7 +557,9 @@ function Clear.PlaceWings(layout)
                         point = "BOTTOMLEFT",
                         relativeTo = "UIParent",
                         relativePoint = "BOTTOM",
-                        offsetX = barX + w.side * (half + gap),
+                        -- The profile may push debuffs further out than the
+                        -- wings (focus: past the zone button on the bar row).
+                        offsetX = barX + w.side * (half + ns.Scale.U(ns.Layout.Value("debuffGap") or ns.Layout.Value("wingGap"))),
                         offsetY = bottom + w.row * (row + rowGap),
                     }
                     sys.settings = sys.settings or {}

@@ -3099,17 +3099,17 @@ do
         local a = sys(8).anchorInfo
         return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(176))
     end)())
-    check("  debuffs on you: right of bar 1's row, ~bar-1 size, dispel types shown, growing away", (function()
+    check("  debuffs on you: right of bar 1's row past the zone button, ~bar-1 size, dispel types shown", (function()
         local d = sys(9)
         local a = d.anchorInfo
         local half, bottom = ns.Actions.Extent()
-        return a and a.point == "BOTTOMLEFT" and near(a.offsetX, half + Scale.U(32)) and near(a.offsetY, bottom)
+        return a and a.point == "BOTTOMLEFT" and near(a.offsetX, half + Scale.U(128)) and near(a.offsetY, bottom)
            and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
     end)())
     check("  the buff frame is left alone", sys(10).anchorInfo == nil)
-    check("  the zone / extra ability button under bar 1's last buttons (offsets in its 0.7 scale)", (function()
+    check("  the zone / extra ability button on bar 1's row, past button 8", (function()
         local a = sys(11).anchorInfo
-        return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(175) / 0.7) and near(a.offsetY, Scale.U(6) / 0.7)
+        return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(250)) and near(a.offsetY, Scale.U(55))
     end)())
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)

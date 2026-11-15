@@ -518,8 +518,8 @@ the group frames sit, plus the wing gap and icon padding, in SPEC units. Built i
 
 - **focus** (default) — bottom up: SelfStack (24), the bar (76), then the target strip just over
   the bar (132); stance under the left wing and pet under the right (Mykel: "stances belong below
-  the CDs"); Blizzard's zone / extra ability button at 0.7 with its frame art hidden, right of
-  SelfStack under bar 1's last buttons; the group list right
+  the CDs"); Blizzard's zone / extra ability button with its frame art hidden, on bar 1's row past button 8,
+  with the debuffs starting beyond it (`debuffGap`); the group list right
   of the target strip (224, 176) and, mirroring it on the left, the Cooldown Manager's tracked
   buff bars (-224) with Blizzard's zone / extra ability button beyond them (-460), all clear of
   the wings; icons 6 apart. The top of the screen is left free — boss mode's bar and

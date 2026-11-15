@@ -40,9 +40,13 @@ Layout.PRESETS = {
         -- Left of the strip, mirroring the group list: the Cooldown
         -- Manager's tracked buff bars.
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 176 },
-        -- Its container centres the button and is 120 tall (84 scaled):
-        -- the button lands about 42 up from this point.
-        ZoneAbility = { "BOTTOM", "BOTTOM", 175, 6 },
+        -- On bar 1's row, past button 8 (Mykel: "line it up with the action
+        -- bars"). Measured in game: the button lands ~39 right of and ~43
+        -- above this anchor (its container lays it out off-centre), so
+        -- this centres it on the bar row at ~289 out.
+        ZoneAbility = { "BOTTOM", "BOTTOM", 250, 55 },
+        -- The debuffs on bar 1's row start past the zone button.
+        debuffGap   = 128,
         wingGap     = 32,
         iconPadding = 6,
     },
@@ -54,6 +58,7 @@ Layout.PRESETS = {
         Group       = { "BOTTOMLEFT", "BOTTOM", 140, 150 },
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 150 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
+        debuffGap   = 32,
         wingGap     = 32,
         iconPadding = 2,
     },

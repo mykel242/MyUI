@@ -245,7 +245,7 @@ local COMMANDS = {
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
     { "move",         "nudge a part of the HUD: self | target | bar | group | zone | timers <dx> <dy> (SPEC units)" },
-    { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons)" },
+    { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons) | debuffs <n> (bar to debuffs)" },
     { "bars",         "arrange the action bars: every page on screen, held, until you run it again" },
     { "mods",         "for 10s, what the client sees of ALT / CTRL / SHIFT (mouse-mapped modifiers)" },
     { "pct",          "where the health % sits: above (over the bar) | pill (on it)" },
@@ -324,7 +324,8 @@ local HANDLERS = {
     end,
     spacing      = function(arg)
         local what, n = (arg or ""):match("^(%a+)%s+(%d+)$")
-        local key = what == "gap" and "wingGap" or what == "padding" and "iconPadding" or nil
+        local key = what == "gap" and "wingGap" or what == "padding" and "iconPadding"
+                    or what == "debuffs" and "debuffGap" or nil
         if not key then
             ns.Print(("wing gap %d, icon padding %d -- /myui spacing gap <n> | padding <n>")
                      :format(ns.Layout.Value("wingGap"), ns.Layout.Value("iconPadding")))
