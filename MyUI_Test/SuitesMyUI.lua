@@ -451,17 +451,17 @@ T.Suite("myui-clear", {
           end,
           teardown = function(api) api.ns().Reveal.Release("whisper") end },
         { id = "combat-reveals", shot = false,
-          what = "Combat brings back SelfStack, MyUI's action bar, and group frames only by role or "
-              .. "preference; never Blizzard's bars, chat or the minimap.",
+          what = "Combat brings back SelfStack, MyUI's action bar and wings, and group frames only by "
+              .. "role or preference; never the bags, chat or the minimap.",
           setup = function(api) api.ns().Reveal.Claim("combat") end,
           check = function(api)
               local Clear = api.ns().Clear
-              local main, chat, party = Target(api, "StanceBar"), Target(api, "Chat"), Target(api, "Party")
+              local main, chat, party = Target(api, "Bags"), Target(api, "Chat"), Target(api, "Party")
               local ours = Target(api, "ActionBar")
               local wantParty = Clear.GroupInCombat() and 1 or 0
               return (main == nil or main == 0) and chat == 0 and (ours == nil or ours == 1)
                      and (party == nil or party == wantParty),
-                     ("stance bar %s, our bar %s, chat %s, party %s (mode %s, role %s)"):format(tostring(main), tostring(ours),
+                     ("bags %s, our bar %s, chat %s, party %s (mode %s, role %s)"):format(tostring(main), tostring(ours),
                          tostring(chat), tostring(party), Clear.GroupMode(), Clear.Role())
           end,
           teardown = function(api) api.ns().Reveal.Release("combat") end },

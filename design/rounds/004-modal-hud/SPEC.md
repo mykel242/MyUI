@@ -535,6 +535,9 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   not seen the modifier. A vehicle, possession or pet battle hides MyUI's bar and drops the
   overrides in the restricted environment, so Blizzard's override bar takes over; a form's bonus
   bar (stealth, cat form, skyriding) still pages bar 1.
+- **Stance (forms) and pet bars** — Blizzard's own, placed by the MyUI layout on the row above bar
+  1, inside its edges (stance from the left, pet from the right), at 30 px; they return with the
+  bar (combat, a target). Round 004 play: they had been adopted and never came back.
 - **Arranging**: every page drawn stacked above bar 1, labelled and held still — while a spell,
   item or macro is on the cursor, while the spellbook or macro window is open, or while the
   player toggles it (`/myui bars`, key "Arrange the action bars"). Out of combat; a fight folds it
@@ -554,7 +557,8 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
 Two small groups that line up row for row with the bar stack, so nothing floats.
 
 - **Left — Cooldowns.** Major cooldowns on bar 1's row at bar-1 size; utility cooldowns above on
-  the next row, small. **Built as the Cooldown Manager's own viewers** (Essential, Utility),
+  the next row, small. Major cooldowns are **larger than bar 1** (55 vs 44) and 32 from the bar, so
+  they don't read as more bar (round 004 play). **Built as the Cooldown Manager's own viewers** (Essential, Utility),
   placed by the MyUI Edit Mode layout at the bar's left edge, growing away from it, adopted at
   alpha 0 and revealed with the bar. Mirroring into MyUI buttons is not possible on 12.1:
   `Cooldown:SetCooldown` is protected (probe P2 answered from the API).

@@ -441,11 +441,21 @@ end
 -- row above. Icon sizes are Edit Mode's slider steps ((percent - 50) / 10):
 -- essential 50 px at 90% ~ bar 1's 44; utility 30 px at 100%; buffs 40 at 80%.
 Clear.WINGS = {
-    Essential = { side = -1, row = 0, size = 4, limit = 8 },   -- major cooldowns
+    -- Round 004 play: at bar-1 size and 12 away they read as more bar. Bigger
+    -- (SPEC's button grammar: cooldown > bar 1 > a page) and further off.
+    Essential = { side = -1, row = 0, size = 6, limit = 8 },   -- major cooldowns, 55 px
     Utility   = { side = -1, row = 1, size = 5, limit = 8 },   -- utility, small, above
     BuffIcon  = { side =  1, row = 1, size = 3, limit = 8 },   -- the chosen buffs, small, above
 }
-Clear.WING_GAP = 12
+Clear.WING_GAP = 32
+
+-- Round 004 play: the stance (forms) and pet bars were adopted and never came
+-- back. They sit on the row above bar 1, inside its edges -- stance from the
+-- left, pet from the right -- at their own 30 px, and return with the bar.
+Clear.OVER_BAR = {
+    StanceBar    = { side = -1 },
+    PetActionBar = { side =  1 },
+}
 
 local function SetSetting(sys, setting, value)
     for _, st in ipairs(sys.settings) do
@@ -465,8 +475,24 @@ function Clear.PlaceWings(layout)
     local half, bottom, row, rowGap = A.Extent()
     local gap = ns.Scale.U(Clear.WING_GAP)
     local n = 0
+    local bars = E.EditModeActionBarSystemIndices
     for _, sys in ipairs(layout.systems or {}) do
-        if sys.system == E.EditModeSystem.CooldownViewer then
+        if bars and sys.system == E.EditModeSystem.ActionBar then
+            for key, o in pairs(Clear.OVER_BAR) do
+                if bars[key] == sys.systemIndex then
+                    local left = o.side < 0
+                    sys.isInDefaultPosition = false
+                    sys.anchorInfo = {
+                        point = left and "BOTTOMLEFT" or "BOTTOMRIGHT",
+                        relativeTo = "UIParent",
+                        relativePoint = "BOTTOM",
+                        offsetX = o.side * half,
+                        offsetY = bottom + row + rowGap,
+                    }
+                    n = n + 1
+                end
+            end
+        elseif sys.system == E.EditModeSystem.CooldownViewer then
             for key, w in pairs(Clear.WINGS) do
                 if idx[key] == sys.systemIndex then
                     local left = w.side < 0

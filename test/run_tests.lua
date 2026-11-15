@@ -2957,10 +2957,11 @@ do
     check("combat does not reveal chat or the minimap",
           Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0
           and Registry.Get("SelfStack").target == 1)
-    check("  nor Blizzard's bars (hidden always since Phase 4 play), nor a DPS's group frames",
-          Registry.Get("StanceBar").target == 0 and Registry.Get("Party").target == 0)
+    check("  nor the bags or micro menu, nor a DPS's group frames",
+          Registry.Get("Bags").target == 0 and Registry.Get("MicroMenu").target == 0 and Registry.Get("Party").target == 0)
     check("  but MyUI's own action bar does (round 004)", Registry.Get("ActionBar").target == 1)
-    check("  and the wings with it", Registry.Get("WingCooldowns").target == 1
+    check("  and the wings, stance and pet bars with it", Registry.Get("StanceBar").target == 1
+          and Registry.Get("PetBar").target == 1 and Registry.Get("WingCooldowns").target == 1
           and Registry.Get("WingUtility").target == 1 and Registry.Get("WingBuffs").target == 1)
     Reveal.Release("combat")
     _G.UnitGroupRolesAssigned = function() return "HEALER" end
@@ -3061,7 +3062,13 @@ do
           and saved.layouts[mine].layoutType == 1 and saved.layouts[3].layoutName == "Alt")
     check("  every action bar with a visibility setting is hidden", changed >= 2
           and saved.layouts[mine].systems[2].settings[1].value == 3, changed)
-    local function sys(i) return saved.layouts[mine].systems[i] end
+    local function sys(i) return saved.layouts[mine].systems[i + 2] end
+    check("  stance and pet bars on the row above bar 1, inside its edges", (function()
+        local st, pet = saved.layouts[mine].systems[5].anchorInfo, saved.layouts[mine].systems[6].anchorInfo
+        local half, bottom, row, gap = ns.Actions.Extent()
+        return st and st.point == "BOTTOMLEFT" and near(st.offsetX, -half) and near(st.offsetY, bottom + row + gap)
+           and pet and pet.point == "BOTTOMRIGHT" and near(pet.offsetX, half)
+    end)())
     local function setting(s, id) for _, st in ipairs(s.settings) do if st.setting == id then return st.value end end end
     check("  the wings are always shown to Blizzard (the reveal engine decides); buff bars in combat only",
           setting(sys(5), 6) == 0 and setting(sys(6), 6) == 0 and setting(sys(7), 6) == 0 and setting(sys(8), 6) == 1)
@@ -3069,14 +3076,14 @@ do
         local a = sys(5).anchorInfo
         local half, bottom = ns.Actions.Extent()
         return a and a.point == "BOTTOMRIGHT" and a.relativeTo == "UIParent" and a.relativePoint == "BOTTOM"
-           and near(a.offsetX, -(half + Scale.U(12))) and near(a.offsetY, bottom)
-           and setting(sys(5), 2) == 0 and setting(sys(5), 3) == 4 and sys(5).isInDefaultPosition == false
+           and near(a.offsetX, -(half + Scale.U(32))) and near(a.offsetY, bottom)
+           and setting(sys(5), 2) == 0 and setting(sys(5), 3) == 6 and sys(5).isInDefaultPosition == false
     end)())
     check("  utility above them; the chosen buffs on the right, the row above", (function()
         local u, b = sys(6).anchorInfo, sys(7).anchorInfo
         local half, bottom, row, gap = ns.Actions.Extent()
         return u.point == "BOTTOMRIGHT" and near(u.offsetY, bottom + row + gap)
-           and b.point == "BOTTOMLEFT" and near(b.offsetX, half + Scale.U(12)) and near(b.offsetY, bottom + row + gap)
+           and b.point == "BOTTOMLEFT" and near(b.offsetX, half + Scale.U(32)) and near(b.offsetY, bottom + row + gap)
            and setting(sys(7), 2) == 1
     end)())
     check("  the buff bars are not moved", sys(8).anchorInfo == nil)

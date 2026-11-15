@@ -334,6 +334,7 @@ function M.install()
     _G.Enum.CooldownViewerOrientation = { Horizontal = 0, Vertical = 1 }
     _G.Enum.CooldownViewerIconDirection = { Left = 0, Right = 1 }
     _G.Enum.EditModeActionBarSetting = { Orientation = 0, VisibleSetting = 6 }
+    _G.Enum.EditModeActionBarSystemIndices = { MainBar = 1, Bar2 = 2, Bar3 = 3, StanceBar = 11, PetActionBar = 12 }
     _G.Enum.ActionBarVisibleSetting = { Always = 0, InCombat = 1, OutOfCombat = 2, Hidden = 3 }
     _G.Enum.EditModeLayoutType = { Preset = 0, Account = 1, Character = 2, Server = 3 }
     _G.Enum.EditModePresetLayoutsMeta = { NumValues = 2 }
@@ -344,6 +345,8 @@ function M.install()
                 { system = 0, systemIndex = 2, settings = { { setting = 6, value = 0 } } },
                 { system = 0, systemIndex = 3, settings = { { setting = 6, value = 0 } } },
                 { system = 3, systemIndex = 1, settings = { { setting = 6, value = 0 } } },
+                { system = 0, systemIndex = 11, settings = {} },
+                { system = 0, systemIndex = 12, settings = {} },
                 { system = 20, systemIndex = 1, settings = { { setting = 6, value = 1 } } },
                 { system = 20, systemIndex = 2, settings = { { setting = 6, value = 1 } } },
                 { system = 20, systemIndex = 3, settings = { { setting = 6, value = 1 } } },
