@@ -243,6 +243,7 @@ local COMMANDS = {
     { "restore",      "put back everything clearing took" },
     { "group",        "group frames in combat: combat (default) | auto (healers only) | hover" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
+    { "layout",       "preview where everything goes, even what isn't up (debuffs, zone button): toggles" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
     { "move",         "nudge a part of the HUD: self | target | bar | group | zone | timers <dx> <dy> (SPEC units)" },
     { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons) | debuffs <n> (bar to debuffs)" },
@@ -288,6 +289,11 @@ local HANDLERS = {
         ns.Raw("  saved to MyUIDB.actionsProbe. /myui mods checks the modifier keys.")
     end,
     bars         = function() _G.MyUI_ArrangeBars() end,
+    layout       = function()
+        local on = ns.Layout.Preview()
+        ns.Print(on and "layout preview: boxes where each part goes; /myui move to adjust, /myui layout to hide"
+                    or "layout preview off")
+    end,
     profile      = function(arg)
         local L = ns.Layout
         local verb, name = (arg or ""):match("^(%S*)%s*(.-)$")

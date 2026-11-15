@@ -497,7 +497,6 @@ Clear.UNDER_WING_HEIGHT = 30
 -- of 0.7 was tried and did not take in game (Edit Mode keeps the system's
 -- scale); without its frame the button already reads as bar-1 size, which
 -- Mykel liked -- so no scale.
-Clear.EXTRA_SCALE = 1
 
 local function SetSetting(sys, setting, value)
     for _, st in ipairs(sys.settings) do
@@ -509,59 +508,98 @@ end
 --- Place the wings in the layout: each viewer anchored to UIParent's bottom
 -- centre at the bar's edge, growing away from it, so its first icon sits
 -- next to the bar. Returns how many viewers were placed.
+--- Where each placed element goes, in UIParent units from its bottom centre:
+-- point, x, y. One source for the Edit Mode layout (PlaceWings) and the
+-- layout preview (Layout.Preview), so they cannot disagree.
+function Clear.Anchor(key)
+    local half, bottom, row, rowGap, barX = ns.Actions.Extent()
+    local gap = ns.Scale.U(ns.Layout.Value("wingGap"))
+    local w = Clear.WINGS[key]
+    if w then
+        local y = w.over and (bottom + Clear.WingIconHeight(w.over) + rowGap) or (bottom + w.row * (row + rowGap))
+        return w.side < 0 and "BOTTOMRIGHT" or "BOTTOMLEFT", barX + w.side * (half + gap), y
+    end
+    local o = Clear.OVER_BAR[key]
+    if o then
+        return o.side < 0 and "BOTTOMRIGHT" or "BOTTOMLEFT", barX + o.side * (half + gap),
+               bottom - rowGap - Clear.UNDER_WING_HEIGHT
+    end
+    if key == "Debuffs" then
+        -- Past the zone button while it is up, otherwise in its place.
+        local g = Clear.ZoneShown() and (ns.Layout.Value("debuffGap") or ns.Layout.Value("wingGap"))
+                  or ns.Layout.Value("wingGap")
+        return "BOTTOMLEFT", barX + half + ns.Scale.U(g), bottom
+    end
+    local point, rel, x, y = ns.Layout.Pos(key)
+    return point, ns.Scale.U(x), ns.Scale.U(y), rel
+end
+
+--- Is Blizzard's zone / extra ability button up right now?
+function Clear.ZoneShown()
+    local c = _G.ExtraAbilityContainer
+    return c ~= nil and c:IsShown() == true
+end
+
+-- The debuffs are anchored in the Edit Mode layout to this MyUI frame rather
+-- than to UIParent, so MyUI can slide them (Mykel: into the zone button's
+-- place when it is not up) without touching Blizzard's frame. Created at
+-- login, before Edit Mode applies a layout that names it.
+function Clear.DebuffAnchor()
+    if not Clear.debuffAnchor then
+        Clear.debuffAnchor = CreateFrame("Frame", "MyUIDebuffAnchor", UIParent)
+        Clear.debuffAnchor:SetSize(1, 1)
+    end
+    return Clear.debuffAnchor
+end
+
+function Clear.PlaceDebuffAnchor()
+    Clear.DebuffAnchor()
+    local point, x, y = Clear.Anchor("Debuffs")
+    Clear.debuffAnchor:ClearAllPoints()
+    Clear.debuffAnchor:SetPoint(point, UIParent, "BOTTOM", x, y)
+end
+
+function Clear.HookZone()
+    local c = _G.ExtraAbilityContainer
+    if not c or Clear.zoneHooked then return end
+    c:HookScript("OnShow", Clear.PlaceDebuffAnchor)
+    c:HookScript("OnHide", Clear.PlaceDebuffAnchor)
+    Clear.zoneHooked = true
+end
+
 function Clear.PlaceWings(layout)
     local E = _G.Enum
     local A = ns.Actions
     local idx, cdm = E.EditModeCooldownViewerSystemIndices, E.EditModeCooldownViewerSetting
     if not (A and A.Extent and idx and cdm and E.EditModeSystem.CooldownViewer) then return 0 end
-    local half, bottom, row, rowGap, barX = A.Extent()
-    local gap = ns.Scale.U(ns.Layout.Value("wingGap"))
     local pad = ns.Layout.Value("iconPadding")
     local n = 0
     local bars = E.EditModeActionBarSystemIndices
+    local function At(sys, key, relativeTo)
+        local point, x, y, rel = Clear.Anchor(key)
+        sys.isInDefaultPosition = false
+        sys.anchorInfo = { point = point, relativeTo = relativeTo or "UIParent",
+                           relativePoint = rel or "BOTTOM", offsetX = x, offsetY = y }
+        n = n + 1
+    end
     for _, sys in ipairs(layout.systems or {}) do
         if bars and sys.system == E.EditModeSystem.ActionBar then
-            for key, o in pairs(Clear.OVER_BAR) do
-                if bars[key] == sys.systemIndex then
-                    local left = o.side < 0
-                    sys.isInDefaultPosition = false
-                    sys.anchorInfo = {
-                        point = left and "BOTTOMRIGHT" or "BOTTOMLEFT",
-                        relativeTo = "UIParent",
-                        relativePoint = "BOTTOM",
-                        offsetX = barX + o.side * (half + gap),
-                        offsetY = bottom - rowGap - Clear.UNDER_WING_HEIGHT,
-                    }
-                    n = n + 1
-                end
+            for key in pairs(Clear.OVER_BAR) do
+                if bars[key] == sys.systemIndex then At(sys, key) end
             end
         elseif E.EditModeSystem.ExtraAbilities and sys.system == E.EditModeSystem.ExtraAbilities then
             -- Blizzard's zone / extra ability button (round 004 play: it sat
             -- mid-screen over the character). Placed by the profile.
-            -- The container is scaled (Clear.StyleExtra), and a scaled frame's
-            -- offsets are in its own units.
-            local point, rel, x, y = ns.Layout.Pos("ZoneAbility")
-            local sc = Clear.EXTRA_SCALE
-            sys.isInDefaultPosition = false
-            sys.anchorInfo = {
-                point = point, relativeTo = "UIParent", relativePoint = rel,
-                offsetX = ns.Scale.U(x) / sc, offsetY = ns.Scale.U(y) / sc,
-            }
-            n = n + 1
+            At(sys, "ZoneAbility")
         elseif E.EditModeSystem.AuraFrame and sys.system == E.EditModeSystem.AuraFrame then
             local aidx, aset = E.EditModeAuraFrameSystemIndices, E.EditModeAuraFrameSetting
             for key, w in pairs(Clear.AURA_WINGS) do
                 if aidx and aset and aidx[key] == sys.systemIndex then
                     sys.isInDefaultPosition = false
-                    sys.anchorInfo = {
-                        point = "BOTTOMLEFT",
-                        relativeTo = "UIParent",
-                        relativePoint = "BOTTOM",
-                        -- The profile may push debuffs further out than the
-                        -- wings (focus: past the zone button on the bar row).
-                        offsetX = barX + w.side * (half + ns.Scale.U(ns.Layout.Value("debuffGap") or ns.Layout.Value("wingGap"))),
-                        offsetY = bottom + w.row * (row + rowGap),
-                    }
+                    -- Anchored to MyUI's debuff anchor, which slides.
+                    sys.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "MyUIDebuffAnchor",
+                                       relativePoint = "BOTTOMLEFT", offsetX = 0, offsetY = 0 }
+                    n = n + 1
                     sys.settings = sys.settings or {}
                     SetSetting(sys, aset.Orientation, E.AuraFrameOrientation.Horizontal)
                     SetSetting(sys, aset.IconDirection, E.AuraFrameIconDirection.Right)
@@ -570,54 +608,37 @@ function Clear.PlaceWings(layout)
                     SetSetting(sys, aset.IconSize, w.size)
                     if aset.ShowDispelType then SetSetting(sys, aset.ShowDispelType, 1) end
                     if aset.IconPadding then SetSetting(sys, aset.IconPadding, pad) end
-                    n = n + 1
                 end
             end
         elseif sys.system == E.EditModeSystem.CooldownViewer and idx.BuffBar == sys.systemIndex then
             -- The tracked buff bars: not a wing, placed by the profile.
-            local point, rel, x, y = ns.Layout.Pos("BuffBars")
-            sys.isInDefaultPosition = false
-            sys.anchorInfo = {
-                point = point, relativeTo = "UIParent", relativePoint = rel,
-                offsetX = ns.Scale.U(x), offsetY = ns.Scale.U(y),
-            }
-            n = n + 1
+            At(sys, "BuffBars")
         elseif sys.system == E.EditModeSystem.CooldownViewer then
             for key, w in pairs(Clear.WINGS) do
                 if idx[key] == sys.systemIndex then
-                    local left = w.side < 0
-                    sys.isInDefaultPosition = false
-                    sys.anchorInfo = {
-                        point = left and "BOTTOMRIGHT" or "BOTTOMLEFT",
-                        relativeTo = "UIParent",
-                        relativePoint = "BOTTOM",
-                        offsetX = barX + w.side * (half + gap),
-                        offsetY = w.over and (bottom + Clear.WingIconHeight(w.over) + rowGap)
-                                  or (bottom + w.row * (row + rowGap)),
-                    }
+                    At(sys, key)
                     sys.settings = sys.settings or {}
                     SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Horizontal)
                     SetSetting(sys, cdm.IconDirection,
-                               left and E.CooldownViewerIconDirection.Left or E.CooldownViewerIconDirection.Right)
+                               w.side < 0 and E.CooldownViewerIconDirection.Left or E.CooldownViewerIconDirection.Right)
                     SetSetting(sys, cdm.IconSize, w.size)
                     SetSetting(sys, cdm.IconLimit, w.limit)
                     -- Round 004 play: "at the least the icons should have
                     -- some margin between them".
                     SetSetting(sys, cdm.IconPadding, pad)
-                    n = n + 1
                 end
             end
         end
     end
+    Clear.PlaceDebuffAnchor()
+    Clear.HookZone()
     return n
 end
 
---- Shrink Blizzard's zone / extra ability button and drop its frame art.
+--- Drop the frame art from Blizzard's zone / extra ability button.
 -- Out of combat (the container holds secure buttons). Undone by restore.
 function Clear.StyleExtra(on)
     if InCombatLockdown() then return false end
-    local c = _G.ExtraAbilityContainer
-    if c and c.SetScale then c:SetScale(on == false and 1 or Clear.EXTRA_SCALE) end   -- lint:allow R3 a constant, never a unit value
     local art = {
         _G.ZoneAbilityFrame and _G.ZoneAbilityFrame.Style,
         _G.ExtraActionButton1 and _G.ExtraActionButton1.style,
@@ -732,6 +753,7 @@ function Clear.Restore()
 end
 
 function Clear.OnLogin()
+    Clear.DebuffAnchor()
     local driver = CreateFrame("Frame", "MyUIClearDriver", UIParent)
     Clear.driver = driver
     driver:RegisterEvent("PLAYER_ENTERING_WORLD")

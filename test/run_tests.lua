@@ -3099,12 +3099,28 @@ do
         local a = sys(8).anchorInfo
         return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(176))
     end)())
-    check("  debuffs on you: right of bar 1's row past the zone button, ~bar-1 size, dispel types shown", (function()
+    check("  debuffs on you: anchored to MyUI's debuff anchor, ~bar-1 size, dispel types shown", (function()
         local d = sys(9)
         local a = d.anchorInfo
-        local half, bottom = ns.Actions.Extent()
-        return a and a.point == "BOTTOMLEFT" and near(a.offsetX, half + Scale.U(128)) and near(a.offsetY, bottom)
+        return a and a.relativeTo == "MyUIDebuffAnchor" and a.point == "BOTTOMLEFT"
            and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
+    end)())
+    check("  with no zone button up, the debuffs take its place by the bar", (function()
+        local half, bottom = ns.Actions.Extent()
+        local p, _, rp, x, y = Clear.debuffAnchor:GetPoint(1)
+        return p == "BOTTOMLEFT" and rp == "BOTTOM" and near(x, half + Scale.U(32)) and near(y, bottom)
+    end)())
+    check("  with it up, they start past it", (function()
+        local half = ns.Actions.Extent()
+        _G.ExtraAbilityContainer = mock.frame({ name = "ExtraAbilityContainer", shown = true })
+        Clear.PlaceDebuffAnchor()
+        local _, _, _, x = Clear.debuffAnchor:GetPoint(1)
+        local ok = near(x, half + Scale.U(128))
+        _G.ExtraAbilityContainer:Hide()
+        Clear.PlaceDebuffAnchor()
+        local _, _, _, x2 = Clear.debuffAnchor:GetPoint(1)
+        _G.ExtraAbilityContainer = nil
+        return ok and near(x2, half + Scale.U(32))
     end)())
     check("  the buff frame is left alone", sys(10).anchorInfo == nil)
     check("  the zone / extra ability button on bar 1's row, past button 8", (function()
@@ -3607,6 +3623,11 @@ do
     check("deleting the active one falls back to the default", L.Active() == "focus"
           and near(y(strip), Scale.U(132)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
+    run("layout")
+    check("/myui layout boxes every placed part, even what is not up, and holds MyUI's frames visible",
+          L.previewing == true and Registry.Get("ActionBar").target == 1)
+    run("layout")
+    check("  and the same command hides them", L.previewing == false and Registry.Get("ActionBar").target == 0)
 end
 
 -- ---------------------------------------------------------------------------

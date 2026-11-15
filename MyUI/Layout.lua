@@ -199,6 +199,7 @@ end
 -- the stance and pet bars) wait for combat to end.
 function Layout.Apply()
     if ns.Frames and ns.Frames.Place then ns.Frames.Place() end
+    if Layout.previewing then Layout.PlaceBoxes() end
     local function secure()
         if ns.Actions and ns.Actions.Place then ns.Actions.Place() end
         if ns.Group and ns.Group.Place then ns.Group.Place() end
@@ -212,4 +213,85 @@ function Layout.Apply()
     elseif not InCombatLockdown() then
         secure()
     end
+end
+
+-- ---------------------------------------------------------------------------
+-- Preview: where everything goes, including what is not up right now
+-- ---------------------------------------------------------------------------
+-- Mykel: "a way to peek at where the frames are for elements that are
+-- currently missing (like the debuffs)". /myui layout draws a labelled box
+-- for each placed element at the size it will roughly take -- Blizzard's
+-- debuffs, zone button, cooldown viewers, stance and pet bars, buff bars, and
+-- MyUI's group list -- and holds every MyUI frame visible (the debug claim).
+-- MyUI's own frames; nothing of Blizzard's is touched.
+
+-- Rough sizes in UI units: what a few of each would take.
+Layout.PREVIEW = {
+    { key = "Essential",    label = "Cooldowns",     w = 3 * 61, h = 55 },
+    { key = "Utility",      label = "Utility",       w = 5 * 36, h = 30 },
+    { key = "BuffIcon",     label = "Chosen buffs",  w = 4 * 38, h = 32 },
+    { key = "StanceBar",    label = "Stances",       w = 3 * 36, h = 30 },
+    { key = "PetActionBar", label = "Pet bar",       w = 5 * 36, h = 30 },
+    { key = "Debuffs",      label = "Debuffs",       w = 4 * 49, h = 43 },
+    { key = "BuffBars",     label = "Buff bars",     w = 220,    h = 64 },
+    -- The zone button lands ~39 right of and ~43 above its anchor.
+    { key = "ZoneAbility",  label = "Zone",          w = 50,     h = 50, dx = 39, dy = 43 - 25, centre = true },
+    { key = "Group",        label = "Group",         w = 150,    h = 5 * 32, group = true },
+}
+
+local boxes = {}
+
+local function Box(spec)
+    local b = boxes[spec.key]
+    if b then return b end
+    b = CreateFrame("Frame", nil, UIParent)
+    b:SetFrameStrata("TOOLTIP")
+    local bg = b:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(ns.Palette.Get("tickDark"))
+    local px = ns.Scale.Hairline and ns.Scale.Hairline() or 1
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+        local t = b:CreateTexture(nil, "BORDER")
+        t:SetColorTexture(ns.Palette.Get("notifAmber"))
+        if side == "TOP" or side == "BOTTOM" then
+            t:SetHeight(px); t:SetPoint(side .. "LEFT"); t:SetPoint(side .. "RIGHT")
+        else
+            t:SetWidth(px); t:SetPoint("TOP" .. side); t:SetPoint("BOTTOM" .. side)
+        end
+    end
+    local label = ns.Frames.Text(b, 10, "textPrimary", "CENTER")
+    label:SetPoint("CENTER")
+    label:SetText(spec.label)
+    b.label = label
+    boxes[spec.key] = b
+    return b
+end
+
+function Layout.PlaceBoxes()
+    local Clear = ns.Clear
+    for _, spec in ipairs(Layout.PREVIEW) do
+        local b = Box(spec)
+        local point, x, y, rel = Clear.Anchor(spec.key)
+        b:SetSize(spec.w, spec.h)
+        b:ClearAllPoints()
+        if spec.centre then
+            b:SetPoint("CENTER", UIParent, rel or "BOTTOM", x + ns.Scale.U(spec.dx or 0), y + ns.Scale.U(spec.dy or 0))
+        else
+            b:SetPoint(point, UIParent, rel or "BOTTOM", x, y)
+        end
+    end
+end
+
+function Layout.Preview(on)
+    if on == nil then on = not Layout.previewing end
+    Layout.previewing = on and true or false
+    if on then
+        Layout.PlaceBoxes()
+        for _, b in pairs(boxes) do b:Show() end
+        if ns.Reveal then ns.Reveal.Claim("debug") end
+    else
+        for _, b in pairs(boxes) do b:Hide() end
+        if ns.Reveal then ns.Reveal.Release("debug") end
+    end
+    return Layout.previewing
 end
