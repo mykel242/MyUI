@@ -71,6 +71,9 @@ Reveal.CHANNELS = {
     whisper = 1.0,
     peek    = 1.0,
     debug   = 1.0,
+    -- Round 004 play (Mykel: "I need enough of a map to see BugSack"): out
+    -- of combat the minimap stays up. /myui map peek turns it off.
+    calm    = 1.0,
     -- Round 004: something placeable is on the cursor (a spell, item or
     -- macro picked up) -- the action bar shows every page to drop it on.
     assign  = 1.0,
@@ -95,7 +98,7 @@ Reveal.CHANNELS = {
 -- debug leads because it is not a SPEC channel at all but a diagnostic
 -- override, and an audit that hid it would be lying about why a frame is lit.
 -- lowhealth slots in directly after it in Phase 4.
-Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "assign", "peek", "cursor" }
+Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "assign", "peek", "calm", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
@@ -123,6 +126,7 @@ local SCOPE = {
                StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end,
                PetBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
     lowhealth = { SelfStack = true },
+    calm = { Minimap = true, MinimapMap = true },
     assign = { ActionBar = true, WingCooldowns = true, WingUtility = true, WingBuffs = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
 }
@@ -505,6 +509,25 @@ local function OnTargetChanged()
     end
 end
 
+--- The calm claim: the minimap, out of combat, unless the player asked for
+-- it only on peek. Asked again whenever combat or the setting changes, and
+-- after clearing adopts the minimap.
+Reveal.MAP_MODES = { calm = true, peek = true }
+
+function Reveal.MapMode()
+    local m = ns.db and ns.db.map
+    return Reveal.MAP_MODES[m] and m or "calm"
+end
+
+function Reveal.Calm()
+    local fighting = Reveal.inCombat or (InCombatLockdown and InCombatLockdown())
+    if Reveal.MapMode() == "calm" and not fighting then
+        Reveal.Claim("calm")
+    else
+        Reveal.Release("calm")
+    end
+end
+
 function Reveal.OnLogin()
     local driver = CreateFrame("Frame", "MyUIRevealDriver", UIParent)
     Reveal.driver = driver
@@ -517,9 +540,13 @@ function Reveal.OnLogin()
         if event == "PLAYER_TARGET_CHANGED" then
             OnTargetChanged()
         elseif event == "PLAYER_REGEN_DISABLED" then
+            Reveal.inCombat = true
             Reveal.Claim("combat")
+            Reveal.Calm()
         elseif event == "PLAYER_REGEN_ENABLED" then
+            Reveal.inCombat = false
             Reveal.Release("combat")
+            Reveal.Calm()
         end
     end)
 

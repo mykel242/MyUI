@@ -424,7 +424,10 @@ T.Suite("myui-clear", {
                   -- Round 004: bar 1 yields to MyUI's action bar -- adopted at 0,
                   -- out of the registry.
                   local ok
-                  if spec.yieldsTo and api.ns().Registry.Get(spec.yieldsTo) then
+                  local calm = api.ns().Reveal.MapMode and api.ns().Reveal.MapMode() == "calm"
+                  if calm and (spec[1] == "Minimap" or spec[1] == "MinimapMap") then
+                      ok = true      -- round 004: up out of combat by design (/myui map)
+                  elseif spec.yieldsTo and api.ns().Registry.Get(spec.yieldsTo) then
                       local f = _G[spec[2]]
                       ok = Target(api, spec[1]) == nil and (not f or f:GetAlpha() == 0)
                   else
@@ -446,7 +449,8 @@ T.Suite("myui-clear", {
           what = "A whisper summons chat, and only chat.",
           setup = function(api) api.ns().Clear.OnWhisper() end,
           check = function(api)
-              return Target(api, "Chat") == 1 and Target(api, "Minimap") == 0,
+              local calm = api.ns().Reveal.MapMode and api.ns().Reveal.MapMode() == "calm"
+              return Target(api, "Chat") == 1 and (calm or Target(api, "Minimap") == 0),
                      ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
           end,
           teardown = function(api) api.ns().Reveal.Release("whisper") end },

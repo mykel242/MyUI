@@ -2923,6 +2923,9 @@ do
     end
     local before = Registry.Count()
 
+    -- The minimap's own "calm" claim (round 004) has its section below; these
+    -- R3b checks are about adoption at rest.
+    ns.db.map = "peek"
     local n = Clear.Apply()
     check("every adopted frame is registered (bar 1 yields to MyUI's action bar)", n == #Clear.ADOPT
           and Registry.Count() == before + #Clear.ADOPT - 1 and Registry.Get("MainBar") == nil, n)
@@ -3088,16 +3091,17 @@ do
            and near(a.offsetX, -(half + Scale.U(32))) and near(a.offsetY, bottom)
            and setting(sys(5), 2) == 0 and setting(sys(5), 3) == 6 and sys(5).isInDefaultPosition == false
     end)())
-    check("  utility clear of the major cooldowns' 55 px; the chosen buffs on the right, the row above", (function()
+    check("  utility clear of the major cooldowns' 55 px; the chosen buffs on the left too, over utility", (function()
         local u, b = sys(6).anchorInfo, sys(7).anchorInfo
         local half, bottom, row, gap = ns.Actions.Extent()
         return u.point == "BOTTOMRIGHT" and near(u.offsetY, bottom + 55 + gap)
-           and b.point == "BOTTOMLEFT" and near(b.offsetX, half + Scale.U(32)) and near(b.offsetY, bottom + row + gap)
-           and setting(sys(7), 2) == 1
+           and b.point == "BOTTOMRIGHT" and near(b.offsetX, -(half + Scale.U(32)))
+           and near(b.offsetY, bottom + 55 + gap + 30 + gap) and setting(sys(7), 2) == 0
     end)())
-    check("  the tracked buff bars left of the target strip, mirroring the group list", (function()
+    check("  the tracked buff bars over the left wing, growing up (vertical, direction Right)", (function()
         local a = sys(8).anchorInfo
-        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(196))
+        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(236))
+           and setting(sys(8), 0) == 1 and setting(sys(8), 2) == 1
     end)())
     check("  debuffs on you: anchored to MyUI's debuff anchor, ~bar-1 size, dispel types shown", (function()
         local d = sys(9)
@@ -3629,6 +3633,20 @@ do
     check("  but not chat or the minimap", (Registry.Get("Chat") == nil or Registry.Get("Chat").target == 0))
     run("layout")
     check("  and the same command hides them", L.previewing == false and Registry.Get("ActionBar").target == 0)
+
+    -- The minimap out of combat (Mykel: "enough of a map to see BugSack").
+    local mm = mock.frame({ name = "MinimapClusterMock" })
+    local had = Registry.Get("Minimap")
+    if not had then Registry.Add("Minimap", mm, 0) end
+    run("map calm")
+    check("/myui map calm: the minimap is up out of combat", Registry.Get("Minimap").target == 1)
+    ns.Reveal.driver:Fire("PLAYER_REGEN_DISABLED")
+    check("  and goes in combat", Registry.Get("Minimap").target == 0)
+    ns.Reveal.driver:Fire("PLAYER_REGEN_ENABLED")
+    check("  and comes back after", Registry.Get("Minimap").target == 1)
+    run("map peek")
+    check("/myui map peek: only when summoned", Registry.Get("Minimap").target == 0)
+    if not had then Registry.Remove("Minimap") end
 end
 
 -- ---------------------------------------------------------------------------

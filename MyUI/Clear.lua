@@ -123,6 +123,7 @@ function Clear.Adopt()
     if Clear.adopted.Chat and ns.Chat and ns.Chat.FreeEditBox then
         ns.Chat.FreeEditBox()
     end
+    if ns.Reveal.Calm then ns.Reveal.Calm() end
     ns.Reveal.Resolve()
     ns.Reveal.Snap()
     return n
@@ -461,7 +462,9 @@ Clear.WINGS = {
     -- Above the major cooldowns, not above bar 1's row: they are taller than
     -- the bar, and at bar height the two overlapped (round 004 play).
     Utility   = { side = -1, row = 1, size = 5, limit = 8, base = 30, over = "Essential" },
-    BuffIcon  = { side =  1, row = 1, size = 3, limit = 8, base = 40 },   -- the chosen buffs, small, above
+    -- Round 004 play (Mykel): the chosen buffs go on the left too (where
+    -- exactly is undecided) -- above the utility row for now.
+    BuffIcon  = { side = -1, row = 2, size = 3, limit = 8, base = 40, over = "Utility" },
 }
 
 -- SPEC 18, right wing, bar 1's row: debuffs on you. Blizzard's own debuff
@@ -516,7 +519,14 @@ function Clear.Anchor(key)
     local gap = ns.Scale.U(ns.Layout.Value("wingGap"))
     local w = Clear.WINGS[key]
     if w then
-        local y = w.over and (bottom + Clear.WingIconHeight(w.over) + rowGap) or (bottom + w.row * (row + rowGap))
+        -- A row stacked over another sits on top of it, whatever its height.
+        local y
+        if w.over then
+            local _, _, under = Clear.Anchor(w.over)
+            y = under + Clear.WingIconHeight(w.over) + rowGap
+        else
+            y = bottom + w.row * (row + rowGap)
+        end
         return w.side < 0 and "BOTTOMRIGHT" or "BOTTOMLEFT", barX + w.side * (half + gap), y
     end
     local o = Clear.OVER_BAR[key]
@@ -611,8 +621,14 @@ function Clear.PlaceWings(layout)
                 end
             end
         elseif sys.system == E.EditModeSystem.CooldownViewer and idx.BuffBar == sys.systemIndex then
-            -- The tracked buff bars: not a wing, placed by the profile.
+            -- The tracked buff bars: not a wing, placed by the profile. A
+            -- vertical viewer grows up only with direction Right
+            -- (CooldownViewer.lua: layoutFramesGoingUp) -- round 004 play:
+            -- they grew down over the other trackers.
             At(sys, "BuffBars")
+            sys.settings = sys.settings or {}
+            SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Vertical)
+            SetSetting(sys, cdm.IconDirection, E.CooldownViewerIconDirection.Right)
         elseif sys.system == E.EditModeSystem.CooldownViewer then
             for key, w in pairs(Clear.WINGS) do
                 if idx[key] == sys.systemIndex then

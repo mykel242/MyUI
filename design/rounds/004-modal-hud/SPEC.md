@@ -512,6 +512,10 @@ only alpha moves (RULES).
 
 ## 16a. Layout profiles (round 004 play)
 
+The minimap stays up **out of combat** (Mykel: "enough of a map to see BugSack") — a `calm`
+reveal channel claimed outside combat; `/myui map peek` returns it to summon-only.
+
+
 Positions are personal preference (Mykel), so they live in **layout profiles** (`Layout.lua`):
 where SelfStack, the target strip, the action bar (and with it the wings, stance and pet bars) and
 the group frames sit, plus the wing gap and icon padding, in SPEC units. Built in:
@@ -587,8 +591,9 @@ Two small groups that line up row for row with the bar stack, so nothing floats.
   alpha 0 and revealed with the bar. Mirroring into MyUI buttons is not possible on 12.1:
   `Cooldown:SetCooldown` is protected (probe P2 answered from the API).
 - **Right — On you.** Debuffs on you on bar 1's row, edged by dispel type; a **few chosen buffs**
-  above, small — the chosen buffs are the Cooldown Manager's tracked buffs (BuffIcon viewer),
-  placed the same way (built). **Debuffs are Blizzard's debuff frame**, placed on bar 1's row right
+  above, small — the chosen buffs are the Cooldown Manager's tracked buffs (BuffIcon viewer).
+  Round 004 play: the chosen buffs moved to the **left**, over the utility row, for now (Mykel:
+  "the other side, but I haven't decided where"); the tracked buff bars sit over them, growing up. **Debuffs are Blizzard's debuff frame**, placed on bar 1's row right
   of the bar at ~bar-1 size with its own dispel-type borders (built); Blizzard draws whatever
   arrives secret, so P1 no longer gates the wing — only MyUI's own unit cards (§ 19). Dispel types take the palette's notification hues — magic blue, curse violet,
   poison green, disease amber — so no colour is added. Whether aura data arrives secret in

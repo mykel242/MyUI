@@ -38,9 +38,9 @@ Layout.PRESETS = {
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 132 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
         -- Left of the strip, mirroring the group list: the Cooldown
-        -- Manager's tracked buff bars. (The preview showed them sitting on
-        -- the utility row at 176.)
-        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 196 },
+        -- Manager's tracked buff bars, over the left wing's rows (cooldowns,
+        -- utility, chosen buffs), growing up.
+        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 236 },
         -- On bar 1's row, past button 8 (Mykel: "line it up with the action
         -- bars"). Its container lays the button out off-centre (~39 right of
         -- this anchor); the height is Mykel's own, set in game with
