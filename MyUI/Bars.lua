@@ -306,8 +306,12 @@ function Bars.UpdateCast()
     if not id then
         bar:SetMinMaxValues(0, 1)
         bar:SetValue(0)
+        -- Round 004 play: an idle cast bar is an empty dark band under the
+        -- stack ("looks jank when out of combat"). It is there while casting.
+        bar:Hide()
         return
     end
+    bar:Show()
     local duration
     if kind == "cast" then
         duration = _G.UnitCastingDuration and _G.UnitCastingDuration("player")

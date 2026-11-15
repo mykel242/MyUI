@@ -222,6 +222,7 @@ function Layout.Apply()
         if ns.Group and ns.Group.PlaceSelf then ns.Group.PlaceSelf() end
         if ns.Group and ns.Group.PlacePet then ns.Group.PlacePet() end
         if ns.Group and ns.Group.PlaceFocus then ns.Group.PlaceFocus() end
+        if ns.Group and ns.Group.PlaceTarget then ns.Group.PlaceTarget() end
         if ns.Clear and ns.Clear.Enabled and ns.Clear.Enabled() and ns.Clear.ApplyLayout then
             ns.Clear.ApplyLayout()
             if ns.Reveal then ns.Reveal.Snap() end

@@ -479,6 +479,44 @@ function Group.UpdateSplit()
 end
 
 -- ---------------------------------------------------------------------------
+-- The target strip, clickable (round 004 play)
+-- ---------------------------------------------------------------------------
+-- Mykel: "no way to make a target mob the focus -- clicking on the mob
+-- attacks it". A secure unit button for "target" over the strip, with the
+-- click map: ctrl-click focuses it, right-click opens its menu, click is a
+-- plain re-target. Only while there is a target.
+
+Group.TARGET_DRIVER = "[@target,exists] show; hide"
+local TARGET_W, TARGET_H, TARGET_PAD = 400, 49, 6
+
+function Group.PlaceTarget()
+    local b = Group.targetButton
+    if not b or InCombatLockdown() then return false end
+    local point, rel, x, y = ns.Layout.Pos("TargetStrip")
+    local dx = point:find("LEFT") and -TARGET_PAD or point:find("RIGHT") and TARGET_PAD or 0
+    local dy = point:find("BOTTOM") and -TARGET_PAD or point:find("TOP") and TARGET_PAD or 0
+    b:SetSize(U(TARGET_W + 2 * TARGET_PAD), U(TARGET_H + 2 * TARGET_PAD))
+    b:ClearAllPoints()
+    b:SetPoint(point, UIParent, rel, U(x + dx), U(y + dy))
+    return true
+end
+
+function Group.BuildTarget()
+    if Group.targetButton or InCombatLockdown() then return Group.targetButton ~= nil end
+    local b = CreateFrame("Button", "MyUITargetButton", UIParent, "SecureUnitButtonTemplate")
+    b:SetFrameStrata("HIGH")
+    b:RegisterForClicks("AnyUp")
+    b:SetAttribute("unit", "target")
+    b:SetAttribute("*type1", "target")
+    b:SetAttribute("ctrl-type1", "focus")
+    b:SetAttribute("*type2", "togglemenu")
+    Group.targetButton = b
+    Group.PlaceTarget()
+    RegisterStateDriver(b, "visibility", Group.TARGET_DRIVER)
+    return true
+end
+
+-- ---------------------------------------------------------------------------
 -- Your focus (round 004 play: ctrl-click set a focus that showed nowhere)
 -- ---------------------------------------------------------------------------
 -- A smaller strip in the target strip's grammar -- name, percentage, level
@@ -516,6 +554,14 @@ function Group.BuildFocus()
     if name.SetWordWrap then name:SetWordWrap(false) end
     local pill, number = F.Pill(b, health, 11)
     b.__health, b.__name, b.__level, b.__number = health, name, level, number
+    -- Labelled like the ALT and CTRL pages (round 004 play, Mykel).
+    local label = b:CreateFontString(nil, "OVERLAY")
+    label:SetFont(F.FONT, U(10), "")
+    label:SetTextColor(Palette.Get("notifAmber"))
+    label:SetJustifyH("RIGHT")
+    label:SetText("FOCUS")
+    label:SetPoint("RIGHT", b, "LEFT", -U(8), 0)
+    b.__label = label
     Group.focusButton = b
     Group.PlaceFocus()
     RegisterStateDriver(b, "visibility", Group.FOCUS_DRIVER)
@@ -556,6 +602,7 @@ function Group.Start()
     Group.BuildSelf()
     Group.BuildPet()
     Group.BuildFocus()
+    Group.BuildTarget()
     ns.Registry.Add("Group", Group.frame, 0)
     local ev = CreateFrame("Frame")
     Group.events = ev

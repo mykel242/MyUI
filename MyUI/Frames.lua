@@ -303,11 +303,21 @@ Frames.Bar, Frames.Fill = Bar, Fill
 Frames.DANGER_SPAN = 0.35
 
 function Frames.DangerGradient(bar, w, h)
-    -- The fill over it must be opaque, or the red shows through at full
-    -- health (round 004 play).
+    -- The fill over it is opaque (round 004 play: a pink tint at full
+    -- health)...
     local fr, fg, fb = Palette.Get("fill")
     bar.fill:SetColorTexture(fr, fg, fb, 1)
-    local g = bar:CreateTexture(nil, "BORDER")
+    -- ...and the gradient is clipped to the empty part of the bar, right of
+    -- the fill's edge: at a resting alpha every region draws translucent, so
+    -- an opaque fill alone still let it through. The gradient itself stays
+    -- fixed to the bar -- only the window onto it moves.
+    local clip = CreateFrame("Frame", nil, bar)
+    if clip.SetClipsChildren then clip:SetClipsChildren(true) end
+    local edge = bar.GetStatusBarTexture and bar:GetStatusBarTexture() or bar.fill
+    clip:SetPoint("TOPLEFT", edge or bar, edge and "TOPRIGHT" or "TOPLEFT", 0, 0)
+    clip:SetPoint("BOTTOMRIGHT", bar, "BOTTOMRIGHT", 0, 0)
+    bar.dangerClip = clip
+    local g = clip:CreateTexture(nil, "ARTWORK")
     g:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
     g:SetSize(U(w) * Frames.DANGER_SPAN, U(h))
     g:SetColorTexture(1, 1, 1, 1)

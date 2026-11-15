@@ -2782,6 +2782,20 @@ do
         end
         return near(stack.health.danger:GetWidth(), Scale.U(240) * 0.35)
     end)())
+    check("an idle cast bar is hidden, not an empty band", (function()
+        Bars.UpdateCast()
+        return not stack.cast:IsShown()
+    end)())
+    check("the danger gradient sits in a clipping window right of the fill's edge", (function()
+        local clip = stack.health.dangerClip
+        local leftEdge = false
+        for _, c in ipairs(clip.__calls) do
+            if c.method == "SetPoint" and c[1] == "TOPLEFT" and c[3] == "TOPRIGHT" then leftEdge = true end
+        end
+        return clip ~= nil and leftEdge and (function()
+            for _, c in ipairs(clip.__calls) do if c.method == "SetClipsChildren" then return c[1] == true end end
+        end)()
+    end)())
     check("experience as a thin line under SelfStack while levelling, gone at max", (function()
         _G.UnitXP = function() return 300 end
         _G.UnitXPMax = function() return 1000 end
@@ -3747,7 +3761,12 @@ do
     G.events:Fire("UNIT_PET", "player")
     check("no pet: SelfStack gets its full width and place back", not F.split
           and near(stack:GetWidth(), Scale.U(240)) and select(4, stack:GetPoint(1)) == 0)
+    local tb = G.targetButton
+    check("the target strip is clickable: ctrl-click makes your target the focus, right-click its menu",
+          tb ~= nil and tb:GetAttribute("unit") == "target" and tb:GetAttribute("ctrl-type1") == "focus"
+          and tb:GetAttribute("*type2") == "togglemenu" and G.TARGET_DRIVER == "[@target,exists] show; hide")
     local fb = G.focusButton
+    check("the focus strip is labelled FOCUS, like the ALT and CTRL pages", fb.__label:GetText() == "FOCUS")
     check("your focus: a strip over the target strip, on a secure button -- click targets it",
           fb ~= nil and fb:GetAttribute("unit") == "focus" and fb:GetAttribute("*type1") == "target"
           and fb:GetAttribute("*type2") == "togglemenu" and G.FOCUS_DRIVER == "[@focus,exists] show; hide"
