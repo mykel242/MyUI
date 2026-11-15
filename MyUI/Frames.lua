@@ -555,7 +555,11 @@ function Frames.OnLogin()
     local selfStack = BuildSelfStack()
     Registry.Add("SelfStack", selfStack, 0.35)
     Registry.Add("Cooldowns", BuildCooldowns(selfStack), 0.25)
-    Registry.Add("TargetStrip", BuildTargetStrip(), 0)
+    -- Round 004 play: as visible as SelfStack while there is a target
+    -- (resting 0.35, full in combat or on hover); with none, nothing.
+    local strip = Registry.Add("TargetStrip", BuildTargetStrip(), 0)
+    strip.follows = "SelfStack"
+    strip.followWhen = function() return _G.UnitExists and _G.UnitExists("target") or false end
 
     Registry.Each(function(entry)
         entry.frame:SetAlpha(entry.resting)

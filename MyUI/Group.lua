@@ -770,7 +770,9 @@ function Group.BuildFocus()
     Group.focusButton = b
     Group.PlaceFocus()
     RegisterStateDriver(b, "visibility", Group.FOCUS_DRIVER)
-    ns.Registry.Add("Focus", b, 1)
+    -- Round 004 play: the same opacity as you and your pet.
+    local entry = ns.Registry.Add("Focus", b, 0.35)
+    entry.follows = "SelfStack"
     return true
 end
 

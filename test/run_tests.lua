@@ -614,7 +614,7 @@ check("  but not the target strip", stripEntry.target == 0, stripEntry.target)
 Reveal.Release("combat")
 
 Reveal.Claim("target")
-check("target claims only the target strip", stripEntry.target == 1)
+check("target leaves the strip to follow the self stack (round 004)", stripEntry.target == 0)
 check("  leaving the self stack at rest", stackEntry.target == 0.35)
 Reveal.Release("target")
 
@@ -739,8 +739,11 @@ mock.altDown, mock.shiftDown = false, false
 
 mock.units.target = true
 driver:Fire("PLAYER_TARGET_CHANGED")
-check("acquiring a target reveals the strip", stripEntry.target == 1)
-check("  and nothing else", stackEntry.target == 0.35)
+check("acquiring a target shows the strip as visible as the self stack (round 004)", stripEntry.target == 0.35)
+check("  and the self stack stays at rest", stackEntry.target == 0.35)
+Reveal.Claim("combat")
+check("  in combat both come up", stripEntry.target == 1 and stackEntry.target == 1)
+Reveal.Release("combat")
 mock.units.target = false
 driver:Fire("PLAYER_TARGET_CHANGED")
 check("losing it hides the strip again", stripEntry.target == 0)

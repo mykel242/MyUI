@@ -125,7 +125,9 @@ local SCOPE = {
     -- The stance and pet bars sit where the stacked pages go while arranging
     -- (Mykel: hide them then); evaluated at claim time, so Actions re-claims
     -- the target when arranging starts or stops.
-    target = { TargetStrip = true, ActionBar = true, Debuffs = true,
+    -- The target strip itself follows SelfStack now (Frames.lua), so a
+    -- target alone does not hold it at full.
+    target = { ActionBar = true, Debuffs = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
     lowhealth = { SelfStack = true },
@@ -316,8 +318,14 @@ function Reveal.Resolve()
         -- A follower takes its leader's alpha and claim (round 004 play: the
         -- pet stack at full alpha beside a faded SelfStack). The leader is
         -- registered first, so it is already resolved in this pass.
+        -- Round 004 play (Mykel: "focus and target opacity should work the
+        -- same way as player and pet"): followers come up with their leader
+        -- (never below it), and still answer their own claims -- a hover on
+        -- one lights that one. followWhen can suspend it (no target).
         local leader = entry.follows and Registry.Get(entry.follows)
-        if leader then target, winner = leader.target, leader.claim end
+        if leader and (not entry.followWhen or entry.followWhen()) and leader.target > target then
+            target, winner = leader.target, leader.claim
+        end
         local previous = entry.claim
         entry.claim = winner
 
