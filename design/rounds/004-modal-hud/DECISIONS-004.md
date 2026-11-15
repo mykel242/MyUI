@@ -56,12 +56,23 @@ Mykel was not sure. Read against 12.1.5.70783:
 whether to drive it with MyUI's own attributes or to inherit Blizzard's Click Casting bindings
 on MyUI's unit buttons, so the player configures it in one place.
 
-## Still open
+## Answered later the same day
 
-- Mod-bar display: **Swap** (only the held bar drawn, in bar 1's place — the default), **Ghost**
-  (thin state strips), or **Dim** (all four rows small). Mykel to choose after playing.
-- Which spell sits on alt-click — per spec, several for healers.
-- MyUI's own secure action buttons, or Blizzard's bars restyled and positioned.
+- **Mod-bar display is a player setting**: Swap and Ghost offered (Mykel likes both); Dim dropped.
+- **The alt-click spell is the player's choice**, with a default from class, spec and level —
+  plain data (a per-class table, `IsSpellKnown`), never a reading of combat state.
+- **Bars: MyUI's own secure action buttons on Blizzard's action slots** (recommended; P5 confirms).
+  Skinning Blizzard's bars is safest but cannot do Swap or Ghost: both change what is shown when a
+  modifier is held, in combat, and Blizzard's bars are protected — only a secure state driver on
+  MyUI's own header may page or show them in combat, which is what Bartender and Dominos do.
+  Blizzard's bars stay hidden by the MyUI layout and keep the keybinds; MyUI's buttons draw the
+  same slots and are clickable.
+- **Items, trinkets, potions**: no special handling. They live on action slots (often as macros
+  — `/use 13`, a potion macro), so MyUI's buttons show them like anything else: icon, count,
+  cooldown. The Cooldowns wing may also hold any action slot, so an on-use trinket or a potion can
+  sit beside the major cooldowns.
+
+## Still open
 - Boss timeline and alerts: mirror `C_EncounterTimeline` / encounter warnings into MyUI frames,
   or restyle Blizzard's — after probe P4.
 - A collected enemy list (still the first nice-to-have after MVP; needs its own design round —
