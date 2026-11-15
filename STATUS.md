@@ -62,6 +62,11 @@ MyUI's. Second pass:
   mouse buttons report nothing held (at most a 30 ms LALT blip). The mouse software puts ALT on
   the key event only, so no state driver can see it. Fix is on the mouse side (a held modifier,
   e.g. Karabiner-Elements); the binds still fire the right slot either way.
+- **Pick up here (end of 2026-11-14):** Mykel sets up Karabiner-Elements (MX Master 4,
+  Options+ can't hold a modifier): side buttons → held ⌥ / ⌃, then `/myui mods` should show
+  `held ALT`. Still to confirm in game: drop glow centred (bar now scaled, buttons 45), Blizzard
+  bars invisible during drag (`/myui actions`), no BugSack taint after a fight. Then the Ghost
+  style, the 30 px pages, the wings. Branch not pushed.
 - Health % default is now **above** the bar (Mykel: "much cleaner"); SelfStack gained name and
   level, laid out like the target strip.
 
