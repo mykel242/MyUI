@@ -440,7 +440,9 @@ function Group.BuildPet()
     Group.petButton = b
     Group.PlacePet()
     RegisterStateDriver(b, "visibility", Group.PET_DRIVER)
-    ns.Registry.Add("Pet", b, 0.35)   -- rests like SelfStack, up with it
+    -- Always exactly as visible as SelfStack, beside which it sits.
+    local entry = ns.Registry.Add("Pet", b, 0.35)
+    entry.follows = "SelfStack"
     return true
 end
 

@@ -111,7 +111,7 @@ local SCOPE = {
     -- Manager carries cooldowns; keybinds still work). Group frames come back
     -- by role or preference -- Clear.GroupInCombat().
     -- Round 004: MyUI's own action bar (Actions.lua) comes back in combat.
-    combat = { SelfStack = true, Pet = true, Cooldowns = true, ActionBar = true,
+    combat = { SelfStack = true, Cooldowns = true, ActionBar = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = true, Debuffs = true,
                -- Round 004 play: a hunter sets the pet bar's stances once;
@@ -124,7 +124,7 @@ local SCOPE = {
     -- The stance and pet bars sit where the stacked pages go while arranging
     -- (Mykel: hide them then); evaluated at claim time, so Actions re-claims
     -- the target when arranging starts or stops.
-    target = { TargetStrip = true, ActionBar = true, Debuffs = true, Pet = true,
+    target = { TargetStrip = true, ActionBar = true, Debuffs = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end,
                PetBar = function() return not (ns.Actions and ns.Actions.IsStacked())
@@ -313,6 +313,11 @@ function Reveal.Resolve()
     local now = Reveal.Now()
     Registry.Each(function(entry)
         local target, winner = Arbitrate(entry)
+        -- A follower takes its leader's alpha and claim (round 004 play: the
+        -- pet stack at full alpha beside a faded SelfStack). The leader is
+        -- registered first, so it is already resolved in this pass.
+        local leader = entry.follows and Registry.Get(entry.follows)
+        if leader then target, winner = leader.target, leader.claim end
         local previous = entry.claim
         entry.claim = winner
 

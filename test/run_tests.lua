@@ -3757,6 +3757,15 @@ do
             if c.method == "SetFormattedText" then return c[1] == "%d" and mock.isSecret(c[2]) end
         end
     end)())
+    check("  and exactly as visible as SelfStack, whatever claims either", (function()
+        ns.Reveal.Claim("target")
+        local a = ns.Registry.Get("Pet").target == ns.Registry.Get("SelfStack").target
+        ns.Reveal.Release("target")
+        ns.Reveal.Claim("cursor", "SelfStack")
+        local b = ns.Registry.Get("Pet").target == 1
+        ns.Reveal.Release("cursor", "SelfStack")
+        return a and b and ns.Registry.Get("Pet").target == ns.Registry.Get("SelfStack").target
+    end)())
     mock.units.pet = nil
     G.events:Fire("UNIT_PET", "player")
     check("no pet: SelfStack gets its full width and place back", not F.split
