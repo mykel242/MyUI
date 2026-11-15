@@ -248,7 +248,7 @@ local COMMANDS = {
     { "map",          "the minimap: calm (up out of combat, default) | peek (only when summoned)" },
     { "layout",       "preview where everything goes, even what isn't up (debuffs, zone button): toggles" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
-    { "move",         "nudge a part of the HUD: self | target | bar | group | zone | timers <dx> <dy> (SPEC units)" },
+    { "move",         "nudge a part of the HUD: self | pet | target | bar | group | zone | timers <dx> <dy> (SPEC units)" },
     { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons) | debuffs <n> (bar to debuffs)" },
     { "bars",         "arrange the action bars: every page on screen, held, until you run it again" },
     { "mods",         "for 10s, what the client sees of ALT / CTRL / SHIFT (mouse-mapped modifiers)" },

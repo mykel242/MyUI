@@ -386,6 +386,64 @@ function Group.BuildSelf()
 end
 
 -- ---------------------------------------------------------------------------
+-- Your pet (round 004 play: a hunter's Blizzard pet frame sat in the wing)
+-- ---------------------------------------------------------------------------
+-- A small strip like SelfStack -- name, thin health through the curve -- on
+-- a secure unit button for "pet": click targets it, right-click opens the
+-- pet menu, ctrl-click focuses. Shown only while you have a pet (a state
+-- driver, so a pet summoned in combat appears). Placed by the profile.
+
+local PET_W, PET_H = 96, 20
+Group.PET_DRIVER = "[@pet,exists] show; hide"
+
+function Group.PlacePet()
+    local b = Group.petButton
+    if not b or InCombatLockdown() then return false end
+    local point, rel, x, y = ns.Layout.Pos("Pet")
+    b:SetSize(U(PET_W), U(PET_H))
+    b:ClearAllPoints()
+    b:SetPoint(point, UIParent, rel, U(x), U(y))
+    return true
+end
+
+function Group.BuildPet()
+    if Group.petButton or InCombatLockdown() then return Group.petButton ~= nil end
+    local b = CreateFrame("Button", "MyUIPetButton", UIParent, "SecureUnitButtonTemplate")
+    b:SetFrameStrata("HIGH")
+    b:RegisterForClicks("AnyUp")
+    b:SetAttribute("unit", "pet")
+    b:SetAttribute("*type1", "target")
+    b:SetAttribute("ctrl-type1", "focus")
+    b:SetAttribute("*type2", "togglemenu")
+
+    local health = ns.Frames.Bar(b, PET_W, 3)
+    health:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
+    health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
+    ns.Frames.DangerGradient(health, PET_W, 3)
+    b.__health = health
+    local name = ns.Frames.Text(b, 11, "textDim", "LEFT")
+    name:SetPoint("BOTTOMLEFT", health, "TOPLEFT", 0, U(ns.Frames.ROW_GAP))
+    name:SetPoint("RIGHT", b, "RIGHT", 0, 0)
+    if name.SetWordWrap then name:SetWordWrap(false) end
+    b.__name = name
+
+    Group.petButton = b
+    Group.PlacePet()
+    RegisterStateDriver(b, "visibility", Group.PET_DRIVER)
+    ns.Registry.Add("Pet", b, 0.35)   -- rests like SelfStack, up with it
+    return true
+end
+
+function Group.UpdatePet()
+    local b = Group.petButton
+    if not b or not (_G.UnitExists and _G.UnitExists("pet")) then return end
+    Guard.Send(b.__name, "SetText", _G.UnitName("pet"))
+    local curves = ns.Bars and ns.Bars.curves
+    local v = curves and Guard.HealthThrough("pet", curves.frac)
+    if v ~= nil then Guard.Send(b.__health, "SetValue", v) end
+end
+
+-- ---------------------------------------------------------------------------
 -- Events and login
 -- ---------------------------------------------------------------------------
 
@@ -394,6 +452,7 @@ local UNIT_EVENTS = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT
 function Group.Start()
     if not Group.Build() then return false end
     Group.BuildSelf()
+    Group.BuildPet()
     ns.Registry.Add("Group", Group.frame, 0)
     local ev = CreateFrame("Frame")
     Group.events = ev
@@ -403,10 +462,15 @@ function Group.Start()
     ev:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
     ev:RegisterEvent("PLAYER_REGEN_ENABLED")
     ev:RegisterEvent("PLAYER_TARGET_CHANGED")
+    ev:RegisterEvent("UNIT_PET")
     ev:SetScript("OnEvent", function(_, event, unit)
         if event == "PLAYER_TARGET_CHANGED" then
             Group.PaintTargets()
             return
+        end
+        if unit == "pet" or event == "UNIT_PET" then
+            Group.UpdatePet()
+            if event == "UNIT_PET" then return end
         end
         if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_NAME_UPDATE"
            or event == "UNIT_CONNECTION" then
@@ -419,6 +483,7 @@ function Group.Start()
         end
     end)
     if ns.Clear and ns.Clear.HideGroupFrames then ns.Clear.HideGroupFrames() end
+    Group.UpdatePet()
     ns.Reveal.Resolve()
     ns.Reveal.Snap()
     return true

@@ -316,8 +316,8 @@ end)())
 section("Frames -- SPEC 2 anchors")
 -- ---------------------------------------------------------------------------
 
-check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar and group frames",
-      Registry.Count() == 5 and Registry.Get("ActionBar") ~= nil and Registry.Get("Group") ~= nil, Registry.Count())
+check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar, group frames and pet",
+      Registry.Count() == 6 and Registry.Get("ActionBar") ~= nil and Registry.Get("Group") ~= nil and Registry.Get("Pet") ~= nil, Registry.Count())
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
@@ -800,7 +800,7 @@ for _ = 1, 3 do
     Reveal.Claim("peek")
     Reveal.Release("peek")
 end
-check("three presses log three claims", #logOf("claim", "channel", "peek") == 3)
+check("three presses log three claims", #logOf("claim", "channel", "peek") == 3, #logOf("claim", "channel", "peek"))
 check("  and three releases", #logOf("release", "channel", "peek") == 3)
 
 -- A channel can re-assert a claim it already holds: proximity re-claims every
@@ -836,11 +836,11 @@ Reveal.Release("cursor")
 
 check("the log is bounded", (function()
     Reveal.ClearLog()
-    for _ = 1, 60 do
+    for _ = 1, 100 do
         Reveal.Claim("combat")
         Reveal.Release("combat")
     end
-    return #Reveal.log <= 40
+    return #Reveal.log <= 60
 end)(), #Reveal.log)
 
 Reveal.ClearLog()
@@ -3668,8 +3668,24 @@ do
         return rel == UIParent and p == sp and rp == srp and near(x, sx) and near(y, sy - Scale.U(6))
            and near(me:GetWidth(), Scale.U(252)) and near(me:GetHeight(), Scale.U(45))
     end)())
+    local pet = G.petButton
+    check("your pet: a strip on a secure button -- click targets it, right-click its menu", pet ~= nil
+          and pet:GetAttribute("unit") == "pet" and pet:GetAttribute("*type1") == "target"
+          and pet:GetAttribute("*type2") == "togglemenu" and Registry.Get("Pet") ~= nil)
+    check("  only while you have one", G.PET_DRIVER == "[@pet,exists] show; hide")
+    mock.units.pet = true
+    Guard.Reset()
+    G.events:Fire("UNIT_HEALTH", "pet")
+    check("  its health through the curve, its name", (function()
+        local hv
+        for i = #pet.__health.__calls, 1, -1 do
+            if pet.__health.__calls[i].method == "SetValue" then hv = pet.__health.__calls[i][1] break end
+        end
+        return mock.isSecret(hv) and pet.__name:GetText() ~= nil and #Guard.violations == 0
+    end)())
+    mock.units.pet = nil
     check("Blizzard's party and raid frames are hidden outright once these exist", (function()
-        local want = { PartyFrame = true, CompactPartyFrame = true, CompactRaidFrameContainer = true }
+        local want = { PartyFrame = true, CompactPartyFrame = true, CompactRaidFrameContainer = true, PetFrame = true }
         for _, u in ipairs(ns.Clear.UNITS) do want[u] = nil end
         return next(want) == nil
     end)())

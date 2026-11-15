@@ -318,7 +318,9 @@ Clear.UNITS = { "PlayerFrame", "TargetFrame", "FocusFrame" }
 Clear.hiddenUnits = {}
 
 -- Blizzard's party and raid frames, once MyUI's group frames exist (Group.lua).
-Clear.GROUP_FRAMES = { "PartyFrame", "CompactPartyFrame", "CompactRaidFrameContainer" }
+Clear.GROUP_FRAMES = { "PartyFrame", "CompactPartyFrame", "CompactRaidFrameContainer",
+                       -- Round 004 play: MyUI's pet strip replaces the pet frame.
+                       "PetFrame" }
 
 function Clear.HideGroupFrames()
     for _, name in ipairs(Clear.GROUP_FRAMES) do

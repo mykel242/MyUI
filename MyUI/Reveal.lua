@@ -111,7 +111,7 @@ local SCOPE = {
     -- Manager carries cooldowns; keybinds still work). Group frames come back
     -- by role or preference -- Clear.GroupInCombat().
     -- Round 004: MyUI's own action bar (Actions.lua) comes back in combat.
-    combat = { SelfStack = true, Cooldowns = true, ActionBar = true,
+    combat = { SelfStack = true, Pet = true, Cooldowns = true, ActionBar = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = true, PetBar = true, Debuffs = true,
                -- MyUI's group frames (SPEC 19), by role or preference.
@@ -121,7 +121,7 @@ local SCOPE = {
     -- The stance and pet bars sit where the stacked pages go while arranging
     -- (Mykel: hide them then); evaluated at claim time, so Actions re-claims
     -- the target when arranging starts or stops.
-    target = { TargetStrip = true, ActionBar = true, Debuffs = true,
+    target = { TargetStrip = true, ActionBar = true, Debuffs = true, Pet = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end,
                PetBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
@@ -151,7 +151,7 @@ local claims = {}   -- [frameName][channel] = alpha
 -- is also simply a better test than watching: it shows which channel won, on
 -- which frame, and when, rather than asking whether a fade felt right.
 
-local MAX_LOG = 40
+local MAX_LOG = 60
 Reveal.log = {}
 
 -- Two kinds of entry, and the distinction matters more than it looks.

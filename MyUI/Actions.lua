@@ -512,6 +512,10 @@ function Actions.Build()
                 local b = MakeButton(mf, "MyUIActionMini" .. page.name .. i, f.bar, i, f.offset + i)
                 b:SetPoint("BOTTOMLEFT", mf, "BOTTOMLEFT", (i - 1) * (Actions.NATIVE + U(Actions.GAP) / Actions.Scale()), 0)
                 if b.__myuiKey then b.__myuiKey:Hide(); b.__myuiKey = nil end
+                -- An empty slot draws nothing in a mini row (round 004 play:
+                -- an empty CTRL page was a row of dark boxes).
+                if b.SlotBackground then b.SlotBackground:SetAlpha(0) end
+                if b.SlotArt then b.SlotArt:SetAlpha(0) end
                 header:SetFrameRef("m" .. page.id .. "-" .. i, b)
                 b:Hide()
                 Actions.miniButtons[page.id][i] = b
