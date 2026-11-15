@@ -64,6 +64,14 @@ ns.Registry.Each(function(entry)
     entry.frame:Show()
 end)
 
+-- The engine making the group header's unit buttons (SecureGroupHeaders.lua
+-- does this on Show); the mock has no engine, so make them here.
+for i = 1, ns.Group.PARTY_MAX do
+    local b = mock.frame({ name = "MyUIPartyHeaderUnitButton" .. i, objectType = "Button" })
+    b.__parent = ns.Group.party
+    ns.Group.party:SetAttribute("child" .. i, b)
+end
+
 -- Blizzard's frames that R3b adopts, and a PlayerFrame for the probe.
 for _, spec in ipairs(ns.Clear.ADOPT) do
     _G[spec[2]] = mock.frame({ name = spec[2], shown = true })
