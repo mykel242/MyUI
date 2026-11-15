@@ -486,3 +486,51 @@ T.Suite("myui-clear", {
           end },
     },
 })
+
+-- ---------------------------------------------------------------------------
+-- Phase 4 -- bars and low health
+-- ---------------------------------------------------------------------------
+-- Checks, not shots: live health is whatever you have when you press the key.
+-- The low-health tells need you actually hurt, so they are verified by eye
+-- (fall damage is the easy way) and by /myui audit.
+
+T.Suite("myui-p4", {
+    title = "Phase 4 -- bars and low health",
+    requires = function(api)
+        local ok, why = NeedMyUI(api)
+        if not ok then return ok, why end
+        if not api.ns().Bars then return false, "no Bars module" end
+        return true
+    end,
+    tests = {
+        { id = "curves", shot = false,
+          what = "Every curve built on the live client (C_CurveUtil, Step type).",
+          check = function(api)
+              local p = api.ns().Bars.curveProblems or { "never built" }
+              return #p == 0, #p == 0 and "all built" or table.concat(p, "; ")
+          end },
+        { id = "live-forwarding", shot = false,
+          what = "Live health, power, cast and target forward with zero guard violations.",
+          setup = function(api)
+              local ns = api.ns()
+              ns.Guard.Reset()
+              ns.Bars.Suspend(false)
+              ns.Bars.Refresh()
+          end,
+          check = function(api)
+              local ns = api.ns()
+              local v = ns.Guard.violations
+              return #v == 0, #v == 0 and ("%d secret forwards"):format(ns.Guard.forwards)
+                                       or tostring(v[1] and v[1].message)
+          end,
+          teardown = function(api) api.ns().Bars.Suspend(true) end },
+        { id = "summon", shot = false,
+          what = "The low-health summon: available, and hooked (informational if the warning is off).",
+          check = function(api)
+              local Bars = api.ns().Bars
+              local ok, why = Bars.SummonAvailable()
+              if not ok then return true, "unavailable: " .. tostring(why) end
+              return Bars.summonHooked == true, Bars.summonHooked and "hooked" or "available but not hooked"
+          end },
+    },
+})

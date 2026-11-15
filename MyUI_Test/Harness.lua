@@ -425,6 +425,9 @@ local function RunSuites(selected)
     Quiet(true)
     local ns = api.ns()
     if ns and ns.Reveal then ns.Reveal.cursorSuspended = true end
+    -- Live health and power would make every SelfStack shot depend on how
+    -- hurt you were when you pressed the key.
+    if ns and ns.Bars and ns.Bars.Suspend then ns.Bars.Suspend(true) end
 
     for _, name in ipairs(selected) do
         local suite
@@ -454,6 +457,7 @@ local function RunSuites(selected)
     end
 
     if ns and ns.Reveal then ns.Reveal.cursorSuspended = false end
+    if ns and ns.Bars and ns.Bars.Suspend then ns.Bars.Suspend(false) end
     Quiet(false)
     Backdrop(false)
 

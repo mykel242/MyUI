@@ -165,6 +165,8 @@ local function Bar(parent, w, h)
     return bar
 end
 
+Frames.Bar, Frames.Fill = Bar, Fill
+
 -- ---------------------------------------------------------------------------
 -- SelfStack -- BOTTOM, centred, 214 up. 240 wide, resting 0.35.
 -- ---------------------------------------------------------------------------
@@ -303,6 +305,12 @@ function Frames.Placeholders(on)
         strip.health:SetValue(0)
     end
     Frames.placeholders = on and true or false
+    -- Phase 4: live data owns the bars except while placeholders do. Turning
+    -- them on neutralises the low-health layers; turning them off hands the
+    -- bars back to the live forwarding.
+    if ns.Bars then
+        if on then ns.Bars.Neutral() else ns.Bars.Refresh() end
+    end
 end
 
 function Frames.OnLogin()

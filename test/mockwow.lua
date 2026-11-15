@@ -51,12 +51,14 @@ end
 -- SecretArguments = "AllowedWhenTainted": an addon may pass a secret.
 local ACCEPTS_SECRET = {
     SetAlpha = true, SetVertexColor = true, SetValue = true,
+    -- Phase 4: SimpleFontStringAPIDocumentation.lua 539 / 664 / 675.
+    SetText = true, SetFormattedText = true, SetTextColor = true,
 }
 
 -- SecretArguments = "AllowedWhenUntainted": passing a secret from an addon is
 -- a blocked action. The live client errors; so does this.
 local REFUSES_SECRET = {
-    SetScale = true, SetColorFill = true,
+    SetScale = true, SetColorFill = true, SetTimerDuration = true,
 }
 
 local function anySecret(...)
@@ -144,6 +146,8 @@ function M.frame(spec)
         "SetSmoothing", "ClearAllPoints", "SetWordWrap",
         -- Chat.lua's edit box.
         "SetTextInsets", "SetMaxLetters", "ClearFocus",
+        -- Phase 4.
+        "SetFormattedText", "SetTimerDuration", "SetLooping", "SetReverseFill",
     }) do
         f[method] = setter(method)
     end
@@ -442,8 +446,8 @@ function M.install()
     -- passed while the live client would have returned nil. Found by reading
     -- how oUF and Plater actually call it.
     M.curves = {}
-    local function makeCurve()
-        local curve = { points = {}, secretFlag = false, curveType = 0 }
+    local function makeCurve(kind)
+        local curve = { points = {}, secretFlag = false, curveType = 0, kind = kind or "color" }
         function curve:AddPoint(x, color)
             if secretSet[x] then error("attempt to add a secret point", 2) end
             self.points[#self.points + 1] = { x = x, y = color }
@@ -460,8 +464,8 @@ function M.install()
     end
 
     _G.C_CurveUtil = {
-        CreateColorCurve = makeCurve,
-        CreateCurve      = makeCurve,
+        CreateColorCurve = function() return makeCurve("color") end,
+        CreateCurve      = function() return makeCurve("scalar") end,
     }
 
     -- UnitHealthPercent(unit, usePredicted, curve) -- UnitDocumentation.lua:1431.
@@ -476,21 +480,50 @@ function M.install()
         }
     end
 
+    -- A scalar curve evaluates to a (secret) number, a colour curve to a
+    -- colour object whose channels are secret.
+    local function through(curve)
+        curve.secretFlag = true
+        if curve.kind == "scalar" then return M.secret() end
+        return evaluated()
+    end
     _G.UnitHealthPercent = function(unit, usePredicted, curve)
         M.healthCalls = (M.healthCalls or 0) + 1
-        if curve then
-            curve.secretFlag = true
-            return evaluated()
-        end
+        if curve then return through(curve) end
         return M.secret()
     end
-    _G.UnitPowerPercent = function(unit, usePredicted, curve)
-        if curve then
-            curve.secretFlag = true
-            return evaluated()
-        end
+    -- UnitDocumentation.lua:2749: (unit, powerType, unmodified, curve).
+    _G.UnitPowerPercent = function(unit, powerType, unmodified, curve)
+        M.powerCalls = (M.powerCalls or 0) + 1
+        if type(powerType) == "boolean" then error("UnitPowerPercent: powerType is not a boolean", 2) end
+        if curve then return through(curve) end
         return M.secret()
     end
+    -- Phase 4. M.casting[unit] = "cast" | "channel" | nil. castBarID is
+    -- NeverSecret in the docs and plain here; names are secret, like a
+    -- restricted target's. M.secretDurations makes the duration object
+    -- arrive secret, as it can in restricted content.
+    M.casting = {}
+    M.secretDurations = false
+    local function duration()
+        if M.secretDurations then return M.secret() end
+        return { kind = "duration" }
+    end
+    _G.UnitCastingInfo = function(unit)
+        if M.casting[unit] ~= "cast" then return nil end
+        return M.secret(), M.secret(), 1, M.secret(), M.secret(), false, "cast-guid",
+               false, M.secret(), 7, 0
+    end
+    _G.UnitChannelInfo = function(unit)
+        if M.casting[unit] ~= "channel" then return nil end
+        return M.secret(), M.secret(), 1, M.secret(), M.secret(), false, false,
+               M.secret(), false, 0, 9
+    end
+    _G.UnitCastingDuration = function() return duration() end
+    _G.UnitChannelDuration = function() return duration() end
+    _G.UnitName  = function() return M.secret() end
+    M.levels = {}
+    _G.UnitLevel = function(unit) return M.levels[unit] or 80 end
     _G.UnitHealth    = function() return M.secret() end
     _G.UnitHealthMax = function() return M.secret() end
 

@@ -221,6 +221,9 @@ loader:SetScript("OnEvent", function(self, event, addon)
             { "registry",     ns.Registry },
             { "frames",       ns.Frames   },
             { "reveal engine", ns.Reveal  },
+            -- Phase 4: live data into SelfStack and TargetStrip, once the
+            -- frames exist and the arbiter can take the low-health claim.
+            { "bars",         ns.Bars     },
             -- The toast anchor, before anything can notify.
             { "toasts",       ns.Toast    },
             -- Every source posts a toast, so toasts have to exist before one

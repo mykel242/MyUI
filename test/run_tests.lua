@@ -51,7 +51,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 22, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 23, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -2687,6 +2687,162 @@ check("  and refuses a hue that does not exist", (function()
     return ns.GetOutput():find("unknown hue", 1, true) ~= nil
 end)())
 run("center close")
+
+-- ---------------------------------------------------------------------------
+section("Bars -- Phase 4, live data through curves")
+-- ---------------------------------------------------------------------------
+-- The riskiest compliance surface in v1. Every value here is secret in the
+-- mock; the guard runs strict, so a single inspection fails the suite.
+
+do
+    local Bars = ns.Bars
+    local stack = Registry.Get("SelfStack").frame
+    local strip = Registry.Get("TargetStrip").frame
+    local function lastCall(frame, method)
+        for i = #frame.__calls, 1, -1 do
+            if frame.__calls[i].method == method then return frame.__calls[i] end
+        end
+    end
+    local function forwardedSecret(frame, method, argIndex)
+        local c = lastCall(frame, method)
+        return c ~= nil and mock.isSecret(c[argIndex or 1])
+    end
+
+    check("every curve built", #(Bars.curveProblems or { "?" }) == 0,
+          table.concat(Bars.curveProblems or {}, "; "))
+    check("  the three step curves are Step curves", (function()
+        for _, k in ipairs({ "below", "above", "edge" }) do
+            if Bars.curves[k].curveType ~= Enum.LuaCurveType.Step then return false, k end
+        end
+        return true
+    end)())
+    check("  and the scalar shapes are scalar curves (a number, not a colour)",
+          Bars.curves.frac.kind == "scalar" and Bars.curves.missing.kind == "scalar"
+          and Bars.curves.pct.kind == "scalar")
+
+    Guard.Reset()
+    if ns.Frames.placeholders then ns.Frames.Placeholders(false) end
+    Bars.Suspend(false)
+    Bars.driver:Fire("UNIT_HEALTH", "player")
+    check("health: the value is forwarded, secret, into SetValue", forwardedSecret(stack.health, "SetValue"))
+    check("  the fill colour arrives through SetVertexColor", forwardedSecret(stack.health.fill, "SetVertexColor"))
+    check("  the depleted wash gets the MISSING fraction, reverse-filled",
+          forwardedSecret(stack.health.wash, "SetValue") and lastCall(stack.health.wash, "SetReverseFill")[1] == true)
+    check("  the number is formatted in C, never in Lua",
+          (function()
+              local c = lastCall(stack.number, "SetFormattedText")
+              return c ~= nil and c[1] == "%d" and mock.isSecret(c[2])
+          end)())
+    check("  the number takes the curve's colour", forwardedSecret(stack.number, "SetTextColor"))
+    check("  the low-health copy is fed the same", forwardedSecret(Bars.low.health, "SetValue")
+          and forwardedSecret(Bars.low.number, "SetFormattedText", 2))
+    check("  the step alphas cross-fade steady and low, and light the edge",
+          forwardedSecret(Bars.steady, "SetAlpha") and forwardedSecret(Bars.low, "SetAlpha")
+          and forwardedSecret(Bars.edge, "SetAlpha"))
+    check("  with no guard violation anywhere", #Guard.violations == 0,
+          Guard.violations[1] and Guard.violations[1].message)
+
+    check("the low-health copy breathes forever: 1.0 <-> 0.55 over 1.6s", (function()
+        local b = Bars.low.breathe
+        local a1, a2 = b.__animations[1], b.__animations[2]
+        return b:IsPlaying() and lastCall(b, "SetLooping")[1] == "REPEAT"
+           and lastCall(a1, "SetToAlpha")[1] == 0.55 and lastCall(a2, "SetToAlpha")[1] == 1
+           and math.abs(lastCall(a1, "SetDuration")[1] + lastCall(a2, "SetDuration")[1] - 1.6) < 1e-9
+    end)())
+    check("the 14pt number exists only in the low copy (the one size change)", (function()
+        local c = lastCall(Bars.low.number, "SetFont")
+        return c ~= nil and near(c[2], Scale.U(14))
+    end)())
+    check("the danger edge is not in the registry (no channel may move it)",
+          Registry.Get("DangerEdge") == nil and _G.MyUIDangerEdge ~= nil)
+
+    mock.powerCalls = 0
+    Bars.driver:Fire("UNIT_POWER_UPDATE", "player")
+    check("power: forwarded, and asked for with the right signature",
+          mock.powerCalls > 0 and forwardedSecret(stack.resource, "SetValue"))
+
+    mock.casting.player = "cast"
+    Bars.driver:Fire("UNIT_SPELLCAST_START", "player")
+    check("a cast drives the bar engine-side by its duration object",
+          lastCall(stack.cast, "SetTimerDuration") ~= nil and Bars.castMode == "timer")
+    mock.secretDurations = true
+    Bars.driver:Fire("UNIT_SPELLCAST_START", "player")
+    check("  a secret duration is never handed over; the bar shows full instead",
+          Bars.castMode == "degraded" and lastCall(stack.cast, "SetValue")[1] == 1
+          and #Guard.violations == 0)
+    mock.secretDurations = false
+    mock.casting.player = nil
+    Bars.driver:Fire("UNIT_SPELLCAST_STOP", "player")
+    check("  and empties when the cast ends", lastCall(stack.cast, "SetValue")[1] == 0)
+
+    mock.units.target = true
+    mock.casting.target = "channel"
+    Bars.driver:Fire("PLAYER_TARGET_CHANGED")
+    check("target: the name is forwarded, never read", forwardedSecret(strip.name, "SetText"))
+    check("  a plain level is shown", strip.level:GetText() == "80")
+    check("  health forwarded", forwardedSecret(strip.health, "SetValue"))
+    check("  the cast tick shows while the target casts", strip.cast:IsShown())
+    mock.levels.target = -1
+    Bars.driver:Fire("UNIT_LEVEL", "target")
+    check("  a skull level reads ??", strip.level:GetText() == "??")
+    mock.casting.target, mock.units.target, mock.levels.target = nil, nil, nil
+    Bars.driver:Fire("PLAYER_TARGET_CHANGED")
+    check("  and it all clears with no target", strip.name:GetText() == "" and not strip.cast:IsShown())
+
+    -- The summon: RULES' fifth mechanism.
+    local lhf = mock.frame({ name = "LowHealthFrame" })
+    _G.LowHealthFrame = lhf
+    _G.C_CVar = _G.C_CVar or {}
+    local cvar = false
+    _G.C_CVar.GetCVarBool = function(name) return name == "doNotFlashLowHealthWarning" and cvar end
+    Bars.summonHooked = false
+    check("the summon is available when Blizzard's warning is on", Bars.SummonAvailable() == true)
+    Bars.HookSummon()
+    clearClaims()
+    lhf.scripts.OnShow(lhf)
+    check("  Blizzard's low-health frame showing claims SelfStack", Registry.Get("SelfStack").target == 1
+          and Registry.Get("SelfStack").claim == "lowhealth")
+    check("  and only SelfStack", Registry.Get("TargetStrip").target == 0
+          and Registry.Get("Cooldowns").target == 0.25)
+    lhf.scripts.OnHide(lhf)
+    check("  released when it hides", Registry.Get("SelfStack").target == 0.35)
+    cvar = true
+    local ok, why = Bars.SummonAvailable()
+    check("  unavailable when the player has turned the warning off", ok == false
+          and tostring(why):find("doNotFlashLowHealthWarning", 1, true) ~= nil)
+    check("  and /myui audit says so", (function()
+        ns.ClearOutput()
+        run("audit")
+        return ns.GetOutput():find("low-health summon", 1, true) ~= nil
+    end)())
+    _G.LowHealthFrame = nil
+
+    -- The harness's switch, and the debug placeholders.
+    Bars.Suspend(true)
+    local before = #stack.health.__calls
+    Bars.driver:Fire("UNIT_HEALTH", "player")
+    check("suspended, nothing live reaches the bars", #stack.health.__calls == before)
+    Bars.Suspend(false)
+    run("show on")
+    local during = #stack.health.__calls
+    Bars.driver:Fire("UNIT_HEALTH", "player")
+    check("while placeholders show, live data waits", #stack.health.__calls == during)
+    run("show off")
+    check("  and takes the bars back when they go", forwardedSecret(stack.health, "SetValue"))
+
+    -- The diff-level rule PLAN states: no arithmetic on any unit value.
+    check("Bars.lua never calls a unit value API except through a curve", (function()
+        local src = assert(io.open("../MyUI/Bars.lua")):read("*a")
+        for line in src:gmatch("[^\n]+") do
+            local code = line:gsub("%-%-.*$", "")
+            if code:find("UnitHealth%(") or code:find("UnitPower%(") or code:find("UnitHealthMax")
+               or code:find("UnitPowerMax") then
+                return false, line
+            end
+        end
+        return true
+    end)())
+end
 
 -- ---------------------------------------------------------------------------
 section("Clearing -- SPEC 11, R3b")

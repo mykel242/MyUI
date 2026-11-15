@@ -60,6 +60,9 @@ Reveal.FADE_OUT = 0.260   -- SPEC 8, slower so release settles rather than snaps
 -- lowhealth joins this table in Phase 4, as the only channel that can claim
 -- without the player having done anything -- which is why SPEC 4 ranks it top.
 Reveal.CHANNELS = {
+    -- SPEC 3/4: low health summons SelfStack, through RULES' fifth mechanism
+    -- (Bars.lua hooks LowHealthFrame). Claim 1.0, held while it is shown.
+    lowhealth = 1.0,
     cursor  = 1.0,
     combat  = 1.0,
     target  = 1.0,
@@ -89,7 +92,7 @@ Reveal.CHANNELS = {
 -- debug leads because it is not a SPEC channel at all but a diagnostic
 -- override, and an audit that hid it would be lying about why a frame is lit.
 -- lowhealth slots in directly after it in Phase 4.
-Reveal.PRECEDENCE = { "debug", "combat", "target", "whisper", "peek", "cursor" }
+Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "peek", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
@@ -102,6 +105,7 @@ local SCOPE = {
                MainBar = true, StanceBar = true, PetBar = true,
                Party = true, CompactParty = true, Raid = true },
     target = { TargetStrip = true },
+    lowhealth = { SelfStack = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
 }
 

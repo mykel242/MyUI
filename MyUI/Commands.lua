@@ -66,6 +66,19 @@ local function Audit()
         end
     end
 
+    -- RULES: the audit reports whether the low-health summon can work.
+    if ns.Bars then
+        local ok, why = ns.Bars.SummonAvailable()
+        ns.Raw(ok and "  low-health summon: |cffa6d98cavailable|r (Blizzard's 35%)"
+                  or ("  low-health summon: |cffffd159unavailable|r -- " .. tostring(why)))
+        if ns.Bars.curveProblems and #ns.Bars.curveProblems > 0 then
+            ns.Raw("  |cfff26b61curves failed:|r " .. table.concat(ns.Bars.curveProblems, "; "))
+        end
+        if ns.Bars.castMode then
+            ns.Raw("  last cast drove the bar by: " .. ns.Bars.castMode)
+        end
+    end
+
     ns.Raw(" ")
     local v = Guard.violations
     if #v == 0 then

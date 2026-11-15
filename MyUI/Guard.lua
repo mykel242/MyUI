@@ -33,6 +33,12 @@ local SANCTIONED = {
     SetAlpha             = "SimpleRegionAPIDocumentation.lua:123",
     SetVertexColor       = "SimpleRegionAPIDocumentation.lua:191",
     SetValue             = "SimpleStatusBarAPIDocumentation.lua:355",
+    -- Phase 4, read at 12.1.5.70783. Text is how a secret number is shown:
+    -- SetFormattedText formats in C, so "%d" never does Lua arithmetic on it
+    -- (API-NOTES 9).
+    SetText              = "SimpleFontStringAPIDocumentation.lua:664",
+    SetFormattedText     = "SimpleFontStringAPIDocumentation.lua:539",
+    SetTextColor         = "SimpleFontStringAPIDocumentation.lua:675",
 }
 
 -- Named refusals, so the error explains itself instead of just saying no.
@@ -41,6 +47,8 @@ local REFUSED = {
                 .. "Size changes need a discrete event, not a forwarded value (RULES.md).",
     SetColorFill = "SetColorFill is AllowedWhenUntainted. Colour the fill through "
                 .. "bar:GetStatusBarTexture():SetVertexColor(...) instead (API-NOTES § 2).",
+    SetTimerDuration = "SetTimerDuration is AllowedWhenUntainted. A secret duration "
+                .. "object cannot drive a bar from addon code; degrade instead (Bars.lua).",
 }
 
 -- ---------------------------------------------------------------------------
@@ -212,6 +220,28 @@ function Guard.ColorCurve(stops, curveType)
     return curve
 end
 
+--- A scalar curve from {x, y} points, x in 0..1. Evaluated through
+-- UnitHealthPercent it returns a (secret) number: the fraction itself, the
+-- missing fraction, a 0..100 percentage -- shapes made engine-side, never by
+-- Lua arithmetic on the value.
+function Guard.Curve(points)
+    local util = _G.C_CurveUtil
+    if not util or type(util.CreateCurve) ~= "function" then
+        return nil, "C_CurveUtil.CreateCurve unavailable"
+    end
+    local ok, curve = pcall(util.CreateCurve)
+    if not ok or not curve then
+        return nil, "CreateCurve failed"
+    end
+    for _, p in ipairs(points) do
+        local added = pcall(function() curve:AddPoint(p[1], p[2]) end)
+        if not added then
+            return nil, ("AddPoint failed at x=%s"):format(tostring(p[1]))
+        end
+    end
+    return curve
+end
+
 --- A threshold, expressed as a curve rather than a branch.
 --
 -- A Step curve holding alpha `below` under the cutoff and `above` over it,
@@ -242,9 +272,11 @@ function Guard.HealthThrough(unit, curve)
     return result
 end
 
---- Same, for power. UnitDocumentation.lua:2749.
+--- Same, for power. UnitDocumentation.lua:2749 -- its signature is NOT
+-- health's: (unit, powerType, unmodified, curve). The Aug build passed true
+-- as the power type; found reading the docs for Phase 4.
 function Guard.PowerThrough(unit, curve)
-    local ok, result = pcall(_G.UnitPowerPercent, unit, true, curve)
+    local ok, result = pcall(_G.UnitPowerPercent, unit, nil, false, curve)
     if not ok then
         return nil
     end
