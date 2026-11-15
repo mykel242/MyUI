@@ -88,6 +88,14 @@ The ticks are the design's compliance keystone. They are fixed marks; the *bar* 
 is the event, and the player's eye does the comparison. Never compute their position from a
 value.
 
+### Focus strip (round 004 play)
+
+Ctrl-click set a focus that showed nowhere (Blizzard's FocusFrame is hidden with the unit
+frames). A strip in the target strip's grammar — name, percentage, level over a thin health bar
+with the danger gradient — 240 wide, over the target strip (focus profile: its bar 16 above the
+target's text row). On a secure unit button for `focus`: click targets it, right-click its menu.
+Shown by a state driver while a focus exists, at full alpha: a focus is a deliberate choice.
+
 ### TargetStrip internals
 
 - Name — 11pt, `rgba(240,241,243,1)`, left-aligned at the bar's left

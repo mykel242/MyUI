@@ -317,7 +317,7 @@ section("Frames -- SPEC 2 anchors")
 -- ---------------------------------------------------------------------------
 
 check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar, group frames and pet",
-      Registry.Count() == 6 and Registry.Get("ActionBar") ~= nil and Registry.Get("Group") ~= nil and Registry.Get("Pet") ~= nil, Registry.Count())
+      Registry.Count() == 7 and Registry.Get("ActionBar") ~= nil and Registry.Get("Focus") ~= nil and Registry.Get("Group") ~= nil and Registry.Get("Pet") ~= nil, Registry.Count())
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
@@ -2814,7 +2814,7 @@ do
             local p, rel, rp = pill:GetPoint(1)
             if p ~= "CENTER" or rel ~= pill.bar or rp ~= "CENTER" or not pill.bg:IsShown() then return false end
         end
-        return ns.db.pct == "pill" and #ns.Frames.pills == 4   -- self, low, target, pet
+        return ns.db.pct == "pill" and #ns.Frames.pills == 5   -- self, low, target, pet, focus
     end)())
     check("  /myui pct above puts them back just above the bar (the default)", (function()
         run("pct above")
@@ -3740,6 +3740,22 @@ do
     G.events:Fire("UNIT_PET", "player")
     check("no pet: SelfStack gets its full width and place back", not F.split
           and near(stack:GetWidth(), Scale.U(240)) and select(4, stack:GetPoint(1)) == 0)
+    local fb = G.focusButton
+    check("your focus: a strip over the target strip, on a secure button -- click targets it",
+          fb ~= nil and fb:GetAttribute("unit") == "focus" and fb:GetAttribute("*type1") == "target"
+          and fb:GetAttribute("*type2") == "togglemenu" and G.FOCUS_DRIVER == "[@focus,exists] show; hide"
+          and select(5, fb:GetPoint(1)) > select(5, ns.Registry.Get("TargetStrip").frame:GetPoint(1)))
+    mock.units.focus = true
+    Guard.Reset()
+    G.events:Fire("PLAYER_FOCUS_CHANGED")
+    check("  name, percentage and health through the curve", (function()
+        local hv
+        for i = #fb.__health.__calls, 1, -1 do
+            if fb.__health.__calls[i].method == "SetValue" then hv = fb.__health.__calls[i][1] break end
+        end
+        return mock.isSecret(hv) and fb.__name:GetText() ~= nil and #Guard.violations == 0
+    end)())
+    mock.units.focus = nil
     check("Blizzard's party and raid frames are hidden outright once these exist", (function()
         local want = { PartyFrame = true, CompactPartyFrame = true, CompactRaidFrameContainer = true, PetFrame = true }
         for _, u in ipairs(ns.Clear.UNITS) do want[u] = nil end

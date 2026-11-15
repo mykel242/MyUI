@@ -479,6 +479,72 @@ function Group.UpdateSplit()
 end
 
 -- ---------------------------------------------------------------------------
+-- Your focus (round 004 play: ctrl-click set a focus that showed nowhere)
+-- ---------------------------------------------------------------------------
+-- A smaller strip in the target strip's grammar -- name, percentage, level
+-- over a thin health bar with the danger gradient -- above the target
+-- strip. On a secure unit button for "focus": click targets the focus,
+-- right-click opens its menu. Shown by a state driver while a focus exists;
+-- a focus is a deliberate choice, so while it exists it is simply up.
+
+Group.FOCUS_DRIVER = "[@focus,exists] show; hide"
+local FOCUS_W, FOCUS_H = 240, 16   -- a 3 px bar under an 11pt text row
+
+function Group.PlaceFocus()
+    local b = Group.focusButton
+    if not b or InCombatLockdown() then return false end
+    local point, rel, x, y = ns.Layout.Pos("Focus")
+    b:SetSize(U(FOCUS_W), U(FOCUS_H))
+    b:ClearAllPoints()
+    b:SetPoint(point, UIParent, rel, U(x), U(y))
+    return true
+end
+
+function Group.BuildFocus()
+    if Group.focusButton or InCombatLockdown() then return Group.focusButton ~= nil end
+    local F = ns.Frames
+    local b = CreateFrame("Button", "MyUIFocusButton", UIParent, "SecureUnitButtonTemplate")
+    b:SetFrameStrata("HIGH")
+    b:RegisterForClicks("AnyUp")
+    b:SetAttribute("unit", "focus")
+    b:SetAttribute("*type1", "target")
+    b:SetAttribute("*type2", "togglemenu")
+    local health = F.Bar(b, FOCUS_W, 3)
+    health:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
+    F.DangerGradient(health, FOCUS_W, 3)
+    local name, level = F.TextRow(b, health)
+    if name.SetWordWrap then name:SetWordWrap(false) end
+    local pill, number = F.Pill(b, health, 11)
+    b.__health, b.__name, b.__level, b.__number = health, name, level, number
+    Group.focusButton = b
+    Group.PlaceFocus()
+    RegisterStateDriver(b, "visibility", Group.FOCUS_DRIVER)
+    ns.Registry.Add("Focus", b, 1)
+    return true
+end
+
+function Group.UpdateFocus()
+    local b = Group.focusButton
+    if not b or not (_G.UnitExists and _G.UnitExists("focus")) then return end
+    Guard.Send(b.__name, "SetText", _G.UnitName("focus"))
+    local curves = ns.Bars and ns.Bars.curves
+    if curves then
+        local v = Guard.HealthThrough("focus", curves.frac)
+        if v ~= nil then Guard.Send(b.__health, "SetValue", v) end
+        local pct = Guard.HealthThrough("focus", curves.pct)
+        if pct ~= nil then Guard.Send(b.__number, "SetFormattedText", "%d", pct) end
+    end
+    local level = _G.UnitLevel and _G.UnitLevel("focus")
+    if level ~= nil and ns.Compat.IsSecret(level) then
+        Guard.Send(b.__level, "SetFormattedText", "%d", level)
+    elseif type(level) == "number" and level > 0 then
+        b.__level:SetText(tostring(level))
+    else
+        b.__level:SetText("??")
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- Events and login
 -- ---------------------------------------------------------------------------
 
@@ -489,6 +555,7 @@ function Group.Start()
     if not Group.Build() then return false end
     Group.BuildSelf()
     Group.BuildPet()
+    Group.BuildFocus()
     ns.Registry.Add("Group", Group.frame, 0)
     local ev = CreateFrame("Frame")
     Group.events = ev
@@ -499,10 +566,15 @@ function Group.Start()
     ev:RegisterEvent("PLAYER_REGEN_ENABLED")
     ev:RegisterEvent("PLAYER_TARGET_CHANGED")
     ev:RegisterEvent("UNIT_PET")
+    ev:RegisterEvent("PLAYER_FOCUS_CHANGED")
     ev:SetScript("OnEvent", function(_, event, unit)
         if event == "PLAYER_TARGET_CHANGED" then
             Group.PaintTargets()
             return
+        end
+        if event == "PLAYER_FOCUS_CHANGED" or unit == "focus" then
+            Group.UpdateFocus()
+            if event == "PLAYER_FOCUS_CHANGED" then return end
         end
         if event == "UNIT_PET" then
             if unit == "player" then Group.UpdateSplit() end
@@ -529,6 +601,7 @@ function Group.Start()
     if ns.Clear and ns.Clear.HideGroupFrames then ns.Clear.HideGroupFrames() end
     Group.UpdateSplit()
     Group.UpdatePet()
+    Group.UpdateFocus()
     ns.Reveal.Resolve()
     ns.Reveal.Snap()
     return true

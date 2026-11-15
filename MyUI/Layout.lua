@@ -41,6 +41,9 @@ Layout.PRESETS = {
         -- top (~146) -- the strip's bar sits 15 above its own bottom.
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 163 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
+        -- Your focus, over the target strip: its bar 16 above the target's
+        -- text row (round 004 play).
+        Focus       = { "BOTTOM", "BOTTOM", 0, 210 },
         -- Left of the strip, mirroring the group list: the Cooldown
         -- Manager's tracked buff bars, over the left wing's rows, growing up.
         -- Only x is a position: y is how far above the chosen buffs' row
@@ -62,6 +65,7 @@ Layout.PRESETS = {
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 48 },
         TargetStrip = { "TOP", "TOP", 0, -20 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 140, 150 },
+        Focus       = { "TOP", "TOP", 0, -90 },
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 0 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
         debuffGap   = 32,
@@ -74,7 +78,7 @@ Layout.DEFAULT = "focus"
 -- The names /myui move takes.
 Layout.ALIASES = {
     self = "SelfStack", me = "SelfStack", health = "SelfStack",
-    target = "TargetStrip", bar = "ActionBar", bars = "ActionBar",
+    target = "TargetStrip", bar = "ActionBar", bars = "ActionBar", focus = "Focus",
     group = "Group", party = "Group", raid = "Group",
     zone = "ZoneAbility", extra = "ZoneAbility", ability = "ZoneAbility",
     timers = "BuffBars", buffbars = "BuffBars",
@@ -217,6 +221,7 @@ function Layout.Apply()
         if ns.Group and ns.Group.Place then ns.Group.Place() end
         if ns.Group and ns.Group.PlaceSelf then ns.Group.PlaceSelf() end
         if ns.Group and ns.Group.PlacePet then ns.Group.PlacePet() end
+        if ns.Group and ns.Group.PlaceFocus then ns.Group.PlaceFocus() end
         if ns.Clear and ns.Clear.Enabled and ns.Clear.Enabled() and ns.Clear.ApplyLayout then
             ns.Clear.ApplyLayout()
             if ns.Reveal then ns.Reveal.Snap() end
@@ -312,7 +317,7 @@ end
 
 -- The HUD's frames, held visible while previewing -- not chat, the
 -- minimap or the tracker, which the whole-screen debug claim also lit.
-Layout.HUD = { "SelfStack", "Pet", "TargetStrip", "ActionBar", "Group", "Debuffs", "StanceBar", "PetBar",
+Layout.HUD = { "SelfStack", "Pet", "TargetStrip", "Focus", "ActionBar", "Group", "Debuffs", "StanceBar", "PetBar",
                "WingCooldowns", "WingUtility", "WingBuffs" }
 
 function Layout.Preview(on)
