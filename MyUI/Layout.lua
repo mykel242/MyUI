@@ -41,10 +41,10 @@ Layout.PRESETS = {
         -- Manager's tracked buff bars.
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 176 },
         -- On bar 1's row, past button 8 (Mykel: "line it up with the action
-        -- bars"). Measured in game: the button lands ~39 right of and ~43
-        -- above this anchor (its container lays it out off-centre), so
-        -- this centres it on the bar row at ~289 out.
-        ZoneAbility = { "BOTTOM", "BOTTOM", 250, 55 },
+        -- bars"). Its container lays the button out off-centre (~39 right of
+        -- this anchor); the height is Mykel's own, set in game with
+        -- /myui move zone and baked in here.
+        ZoneAbility = { "BOTTOM", "BOTTOM", 250, 39 },
         -- The debuffs on bar 1's row start past the zone button.
         debuffGap   = 128,
         wingGap     = 32,
