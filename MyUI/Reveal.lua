@@ -118,9 +118,6 @@ local SCOPE = {
     combat = { SelfStack = true, Cooldowns = true, ActionBar = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = true, Debuffs = true,
-               -- Round 004 play: a hunter sets the pet bar's stances once;
-               -- for hunters it stays down. Warlocks and others keep it.
-               PetBar = function() return not (ns.Clear and ns.Clear.IsHunter()) end,
                -- MyUI's group frames (SPEC 19), by role or preference.
                Group = function() return ns.Clear and ns.Clear.GroupInCombat() end },
     -- Round 004 play (Mykel): target something, hold ALT, tap a taunt to pull --
@@ -130,9 +127,7 @@ local SCOPE = {
     -- the target when arranging starts or stops.
     target = { TargetStrip = true, ActionBar = true, Debuffs = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
-               StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end,
-               PetBar = function() return not (ns.Actions and ns.Actions.IsStacked())
-                                          and not (ns.Clear and ns.Clear.IsHunter()) end },
+               StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
     lowhealth = { SelfStack = true },
     calm = { Minimap = true, MinimapMap = true },
     hold = { ActionBar = true },

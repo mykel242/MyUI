@@ -55,7 +55,6 @@ Clear.ADOPT = {
     -- registry, where peek or hover would bring it back over MyUI's.
     { "MainBar",    "MainActionBar", yieldsTo = "ActionBar" },
     { "StanceBar",  "StanceBar" },
-    { "PetBar",     "PetActionBar" },
     { "MicroMenu",  "MicroMenuContainer" },
     -- The experience / reputation bars: no longer adopted. Round 004 play
     -- (Mykel): hide them "or put them somewhere like the very top of the
@@ -164,6 +163,8 @@ Clear.BLIZZARD_BARS = {
     { "MultiBar5",           "MultiBar5Button" },
     { "MultiBar6",           "MultiBar6Button" },
     { "MultiBar7",           "MultiBar7Button" },
+    -- Round 004 play: MyUI's own pet bar replaces it (Group.lua).
+    { "PetActionBar",        "PetActionButton" },
 }
 
 --- Pin every Blizzard action bar and button at 0, mouse off. Mouse is
@@ -527,7 +528,7 @@ end
 -- their own 30 px -- stance under the cooldowns, pet under the debuffs.
 Clear.OVER_BAR = {
     StanceBar    = { side = -1 },
-    PetActionBar = { side =  1 },
+    -- (The pet bar was here, under the debuffs, until MyUI drew its own.)
 }
 Clear.UNDER_WING_HEIGHT = 30
 Clear.STATUS_BAR_STEP = 12   -- the second status bar, this far under the first

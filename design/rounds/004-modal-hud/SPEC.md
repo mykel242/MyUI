@@ -585,8 +585,12 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   not seen the modifier. A vehicle, possession or pet battle hides MyUI's bar and drops the
   overrides in the restricted environment, so Blizzard's override bar takes over; a form's bonus
   bar (stealth, cat form, skyriding) still pages bar 1.
-- **Stance (forms) and pet bars** — Blizzard's own, placed by the MyUI layout under the wings
-  (stance under the cooldowns, pet under the debuffs), at 30 px; they return with the
+- **Pet bar** (round 004 play, Mykel: "I really hate this pet bar") — MyUI's own: only the slots
+  that hold something, packed, at 18, in the gap over the pet stack, drawn only while the pointer
+  is on the pet stack or the bar (lingering 0.6 s). Secure buttons of type `pet`; right-click
+  toggles autocast (`/petautocasttoggle`); edges show autocast (amber) and the active stance.
+  Blizzard's pet bar is held at alpha 0, its keybinds still firing.
+- **Stance (forms) bar** — Blizzard's own, placed by the MyUI layout under the cooldowns, at 30 px; they return with the
   bar (combat, a target). Round 004 play: they had been adopted and never came back.
 - **Arranging**: every page drawn stacked above bar 1, labelled and held still — while a spell,
   item or macro is on the cursor, while the spellbook or macro window is open, or while the

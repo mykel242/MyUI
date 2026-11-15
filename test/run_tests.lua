@@ -3011,18 +3011,11 @@ do
     Reveal.Claim("combat")
     check("  but not a DPS's when set to auto", Registry.Get("Group").target == 0)
     check("  but MyUI's own action bar does (round 004)", Registry.Get("ActionBar").target == 1)
-    check("  and the wings, debuffs, stance and pet bars with it", Registry.Get("StanceBar").target == 1
-          and Registry.Get("Debuffs").target == 1
-          and Registry.Get("PetBar").target == 1 and Registry.Get("WingCooldowns").target == 1
+    check("  and the wings, debuffs and stance bar with it", Registry.Get("StanceBar").target == 1
+          and Registry.Get("Debuffs").target == 1 and Registry.Get("WingCooldowns").target == 1
           and Registry.Get("WingUtility").target == 1 and Registry.Get("WingBuffs").target == 1)
+    check("  Blizzard's pet bar is not adopted any more (MyUI draws its own)", Registry.Get("PetBar") == nil)
     Reveal.Release("combat")
-    local realClass = _G.UnitClass
-    _G.UnitClass = function() return "Hunter", "HUNTER" end
-    Reveal.Claim("combat")
-    check("  except a hunter's pet bar (stances set once)", Registry.Get("PetBar").target == 0
-          and Registry.Get("StanceBar").target == 1, table.concat(Reveal.ClaimsOn("PetBar"), ","))
-    Reveal.Release("combat")
-    _G.UnitClass = realClass
     _G.UnitGroupRolesAssigned = function() return "HEALER" end
     Reveal.Claim("combat")
     check("  but a healer's group frames do come back (auto)",
@@ -3122,12 +3115,11 @@ do
     check("  every action bar with a visibility setting is hidden", changed >= 2
           and saved.layouts[mine].systems[2].settings[1].value == 3, changed)
     local function sys(i) return saved.layouts[mine].systems[i + 2] end
-    check("  stance under the cooldowns, pet under the debuffs, outer edges with the wings", (function()
-        local st, pet = saved.layouts[mine].systems[5].anchorInfo, saved.layouts[mine].systems[6].anchorInfo
+    check("  stance under the cooldowns, outer edge with the wing", (function()
+        local st = saved.layouts[mine].systems[5].anchorInfo
         local half, bottom, row, gap = ns.Actions.Extent()
         local wing = half + Scale.U(32)
         return st and st.point == "BOTTOMRIGHT" and near(st.offsetX, -wing) and near(st.offsetY, bottom - gap - 30)
-           and pet and pet.point == "BOTTOMLEFT" and near(pet.offsetX, wing)
     end)())
     local function setting(s, id) for _, st in ipairs(s.settings) do if st.setting == id then return st.value end end end
     check("  the wings are always shown to Blizzard (the reveal engine decides); buff bars in combat only",
@@ -3768,6 +3760,34 @@ do
             if pet.__health.__calls[i].method == "SetValue" then hv = pet.__health.__calls[i][1] break end
         end
         return mock.isSecret(hv) and pet.__name:GetText() ~= nil and #Guard.violations == 0
+    end)())
+    local pb = G.petBar
+    check("MyUI's pet bar: secure pet buttons, packed, drawn only on hover", pb ~= nil and #pb.buttons == 10
+          and pb.buttons[1]:GetAttribute("type") == "pet" and pb.buttons[4]:GetAttribute("action") == 4
+          and pb:GetAlpha() == 0)
+    check("  only the slots that hold something, side by side, no gap for the empty ones", (function()
+        local info = { [1] = "Claw", [2] = "Growl", [8] = "Assist", [10] = "Passive" }
+        _G.GetPetActionInfo = function(i)
+            if info[i] then return info[i], "tex" .. i, false, i == 8, i <= 2, i == 1 end
+        end
+        G.LayoutPetBar()
+        local shown = 0
+        for _, b in ipairs(pb.buttons) do if b:IsShown() then shown = shown + 1 end end
+        local _, _, _, x8 = pb.buttons[8]:GetPoint(1)
+        local ok = shown == 4 and pb.buttons[3]:IsShown() == false
+           and near(x8, 2 * (Scale.U(18) + Scale.U(3)))
+           and pb.buttons[1]:GetAttribute("macrotext2") == "/petautocasttoggle Claw"
+           and pb.buttons[8]:GetAttribute("type2") == nil
+        _G.GetPetActionInfo = nil
+        return ok
+    end)())
+    check("  pointing at your pet brings it up; leaving lets it go after a moment", (function()
+        pet.scripts.OnEnter(pet)
+        local up = pb:GetAlpha() == 1
+        pet.scripts.OnLeave(pet)
+        mock.advance(ns, 1, 2)
+        if mock.runTimers then mock.runTimers() end
+        return up and pb:GetAlpha() == 0
     end)())
     check("  the pet's percentage too", (function()
         for i = #pet.__number.__calls, 1, -1 do

@@ -261,7 +261,6 @@ Layout.PREVIEW = {
     { key = "Utility",      label = "Utility",       w = 5 * 36, h = 30 },
     { key = "BuffIcon",     label = "Chosen buffs",  w = 4 * 38, h = 32 },
     { key = "StanceBar",    label = "Stances",       w = 3 * 36, h = 30 },
-    { key = "PetActionBar", label = "Pet bar",       w = 5 * 36, h = 30 },
     { key = "Debuffs",      label = "Debuffs",       w = 4 * 49, h = 43 },
     { key = "BuffBars",     label = "Buff bars",     w = 220,    h = 64 },
     -- The zone button's centre lands ~27 right of and ~71 above its anchor
@@ -322,7 +321,7 @@ end
 
 -- The HUD's frames, held visible while previewing -- not chat, the
 -- minimap or the tracker, which the whole-screen debug claim also lit.
-Layout.HUD = { "SelfStack", "Pet", "TargetStrip", "Focus", "ActionBar", "Group", "Debuffs", "StanceBar", "PetBar",
+Layout.HUD = { "SelfStack", "Pet", "TargetStrip", "Focus", "ActionBar", "Group", "Debuffs", "StanceBar",
                "WingCooldowns", "WingUtility", "WingBuffs" }
 
 function Layout.Preview(on)

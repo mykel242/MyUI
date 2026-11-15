@@ -149,7 +149,7 @@ function M.frame(spec)
         -- Phase 4.
         "SetFormattedText", "SetTimerDuration", "SetLooping", "SetReverseFill",
         -- Round 004.
-        "SetAtlas", "RegisterForClicks", "SetScale", "SetGradient", "SetClipsChildren",
+        "SetAtlas", "RegisterForClicks", "SetScale", "SetGradient", "SetClipsChildren", "SetTexture",
     }) do
         f[method] = setter(method)
     end

@@ -467,6 +467,145 @@ function Group.UpdatePet()
     end
 end
 
+-- ---------------------------------------------------------------------------
+-- MyUI's pet bar (round 004 play: "I really hate this pet bar" -- 2 and 3)
+-- ---------------------------------------------------------------------------
+-- Blizzard's pet bar is ten fixed slots, so a hunter's three abilities and
+-- three stances sit far apart. MyUI's own: only the slots that hold
+-- something, packed, at mini-page size, in the gap over the pet stack --
+-- and drawn only while the pointer is on the pet stack or on the bar itself
+-- (lingering a moment so it can be reached). Secure action buttons of type
+-- "pet": click uses the ability or stance; right-click toggles autocast by
+-- /petautocasttoggle. Icons and states come from GetPetActionInfo -- plain
+-- game data. Blizzard's pet bar is held at alpha 0 (its keybinds still fire).
+
+Group.PETBAR_SIZE = 18
+Group.PETBAR_GAP = 3
+Group.PETBAR_LINGER = 0.6
+
+local function PetBarShow(on)
+    local bar = Group.petBar
+    if not bar then return end
+    Group.petBarToken = (Group.petBarToken or 0) + 1
+    if on then
+        bar:SetAlpha(1)
+    else
+        local token = Group.petBarToken
+        C_Timer.After(Group.PETBAR_LINGER, function()
+            if Group.petBarToken == token then bar:SetAlpha(0) end
+        end)
+    end
+end
+Group.PetBarShow = PetBarShow
+
+function Group.BuildPetBar()
+    if Group.petBar or InCombatLockdown() then return Group.petBar ~= nil end
+    local bar = CreateFrame("Frame", "MyUIPetBar", UIParent)
+    bar:SetFrameStrata("HIGH")
+    bar:SetSize(U(Group.PETBAR_SIZE), U(Group.PETBAR_SIZE))
+    bar:SetAlpha(0)
+    Group.petBar = bar
+    bar.buttons = {}
+    local size = U(Group.PETBAR_SIZE)
+    for i = 1, 10 do
+        local b = CreateFrame("Button", "MyUIPetBarButton" .. i, bar, "SecureActionButtonTemplate")
+        b:SetSize(size, size)
+        b:RegisterForClicks("AnyUp")
+        b:SetAttribute("type", "pet")
+        b:SetAttribute("action", i)
+        local icon = b:CreateTexture(nil, "ARTWORK")
+        icon:SetAllPoints()
+        b.__icon = icon
+        -- One thin edge: amber while autocast is on, light while a stance
+        -- is active, none otherwise.
+        local px = Scale.Hairline()
+        b.__edge = {}
+        for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+            local t = b:CreateTexture(nil, "OVERLAY")
+            if side == "TOP" or side == "BOTTOM" then
+                t:SetHeight(px); t:SetPoint(side .. "LEFT"); t:SetPoint(side .. "RIGHT")
+            else
+                t:SetWidth(px); t:SetPoint("TOP" .. side); t:SetPoint("BOTTOM" .. side)
+            end
+            t:Hide()
+            b.__edge[#b.__edge + 1] = t
+        end
+        b:HookScript("OnEnter", function() PetBarShow(true) end)
+        b:HookScript("OnLeave", function() PetBarShow(false) end)
+        b:Hide()
+        bar.buttons[i] = b
+    end
+    RegisterStateDriver(bar, "visibility", Group.PET_DRIVER)
+    if Group.petButton then
+        Group.petButton:HookScript("OnEnter", function() PetBarShow(true) end)
+        Group.petButton:HookScript("OnLeave", function() PetBarShow(false) end)
+    end
+    Group.LayoutPetBar()
+    return true
+end
+
+local function PetInfo(i)
+    if not _G.GetPetActionInfo then return nil end
+    local name, texture, isToken, isActive, autoAllowed, autoOn = _G.GetPetActionInfo(i)
+    if not name then return nil end
+    if isToken then
+        name = _G[name] or name
+        texture = _G[texture] or texture
+    end
+    return name, texture, isActive, autoAllowed, autoOn
+end
+
+--- Icons and edges (any time: display only).
+function Group.PaintPetBar()
+    local bar = Group.petBar
+    if not bar then return end
+    for i, b in ipairs(bar.buttons) do
+        local name, texture, isActive, _, autoOn = PetInfo(i)
+        if name then
+            b.__icon:SetTexture(texture)
+            local colour = autoOn and "notifAmber" or (isActive and "fill") or nil
+            for _, t in ipairs(b.__edge) do
+                if colour then t:SetColorTexture(Palette.Get(colour)); t:Show() else t:Hide() end
+            end
+        end
+    end
+end
+
+--- Which slots show, packed left to right over the pet stack's left edge,
+-- and each one's right-click macro. Out of combat (secure buttons).
+function Group.LayoutPetBar()
+    local bar = Group.petBar
+    if not bar then return false end
+    if InCombatLockdown() then Group.petBarPending = true return false end
+    Group.petBarPending = false
+    local size, gap = U(Group.PETBAR_SIZE), U(Group.PETBAR_GAP)
+    local n = 0
+    for i, b in ipairs(bar.buttons) do
+        local name, _, _, autoAllowed = PetInfo(i)
+        if name then
+            b:ClearAllPoints()
+            b:SetPoint("BOTTOMLEFT", bar, "BOTTOMLEFT", n * (size + gap), 0)
+            b:SetAttribute("type2", autoAllowed and "macro" or nil)
+            b:SetAttribute("macrotext2", autoAllowed and ("/petautocasttoggle " .. name) or nil)
+            b:Show()
+            n = n + 1
+        else
+            b:Hide()
+        end
+    end
+    bar:SetWidth(math.max(1, n * (size + gap) - gap))
+    -- Over the pet stack, in the gap below the action bar.
+    local pet = Group.petButton
+    bar:ClearAllPoints()
+    if pet then
+        bar:SetPoint("BOTTOMLEFT", pet, "TOPLEFT", 0, U(2))
+    else
+        bar:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(60))
+    end
+    Group.PaintPetBar()
+    return true
+end
+
 --- Split SelfStack for the pet, or give it its full width back. Out of
 -- combat (the your-bar and pet buttons are secure); a change in combat
 -- waits for it to end.
@@ -668,6 +807,7 @@ function Group.Start()
     if not Group.Build() then return false end
     Group.BuildSelf()
     Group.BuildPet()
+    Group.BuildPetBar()
     Group.BuildFocus()
     Group.BuildTarget()
     ns.Registry.Add("Group", Group.frame, 0)
@@ -680,6 +820,7 @@ function Group.Start()
     ev:RegisterEvent("PLAYER_REGEN_ENABLED")
     ev:RegisterEvent("PLAYER_TARGET_CHANGED")
     ev:RegisterEvent("UNIT_PET")
+    ev:RegisterEvent("PET_BAR_UPDATE")
     ev:RegisterEvent("PLAYER_FOCUS_CHANGED")
     ev:SetScript("OnEvent", function(_, event, unit)
         if event == "PLAYER_TARGET_CHANGED" then
@@ -690,8 +831,13 @@ function Group.Start()
             Group.UpdateFocus()
             if event == "PLAYER_FOCUS_CHANGED" then return end
         end
+        if event == "PET_BAR_UPDATE" then
+            Group.LayoutPetBar()
+            Group.PaintPetBar()
+            return
+        end
         if event == "UNIT_PET" then
-            if unit == "player" then Group.UpdateSplit() end
+            if unit == "player" then Group.UpdateSplit(); Group.LayoutPetBar() end
             Group.UpdatePet()
             return
         end
@@ -708,6 +854,7 @@ function Group.Start()
             Group.Resize()
             Group.Refresh()
             if Group.splitPending then Group.UpdateSplit() end
+            if Group.petBarPending then Group.LayoutPetBar() end
         else
             Group.Refresh()
         end
