@@ -3526,7 +3526,14 @@ do
     check("  closing it folds it", hidden("a"))
     _G.PlayerSpellsFrame = nil
 
+    ns.Reveal.Claim("cursor", "TargetStrip")
+    check("the pointer near an empty target strip leaves it down (no target, nothing to say)",
+          Registry.Get("TargetStrip").target == 0)
+    ns.Reveal.Release("cursor", "TargetStrip")
     mock.units.target = true
+    ns.Reveal.Claim("cursor", "TargetStrip")
+    check("  but with a target it comes up as usual", Registry.Get("TargetStrip").target == 1)
+    ns.Reveal.Release("cursor", "TargetStrip")
     ns.Reveal.Claim("target")
     check("a target brings the bar up (pull with an ALT taunt)", Registry.Get("ActionBar").target == 1)
     do

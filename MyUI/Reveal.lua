@@ -191,9 +191,20 @@ function Reveal.ClaimsOn(name)
     return out
 end
 
+-- Channels that reach every frame (scope nil), less these, while the rule
+-- says no. Round 004 play (/myui claims): the pointer resting above the bar
+-- lit an empty target strip -- a strip with no target says nothing.
+Reveal.UNLESS = {
+    cursor = {
+        TargetStrip = function() return not (_G.UnitExists and _G.UnitExists("target")) end,
+    },
+}
+
 local function InScope(channel, name)
     local scope = SCOPE[channel]
     if scope == nil then
+        local unless = Reveal.UNLESS[channel] and Reveal.UNLESS[channel][name]
+        if unless and unless() then return false end
         return true
     end
     local rule = scope[name]
