@@ -54,6 +54,9 @@ Clear.ADOPT = {
     { "StanceBar",  "StanceBar" },
     { "PetBar",     "PetActionBar" },
     { "MicroMenu",  "MicroMenuContainer" },
+    -- The experience / reputation bar (seen in Phase 4 play on a levelling
+    -- character).
+    { "StatusBars", "StatusTrackingBarManager" },
     { "MinimapMap", "Minimap", hideAtZero = true },
     -- The social button on the chat panel: friends and guild online.
     { "ChatSocial", "QuickJoinToastButton" },
@@ -264,16 +267,30 @@ function Clear.ActiveLayoutName()
     return l and l.layoutName, idx
 end
 
---- Set every action bar that has a visibility setting to in-combat only.
--- Returns how many bars were changed.
+--- Set every action bar that has a visibility setting to in-combat only, and
+-- stop bars drawing their empty slots (Phase 4 play: a grid of empty boxes
+-- came up with the bars in combat). The Cooldown Manager's viewers go
+-- in-combat only too: cooldown information belongs to the fight, and the
+-- rhythm line that replaces them is v2. Returns how many settings changed.
 function Clear.BarsInCombat(layout)
     local E = _G.Enum
+    local bar, cdm = E.EditModeActionBarSetting, E.EditModeCooldownViewerSetting
     local n = 0
     for _, sys in ipairs(layout.systems or {}) do
         if sys.system == E.EditModeSystem.ActionBar then
             for _, st in ipairs(sys.settings or {}) do
-                if st.setting == E.EditModeActionBarSetting.VisibleSetting then
+                if st.setting == bar.VisibleSetting then
                     st.value = E.ActionBarVisibleSetting.InCombat
+                    n = n + 1
+                elseif bar.AlwaysShowButtons and st.setting == bar.AlwaysShowButtons then
+                    st.value = 0
+                    n = n + 1
+                end
+            end
+        elseif cdm and E.EditModeSystem.CooldownViewer and sys.system == E.EditModeSystem.CooldownViewer then
+            for _, st in ipairs(sys.settings or {}) do
+                if st.setting == cdm.VisibleSetting then
+                    st.value = E.CooldownViewerVisibleSetting.InCombat
                     n = n + 1
                 end
             end
