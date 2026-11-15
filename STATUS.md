@@ -19,6 +19,24 @@ every round received is under `design/rounds/`. Work follows PLAN R0–R5 there.
   Round 003 supersedes it (the rail is cut).
 - `wip/aug28` was merged in R3 (2026-11-14) and its docs repointed to `design/current`.
 
+### Phase 4 — bars and low health (in progress, `phase/4-bars`, not merged)
+
+**State, end of 2026-11-14: pre-alpha** (Mykel) — "both minimal and unusably busy". At rest
+the screen is near-empty; in a fight too much comes back at once.
+
+- Built and verified in game: live health / resource / cast / target through curves only;
+  `/myui audit` clean (0 violations, 1,090 secret forwards), summon available, casts by timer.
+- Built, **not yet seen in game:** the low-health tells (14pt number, breathe, edge hairline)
+  and the summon — get below 35% (fall damage).
+- Last change, not yet played: action bars hidden always (Cooldown Manager carries cooldowns in
+  combat), group frames in combat by role (`/myui group`), tracker and damage meter adopted.
+- Still busy in combat: Rebar grid (Mykel's toggle), Cooldown Manager rows (3), unidentified
+  target-debuff icons right of TargetStrip, nameplates. The harness's `leftovers` check names
+  what is still drawn.
+- **To resume:** `/reload`; play a fight; low-health check; one harness run; then decide what a
+  fight should show before merging Phase 4. Then R4 (readable + crisp scale), R5.
+- `newui` is the live environment. To play: quit, `python3 wowaddons.py --env nyx-minimal`.
+
 ### R3b — clear the screen (2026-11-14, `v0.5.1-r3b`)
 
 - At rest the screen is empty but for SelfStack: verified in the harness's rest shot.
