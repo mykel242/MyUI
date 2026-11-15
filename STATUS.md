@@ -33,8 +33,8 @@ the screen is near-empty; in a fight too much comes back at once.
 - Still busy in combat: Rebar grid (Mykel's toggle), Cooldown Manager rows (3), unidentified
   target-debuff icons right of TargetStrip, nameplates. The harness's `leftovers` check names
   what is still drawn.
-- **To resume:** `/reload`; play a fight; low-health check; one harness run; then decide what a
-  fight should show before merging Phase 4. Then R4 (readable + crisp scale), R5.
+- **To resume:** PLAN "MVP first": M1 strip, M2 combat set, M3 minimal group frames, M4
+  readable scale, M5 play and tag `v0.6.0-mvp`. Phase 4's branch carries on as the MVP branch.
 - `newui` is the live environment. To play: quit, `python3 wowaddons.py --env nyx-minimal`.
 
 ### R3b — clear the screen (2026-11-14, `v0.5.1-r3b`)

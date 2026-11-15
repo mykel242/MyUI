@@ -151,7 +151,47 @@ layout; zero Lua errors.
 
 ---
 
-## Order from here (Mykel, 2026-11-14)
+## MVP first, then the nice-to-haves (Mykel, 2026-11-14)
+
+Supersedes "Order from here" below. After the first Phase 4 play the UI was "both minimal and
+unusably busy" — pre-alpha. Strip to an MVP, play it, then add back one thing at a time.
+
+**MVP = a whole session playable on it.** At rest: the world and a faint SelfStack. In a fight,
+exactly this and nothing more:
+
+| In combat | How |
+|---|---|
+| Primary action bar | Bar 1 (adopted) comes back in combat; the other bars stay hidden |
+| Something for cooldowns | Blizzard's Cooldown Manager, in combat only — main row; the others are extras |
+| Target health and casts | TargetStrip; its cast tick becomes a thin cast bar (duration-driven, like SelfStack's) |
+| My health, mana, casts | SelfStack (Phase 4) |
+| What else is around | Blizzard's enemy nameplates — kept, not replaced |
+| Party / raid | **MyUI's own minimal group frames**: name + thin health bar per member, fixed order (role, then group order — never by health, RULES), party and raid, shown in combat and on peek. Blizzard's compact frames stay adopted as the fallback |
+
+Always: readable and crisp on the laptop; peek and hover summon anything; `/myui restore` undoes
+everything; a whisper still toasts and opens chat.
+
+**Steps:**
+
+1. **M1 — Strip.** Non-MVP features off behind one setting (default off), not deleted: the
+   history window, toast sources other than whispers, MyUI's own chat box, the dev panel. Code
+   and tests stay; each comes back as a deliberate step.
+2. **M2 — Combat set.** Bar 1 in combat; Cooldown Manager main row only; TargetStrip cast bar;
+   nameplates confirmed on (reported by `/myui audit`, never forced).
+3. **M3 — Minimal group frames.** As above. Curves only, like TargetStrip.
+4. **M4 — Readable scale.** R4's per-screen scale on its own (readable first, then crisp).
+5. **M5 — Play.** The low-health check in game, a real session, fixes; tag `v0.6.0-mvp`.
+
+**Then the nice-to-haves, one at a time, in Mykel's order:** a collected enemy list (needs its
+own design round: what enters and leaves it, and an order that never ranks by combat state —
+RULES forbids sorting on health or threat); the history window; the other toast sources; MyUI's
+chat box; the dev panel; the rest of R4 (Rebar's grid, snapping, inspector); R5 (ChatQuiet);
+Phase 6b replacements; DialogueUI; Phase 5 edit mode; Phase 6 polish; Phase 7 rhythm line; the
+ultrawide baseline.
+
+---
+
+## Order from here (Mykel, 2026-11-14) — superseded by "MVP first" above
 
 **R3b → Phase 4 → R4 → R5**, then the rest of Phases 5–7. Phase 4 moves ahead of R4 and R5:
 R3b hides Blizzard's player and target frames, and until Phase 4's bars carry real data
