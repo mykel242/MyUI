@@ -335,8 +335,13 @@ end
 -- Experience (round 004 play): a thin line under SelfStack while levelling.
 -- XP is not combat data; if a client ever hands it back secret, the line
 -- hides (SetMinMaxValues is not sanctioned for a secret) rather than guess.
+-- Round 004 play: off -- Blizzard's own experience bar now sits at the
+-- top of the screen (Layout "StatusBars"), so the line would repeat it.
+Bars.XP_LINE = false
+
 function Bars.UpdateXP()
     if not stack or not stack.xp then return end
+    if not Bars.XP_LINE then stack.xp:Hide() return end
     local atMax = _G.IsPlayerAtEffectiveMaxLevel and _G.IsPlayerAtEffectiveMaxLevel()
     local cur, max = _G.UnitXP and _G.UnitXP("player"), _G.UnitXPMax and _G.UnitXPMax("player")
     if atMax or cur == nil or max == nil then

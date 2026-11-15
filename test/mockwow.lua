@@ -328,7 +328,9 @@ function M.install()
     -- in it), an active index that counts the two presets first, and the
     -- enums. M.editMode records what was saved and selected.
     M.editMode = { saved = nil, active = nil }
-    _G.Enum.EditModeSystem = { ActionBar = 0, UnitFrame = 3, AuraFrame = 5, ExtraAbilities = 12, CooldownViewer = 20 }
+    _G.Enum.EditModeSystem = { ActionBar = 0, UnitFrame = 3, AuraFrame = 5, ExtraAbilities = 12,
+        StatusTrackingBar = 15, CooldownViewer = 20 }
+    _G.Enum.EditModeStatusTrackingBarSystemIndices = { StatusTrackingBar1 = 1, StatusTrackingBar2 = 2 }
     _G.Enum.EditModeAuraFrameSystemIndices = { BuffFrame = 1, DebuffFrame = 2 }
     _G.Enum.EditModeAuraFrameSetting = { Orientation = 0, IconWrap = 1, IconDirection = 2,
         IconLimitBuffFrame = 3, IconLimitDebuffFrame = 4, IconSize = 5, IconPadding = 6, ShowDispelType = 9 }
@@ -362,6 +364,8 @@ function M.install()
                 { system = 5, systemIndex = 2, settings = {} },
                 { system = 5, systemIndex = 1, settings = {} },
                 { system = 12, settings = {} },
+                { system = 15, systemIndex = 1, settings = {} },
+                { system = 15, systemIndex = 2, settings = {} },
             } },
             { layoutName = "Alt", layoutType = 2, systems = {} },
         },

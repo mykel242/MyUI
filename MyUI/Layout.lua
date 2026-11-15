@@ -41,6 +41,9 @@ Layout.PRESETS = {
         -- top (~146) -- the strip's bar sits 15 above its own bottom.
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 163 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
+        -- Blizzard's experience and second status bars, out of the way at
+        -- the top edge (round 004 play).
+        StatusBars  = { "TOP", "TOP", 0, 0 },
         -- Your focus, over the target strip: its bar 16 above the target's
         -- text row (round 004 play).
         Focus       = { "BOTTOM", "BOTTOM", 0, 210 },
@@ -66,6 +69,7 @@ Layout.PRESETS = {
         TargetStrip = { "TOP", "TOP", 0, -20 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 140, 150 },
         Focus       = { "TOP", "TOP", 0, -90 },
+        StatusBars  = { "TOP", "TOP", 0, 0 },
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 0 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
         debuffGap   = 32,

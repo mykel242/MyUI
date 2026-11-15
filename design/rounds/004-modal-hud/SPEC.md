@@ -528,6 +528,9 @@ only alpha moves (RULES).
 
 ## 16a. Layout profiles (round 004 play)
 
+Blizzard's experience and second status bars sit at the **top edge** of the screen (Layout
+`StatusBars`), shown as Blizzard shows them; MyUI's XP line under SelfStack is off.
+
 The minimap stays up **out of combat** (Mykel: "enough of a map to see BugSack") — a `calm`
 reveal channel claimed outside combat; `/myui map peek` returns it to summon-only.
 

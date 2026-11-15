@@ -57,9 +57,10 @@ Clear.ADOPT = {
     { "StanceBar",  "StanceBar" },
     { "PetBar",     "PetActionBar" },
     { "MicroMenu",  "MicroMenuContainer" },
-    -- The experience / reputation bar (seen in Phase 4 play on a levelling
-    -- character).
-    { "StatusBars", "StatusTrackingBarManager" },
+    -- The experience / reputation bars: no longer adopted. Round 004 play
+    -- (Mykel): hide them "or put them somewhere like the very top of the
+    -- screen where they won't interfere" -- the MyUI layout puts both at
+    -- the top edge (Layout "StatusBars"), shown as Blizzard shows them.
     -- Phase 4 play (Mykel): the objective tracker and the damage meter.
     -- Alpha on the tracker frame only -- never ObjectiveTrackerManager or
     -- Blizzard's alpha globals, which taint (SPEC 13, ChatQuiet's lesson).
@@ -529,6 +530,7 @@ Clear.OVER_BAR = {
     PetActionBar = { side =  1 },
 }
 Clear.UNDER_WING_HEIGHT = 30
+Clear.STATUS_BAR_STEP = 12   -- the second status bar, this far under the first
 
 -- Blizzard's zone / extra ability button has an ornate frame (Mykel: "I
 -- really dislike that giant zone button"): the frame art is hidden. A scale
@@ -645,6 +647,17 @@ function Clear.PlaceWings(layout)
             for key in pairs(Clear.OVER_BAR) do
                 if bars[key] == sys.systemIndex then At(sys, key) end
             end
+        elseif E.EditModeSystem.StatusTrackingBar and sys.system == E.EditModeSystem.StatusTrackingBar then
+            -- Experience and the second status bar, at the top edge, the
+            -- second just under the first.
+            local sidx = E.EditModeStatusTrackingBarSystemIndices
+            local point, rel, x, y = ns.Layout.Pos("StatusBars")
+            local second = sidx and sys.systemIndex == sidx.StatusTrackingBar2
+            sys.isInDefaultPosition = false
+            sys.anchorInfo = { point = point, relativeTo = "UIParent", relativePoint = rel,
+                               offsetX = ns.Scale.U(x),
+                               offsetY = ns.Scale.U(y) - (second and ns.Scale.U(Clear.STATUS_BAR_STEP) or 0) }
+            n = n + 1
         elseif E.EditModeSystem.ExtraAbilities and sys.system == E.EditModeSystem.ExtraAbilities then
             -- Blizzard's zone / extra ability button (round 004 play: it sat
             -- mid-screen over the character). Placed by the profile.
@@ -809,6 +822,12 @@ function Clear.Apply()
         local ok, err = Clear.ApplyLayout()
         DB().layoutResult = ok and ("bars changed: " .. tostring(ok)) or tostring(err)
         Clear.StyleExtra(true)
+        -- Saving the Edit Mode layout from MyUI taints what Edit Mode touches
+        -- this session (round 004 play: entering Edit Mode then errored in
+        -- the arena frames). Only on a session that actually saved.
+        if Clear.layoutUntouched == false then
+            ns.Print("|cffadb1b8the MyUI Edit Mode layout was updated -- /reload once so Blizzard's frames start clean|r")
+        end
         -- Applying a layout sets each viewer's Edit Mode opacity (SetAlpha);
         -- put the adopted ones back where the reveal engine has them.
         ns.Reveal.Snap()

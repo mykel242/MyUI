@@ -2796,12 +2796,14 @@ do
             for _, c in ipairs(clip.__calls) do if c.method == "SetClipsChildren" then return c[1] == true end end
         end)()
     end)())
-    check("experience as a thin line under SelfStack while levelling, gone at max", (function()
+    check("experience as a thin line under SelfStack while levelling (when on), gone at max", (function()
+        Bars.XP_LINE = true
         _G.UnitXP = function() return 300 end
         _G.UnitXPMax = function() return 1000 end
         _G.IsPlayerAtEffectiveMaxLevel = function() return false end
         Bars.driver:Fire("PLAYER_XP_UPDATE")
         local shown = stack.xp:IsShown()
+        Bars.XP_LINE = false
         _G.IsPlayerAtEffectiveMaxLevel = function() return true end
         Bars.driver:Fire("PLAYER_XP_UPDATE")
         local gone = not stack.xp:IsShown()
@@ -3174,6 +3176,11 @@ do
         return ok and near(x2, half + Scale.U(32))
     end)())
     check("  the buff frame is left alone", sys(10).anchorInfo == nil)
+    check("  Blizzard's experience and second status bars at the top edge, one under the other", (function()
+        local a, b = sys(12).anchorInfo, sys(13).anchorInfo
+        return a and b and a.point == "TOP" and a.relativePoint == "TOP" and near(a.offsetY, 0)
+           and near(b.offsetY, -Scale.U(12))
+    end)())
     check("  the zone / extra ability button on bar 1's row, past button 8", (function()
         local a = sys(11).anchorInfo
         return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(250)) and near(a.offsetY, Scale.U(39))
