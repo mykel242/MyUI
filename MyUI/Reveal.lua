@@ -71,6 +71,9 @@ Reveal.CHANNELS = {
     whisper = 1.0,
     peek    = 1.0,
     debug   = 1.0,
+    -- Round 004: something placeable is on the cursor (a spell, item or
+    -- macro picked up) -- the action bar shows every page to drop it on.
+    assign  = 1.0,
 }
 
 -- SPEC.md 4 says "highest claim wins" and says nothing about ties -- but every
@@ -92,7 +95,7 @@ Reveal.CHANNELS = {
 -- debug leads because it is not a SPEC channel at all but a diagnostic
 -- override, and an audit that hid it would be lying about why a frame is lit.
 -- lowhealth slots in directly after it in Phase 4.
-Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "peek", "cursor" }
+Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "assign", "peek", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
@@ -111,6 +114,7 @@ local SCOPE = {
                Raid = function() return ns.Clear and ns.Clear.GroupInCombat() end },
     target = { TargetStrip = true },
     lowhealth = { SelfStack = true },
+    assign = { ActionBar = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
 }
 

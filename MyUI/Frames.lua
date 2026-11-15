@@ -141,7 +141,7 @@ Frames.PCT_STYLES = { pill = true, above = true }
 
 function Frames.PctStyle()
     local s = ns.db and ns.db.pct
-    return Frames.PCT_STYLES[s] and s or "pill"
+    return Frames.PCT_STYLES[s] and s or "above"   -- Mykel: "much cleaner"
 end
 
 --- Anchor a pill to its bar in the current style. Also re-run after the pill
@@ -226,17 +226,24 @@ Frames.Bar, Frames.Fill = Bar, Fill
 -- ---------------------------------------------------------------------------
 -- SelfStack -- BOTTOM, centred, 214 up. 240 wide, resting 0.35.
 -- ---------------------------------------------------------------------------
--- Height is the sum of the internals: 4 health + 4 gap + 2 resource + 6 gap +
--- 4 cast = 20.
+-- Height is the sum of the internals: an 11pt name row and 20 to the bar
+-- (round 004: like the target strip), then 4 health + 4 gap + 2 resource +
+-- 6 gap + 4 cast = 51. The bars sit where they always did: the group grew up.
 
 local function BuildSelfStack()
     local group = CreateFrame("Frame", "MyUISelfStack", UIParent)
     group:SetFrameStrata(Frames.STRATA)
-    group:SetSize(U(240), U(20))
+    group:SetSize(U(240), U(51))
     group:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(214))
 
+    -- Round 004 (Mykel): name left, level right, as on the target strip.
+    local name = Text(group, 11, "textPrimary", "LEFT")
+    name:SetPoint("TOPLEFT", group, "TOPLEFT", 0, 0)
+    local level = Text(group, 11, "textDim", "RIGHT")
+    level:SetPoint("TOPRIGHT", group, "TOPRIGHT", 0, 0)
+
     local health = Bar(group, 240, 4)
-    health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, 0)
+    health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(31))
 
     local resource = Bar(group, 240, 2)
     resource:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -U(4))
@@ -262,6 +269,7 @@ local function BuildSelfStack()
     tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(96), 0)
 
     group.health, group.resource, group.cast = health, resource, cast
+    group.name, group.level = name, level
     group.number, group.pill, group.tick20, group.tick40 = number, pill, tick20, tick40
     return group
 end
@@ -348,6 +356,8 @@ function Frames.Placeholders(on)
 
     if on then
         stack.number:SetText(PLACEHOLDER.number)
+        stack.name:SetText("Player Name")
+        stack.level:SetText(PLACEHOLDER.level)
         strip.number:SetText(PLACEHOLDER.number)
         strip.name:SetText(PLACEHOLDER.name)
         strip.level:SetText(PLACEHOLDER.level)
@@ -357,6 +367,8 @@ function Frames.Placeholders(on)
         strip.health:SetValue(Frames.DEBUG_FILL)
     else
         stack.number:SetText("")
+        stack.name:SetText("")
+        stack.level:SetText("")
         strip.number:SetText("")
         strip.name:SetText("")
         strip.level:SetText("")

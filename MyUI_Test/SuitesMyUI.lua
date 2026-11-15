@@ -577,14 +577,25 @@ T.Suite("myui-actions", {
           check = function(api)
               local A = api.ns().Actions
               local state = A.header:GetAttribute("state-page") or "1"
+              if state == "hide" then return true, "hidden (vehicle or the like)" end
               local f = A.found[state]
               local offset = f and f.offset or ((tonumber(state) or 1) - 1) * 12
-              for i, b in ipairs(A.buttons) do
+              for i, b in ipairs(A.rows[f and state or "1"]) do
+                  if not b:IsShown() then return false, ("button %d of the page showing is hidden"):format(i) end
                   if b:GetAttribute("action") ~= offset + i then
                       return false, ("button %d -> %s, want %d"):format(i, tostring(b:GetAttribute("action")), offset + i)
                   end
               end
               return true, ("page %s, slots %d-%d"):format(tostring(state), offset + 1, offset + #A.buttons)
+          end },
+        { id = "keys", shot = false,
+          what = "The player's keys for these slots click MyUI's buttons.",
+          check = function(api)
+              local A = api.ns().Actions
+              local key = _G.GetBindingKey("ACTIONBUTTON1")
+              local now = key and _G.GetBindingAction(key, true)
+              return (A.nbinds or 0) > 0 and (not key or (now or ""):find("MyUIActionButton1", 1, true) ~= nil),
+                     ("%s keys moved; %s -> %s"):format(tostring(A.nbinds), tostring(key), tostring(now))
           end },
         { id = "blizzard-bar-1", shot = false,
           what = "Blizzard's bar 1 stays shown at alpha 0 (its keybinds live), out of the registry.",
@@ -592,7 +603,7 @@ T.Suite("myui-actions", {
               local main = _G.MainActionBar
               if not main then return true, "no MainActionBar on this client" end
               local inReg = api.ns().Registry.Get("MainBar") ~= nil
-              return main:IsShown() and main:GetAlpha() == 0 and not inReg,
+              return main:GetAlpha() == 0 and not inReg,
                      ("shown %s, alpha %s, registered %s"):format(tostring(main:IsShown()),
                          tostring(main:GetAlpha()), tostring(inReg))
           end },

@@ -107,7 +107,7 @@ function Clear.Adopt()
             entry.hideAtZero = spec.hideAtZero
             if spec.yieldsTo and ns.Registry.Get(spec.yieldsTo) then
                 ns.Registry.Remove(name)
-                frame:SetAlpha(0)
+                Clear.Pin(frame)
             end
             n = n + 1
         end
@@ -122,8 +122,28 @@ function Clear.Adopt()
     return n
 end
 
+--- Hold a frame at alpha 0 against Blizzard's own code setting it back
+-- (round 004 play: bar 1 showed through under MyUI's). Alpha is never
+-- protected, so this is legal in combat too.
+Clear.pinned = {}
+local pinning = false
+function Clear.Pin(frame)
+    if Clear.pinned[frame] == nil then
+        hooksecurefunc(frame, "SetAlpha", function(f, a)
+            if Clear.pinned[f] and not pinning and a ~= 0 then
+                pinning = true
+                f:SetAlpha(0)
+                pinning = false
+            end
+        end)
+    end
+    Clear.pinned[frame] = true
+    frame:SetAlpha(0)
+end
+
 function Clear.Release()
     local n = 0
+    for _, a in pairs(Clear.adopted) do Clear.pinned[a.frame] = Clear.pinned[a.frame] and false end
     for name, a in pairs(Clear.adopted) do
         ns.Reveal.Release("whisper", name)
         ns.Registry.Remove(name)

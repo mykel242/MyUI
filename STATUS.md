@@ -42,6 +42,18 @@ M1 (strip) is built on `mvp/m1-strip`.
   above`).
 - Not yet: Ghost style, the 30 px pages, the wings.
 
+**First play (Mykel):** "assigning buttons is hard"; mouse buttons mapped to ALT and CTRL fire
+the binds but don't swap the display; highlights didn't line up — Blizzard's bar showing under
+MyUI's. Second pass:
+- One row of buttons per page, each fixed to its slots; the player's keys moved onto them as
+  override bindings, so presses and glows draw on MyUI's buttons. Vehicles hand the keys back
+  (restricted snippet: `ClearBindings` / `SetBindingClick`).
+- Blizzard's bar 1 pinned at alpha 0 (`Clear.Pin` hooks `SetAlpha`).
+- Assign: anything on the cursor stacks all four rows, labelled (`assign` reveal channel).
+- `/myui mods`: what the client sees of the modifiers, 10 s — the mouse-mapped ALT question.
+- Health % default is now **above** the bar (Mykel: "much cleaner"); SelfStack gained name and
+  level, laid out like the target strip.
+
 ### Phase 4 — bars and low health (in progress, `phase/4-bars`, not merged)
 
 **State, end of 2026-11-14: pre-alpha** (Mykel) — "both minimal and unusably busy". At rest

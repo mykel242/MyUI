@@ -66,9 +66,11 @@ resting alpha 0, revealed by the engine, alpha only. Adoption is the interim, no
 - Health bar — 240 × 4, trough `rgba(255,255,255,0.14)`
 - Resource bar — 240 × 2, 4 below health
 - Cast bar — 240 × 4, 6 below resource
-- Health number — 12pt, **centred on the health bar, on a `rgba(0,0,0,0.55)` pill** (round 004,
-  Mykel; was 40 wide, right-aligned, 8 left of the bar group). A player setting, `/myui pct`:
-  *pill* (default) or *above* — just over the bar, no pill.
+- Name — 11pt, left; level — 11pt dim, right; a row 20 above the health bar, as on the target
+  strip (round 004, Mykel). The group grows upward to 51; the bars do not move.
+- Health number — 12pt, **centred, just above the health bar** (round 004, Mykel: "much
+  cleaner"; was 40 wide, right-aligned, 8 left of the bar group). `/myui pct pill` puts it on the
+  bar on a `rgba(0,0,0,0.55)` pill instead.
 - Threshold ticks on the health bar — static geometry, always present:
   - 20% mark at x = 48, `rgba(0,0,0,0.55)` (reads against the fill)
   - 40% mark at x = 96, `rgba(255,255,255,0.25)` (reads against the empty trough)
@@ -82,8 +84,8 @@ value.
 - Name — 11pt, `rgba(240,241,243,1)`, left-aligned at group left
 - Level — 11pt, `rgba(173,177,184,1)`, right-aligned at group right
 - Health bar — 400 × 3, 20 below the name row
-- Health number — 12pt, centred on the bar the same way as SelfStack's (round 004); a boss bar
-  (§ 21) carries its number the same way
+- Health number — 12pt, centred just above the bar, the same way as SelfStack's (round 004); a
+  boss bar (§ 21) carries its number the same way
 - Cast indicator — 3 × 6 tick, 9 below the bar
 
 ---
@@ -523,8 +525,15 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   display may change on a modifier in combat. Skinning Blizzard's bars was considered and is safer
   but cannot do either style (confirm with probe P5). Each modifier's page is **read from the
   player's own binds** — whatever ALT-1, CTRL-1 and ALT-CTRL-1 are bound to names the bar — so
-  nothing has to be configured. A vehicle, possession or pet battle hides MyUI's bar and Blizzard's
-  override bar takes over; a form's bonus bar (stealth, cat form, skyriding) still pages bar 1.
+  nothing has to be configured. One row of buttons per page, each modifier row fixed to its slots;
+  the driver shows the held one. **The player's keys move onto MyUI's buttons** as override
+  bindings (every key bound to a slot's command clicks MyUI's button for it), so a press, cast
+  flash and proc glow show on MyUI's button and a key fires its slot even when the display has
+  not seen the modifier. A vehicle, possession or pet battle hides MyUI's bar and drops the
+  overrides in the restricted environment, so Blizzard's override bar takes over; a form's bonus
+  bar (stealth, cat form, skyriding) still pages bar 1.
+- **Assigning**: while a spell, item or macro is on the cursor, every page is drawn stacked above
+  bar 1 and labelled, so there is somewhere to drop it (out of combat).
 - **Items, trinkets and potions** need nothing special: they sit on action slots, usually as
   macros, and show icon, count and cooldown like any action. The Cooldowns wing (§ 18) may hold
   any action slot too.

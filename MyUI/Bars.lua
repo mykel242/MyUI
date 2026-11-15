@@ -319,6 +319,21 @@ function Bars.UpdateCast()
     end
 end
 
+-- SelfStack's name and level (round 004). Plain for the player; forwarded
+-- anyway, the same way as the target's.
+function Bars.UpdateIdentity()
+    if not Bars.Live() then return end
+    Guard.Send(stack.name, "SetText", _G.UnitName("player"))
+    local level = _G.UnitLevel("player")
+    if level ~= nil and Compat.IsSecret(level) then
+        Guard.Send(stack.level, "SetFormattedText", "%d", level)
+    elseif type(level) == "number" and level > 0 then
+        stack.level:SetText(tostring(level))
+    else
+        stack.level:SetText("")
+    end
+end
+
 -- TargetStrip: name, level, health, cast tick. The strip rests at 0 and the
 -- target channel reveals it; this only fills it.
 function Bars.UpdateTarget()
@@ -352,6 +367,7 @@ function Bars.Refresh()
     Bars.UpdatePower()
     Bars.UpdateCast()
     Bars.UpdateTarget()
+    Bars.UpdateIdentity()
 end
 
 --- The harness's switch: while suspended nothing live reaches the bars, so a
@@ -404,6 +420,10 @@ local PLAYER_EVENTS = {
 }
 
 local function OnEvent(_, event, unit)
+    if event == "PLAYER_LEVEL_UP" or ((event == "UNIT_NAME_UPDATE" or event == "UNIT_LEVEL") and unit == "player") then
+        Bars.UpdateIdentity()
+        return
+    end
     if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
         Bars.Refresh()
         return
@@ -445,6 +465,7 @@ function Bars.OnLogin()
         end
     end
     driver:RegisterEvent("PLAYER_TARGET_CHANGED")
+    driver:RegisterEvent("PLAYER_LEVEL_UP")
     driver:RegisterEvent("PLAYER_ENTERING_WORLD")
     driver:SetScript("OnEvent", OnEvent)
 

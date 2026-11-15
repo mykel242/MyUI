@@ -263,6 +263,15 @@ function M.frame(spec)
     f.GetAttribute = function(_, name) return f.__attrs[name] end
     f.SetFrameRef = function(_, name, ref) f.__refs[name] = ref end
     f.GetFrameRef = function(_, name) return f.__refs[name] end
+    -- SecureHandler templates: Execute runs a body as `self`, and the
+    -- restricted handle's binding methods land in M.overrides.
+    f.Execute = function(_, body)
+        local chunk = assert((loadstring or load)(body, "=Execute"))
+        setfenv(chunk, setmetatable({ self = f }, { __index = { tonumber = tonumber } }))
+        chunk()
+    end
+    f.ClearBindings = function() _G.ClearOverrideBindings(f) end
+    f.SetBindingClick = function(_, priority, key, name) _G.SetOverrideBindingClick(f, priority, key, name) end
     f.Fire = function(_, event, ...)
         local fn = f.scripts.OnEvent
         if fn then return fn(f, event, ...) end
@@ -438,6 +447,7 @@ function M.install()
     M.altDown, M.shiftDown = false, false
     _G.IsAltKeyDown   = function() return M.altDown end
     _G.IsShiftKeyDown = function() return M.shiftDown end
+    _G.IsControlKeyDown = function() return M.ctrlDown end
 
     M.units = {}
     _G.UnitExists = function(unit) return M.units[unit] == true end
@@ -647,13 +657,28 @@ function M.install()
 
     -- Key bindings: M.bindings[key] = command. GetBindingKey is the reverse.
     M.bindings = {}
-    _G.GetBindingAction = function(key) return M.bindings[key] or "" end
+    _G.GetBindingAction = function(key, checkOverride)
+        local o = checkOverride and M.overrides and M.overrides[key]
+        if o then return "CLICK " .. o.button .. ":LeftButton" end
+        return M.bindings[key] or ""
+    end
     _G.GetBindingKey = function(cmd)
-        local best
+        local keys = {}
         for key, c in pairs(M.bindings) do
-            if c == cmd and (not best or key < best) then best = key end
+            if c == cmd then keys[#keys + 1] = key end
         end
-        return best
+        table.sort(keys)
+        return (unpack or table.unpack)(keys)
+    end
+    -- Override bindings: M.overrides[key] = button name, per owner.
+    M.overrides = {}
+    _G.ClearOverrideBindings = function(owner)
+        for key, o in pairs(M.overrides) do
+            if o.owner == owner then M.overrides[key] = nil end
+        end
+    end
+    _G.SetOverrideBindingClick = function(owner, _, key, name)
+        M.overrides[key] = { owner = owner, button = name }
     end
     _G.GetBindingText = function(key) return key end
 
