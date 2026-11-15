@@ -197,17 +197,19 @@ T.Suite("myui-p2", {
           end },
 
         { id = "target",
-          what = "A target: the top strip appears; the bottom group stays faint.",
+          what = "A target claim: the strip follows SelfStack (round 004) -- faint with a target, gone without.",
           setup = function(api) Baseline(api); Claim(api, "target") end,
           check = function(api)
-              return AlphasAre(api, { TargetStrip = 1, SelfStack = 0.35, Cooldowns = 0.25 })
+              local has = _G.UnitExists and _G.UnitExists("target")
+              return AlphasAre(api, { TargetStrip = has and 0.35 or 0, SelfStack = 0.35, Cooldowns = 0.25 })
           end },
 
         { id = "combat",
-          what = "Combat: the bottom group up; the target strip unaffected.",
+          what = "Combat: the bottom group up; the target strip with it if there is a target.",
           setup = function(api) Baseline(api); Claim(api, "combat") end,
           check = function(api)
-              return AlphasAre(api, { SelfStack = 1, Cooldowns = 1, TargetStrip = 0 })
+              local has = _G.UnitExists and _G.UnitExists("target")
+              return AlphasAre(api, { SelfStack = 1, Cooldowns = 1, TargetStrip = has and 1 or 0 })
           end },
 
         { id = "peek",
