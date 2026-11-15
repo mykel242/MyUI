@@ -315,7 +315,15 @@ local function BuildSelfStack()
     tick40:SetSize(Scale.Hairline(), U(4))
     tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(96), 0)
 
-    group.health, group.resource, group.cast = health, resource, cast
+    -- Round 004 play (Mykel, levelling): experience as a thin line just
+    -- under the stack, in place of Blizzard's bar along the screen's foot.
+    -- Hidden at max level (Bars.UpdateXP).
+    local xp = Bar(group, 240, 2)
+    xp:SetPoint("TOPLEFT", cast, "BOTTOMLEFT", 0, -U(4))
+    xp.fill:SetColorTexture(Palette.Get("notifBlue"))
+    xp:Hide()
+
+    group.health, group.resource, group.cast, group.xp = health, resource, cast, xp
     group.name, group.level = name, level
     group.number, group.pill, group.tick20, group.tick40 = number, pill, tick20, tick40
     return group

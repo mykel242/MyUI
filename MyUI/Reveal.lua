@@ -113,7 +113,10 @@ local SCOPE = {
     -- Round 004: MyUI's own action bar (Actions.lua) comes back in combat.
     combat = { SelfStack = true, Pet = true, Cooldowns = true, ActionBar = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
-               StanceBar = true, PetBar = true, Debuffs = true,
+               StanceBar = true, Debuffs = true,
+               -- Round 004 play: a hunter sets the pet bar's stances once;
+               -- for hunters it stays down. Warlocks and others keep it.
+               PetBar = function() return not (ns.Clear and ns.Clear.IsHunter()) end,
                -- MyUI's group frames (SPEC 19), by role or preference.
                Group = function() return ns.Clear and ns.Clear.GroupInCombat() end },
     -- Round 004 play (Mykel): target something, hold ALT, tap a taunt to pull --
@@ -124,7 +127,8 @@ local SCOPE = {
     target = { TargetStrip = true, ActionBar = true, Debuffs = true, Pet = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end,
-               PetBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
+               PetBar = function() return not (ns.Actions and ns.Actions.IsStacked())
+                                          and not (ns.Clear and ns.Clear.IsHunter()) end },
     lowhealth = { SelfStack = true },
     calm = { Minimap = true, MinimapMap = true },
     assign = { ActionBar = true, WingCooldowns = true, WingUtility = true, WingBuffs = true },

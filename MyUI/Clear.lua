@@ -410,6 +410,11 @@ end
 
 Clear.GROUP_MODES = { auto = true, combat = true, hover = true }
 
+function Clear.IsHunter()
+    local _, class = _G.UnitClass and _G.UnitClass("player")
+    return class == "HUNTER"
+end
+
 function Clear.Role()
     local role = _G.UnitGroupRolesAssigned and _G.UnitGroupRolesAssigned("player")
     if (role == nil or role == "NONE") and _G.GetSpecialization and _G.GetSpecializationRole then

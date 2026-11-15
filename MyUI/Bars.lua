@@ -320,6 +320,26 @@ function Bars.UpdateCast()
     end
 end
 
+-- Experience (round 004 play): a thin line under SelfStack while levelling.
+-- XP is not combat data; if a client ever hands it back secret, the line
+-- hides (SetMinMaxValues is not sanctioned for a secret) rather than guess.
+function Bars.UpdateXP()
+    if not stack or not stack.xp then return end
+    local atMax = _G.IsPlayerAtEffectiveMaxLevel and _G.IsPlayerAtEffectiveMaxLevel()
+    local cur, max = _G.UnitXP and _G.UnitXP("player"), _G.UnitXPMax and _G.UnitXPMax("player")
+    if atMax or cur == nil or max == nil then
+        stack.xp:Hide()
+        return
+    end
+    if Compat.IsSecret(max) or Compat.IsSecret(cur) or max <= 0 then
+        stack.xp:Hide()
+        return
+    end
+    stack.xp:SetMinMaxValues(0, max)
+    stack.xp:SetValue(cur)
+    stack.xp:Show()
+end
+
 -- SelfStack's name and level (round 004). Plain for the player; forwarded
 -- anyway, the same way as the target's.
 function Bars.UpdateIdentity()
@@ -369,6 +389,7 @@ function Bars.Refresh()
     Bars.UpdateCast()
     Bars.UpdateTarget()
     Bars.UpdateIdentity()
+    Bars.UpdateXP()
 end
 
 --- The harness's switch: while suspended nothing live reaches the bars, so a
@@ -421,8 +442,13 @@ local PLAYER_EVENTS = {
 }
 
 local function OnEvent(_, event, unit)
+    if event == "PLAYER_XP_UPDATE" then
+        Bars.UpdateXP()
+        return
+    end
     if event == "PLAYER_LEVEL_UP" or ((event == "UNIT_NAME_UPDATE" or event == "UNIT_LEVEL") and unit == "player") then
         Bars.UpdateIdentity()
+        Bars.UpdateXP()
         return
     end
     if event == "PLAYER_TARGET_CHANGED" or event == "PLAYER_ENTERING_WORLD" then
@@ -467,6 +493,7 @@ function Bars.OnLogin()
     end
     driver:RegisterEvent("PLAYER_TARGET_CHANGED")
     driver:RegisterEvent("PLAYER_LEVEL_UP")
+    driver:RegisterEvent("PLAYER_XP_UPDATE")
     driver:RegisterEvent("PLAYER_ENTERING_WORLD")
     driver:SetScript("OnEvent", OnEvent)
 

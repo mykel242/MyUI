@@ -248,10 +248,35 @@ end
 --- The mini rows: side by side in equal slots over bar 1, left to right in
 -- the order ALT, CTRL, ALT+CTRL. A scaled frame's offsets are in its own
 -- units, hence the divisions.
+--- Does a page hold anything in the slots MyUI draws? Plain API.
+function Actions.PageUsed(id)
+    local f = Actions.found and Actions.found[id]
+    if not f then return false end
+    local has = (_G.C_ActionBar and _G.C_ActionBar.HasAction) or _G.HasAction
+    if not has then return true end
+    for i = 1, Actions.BUTTONS do
+        local ok, yes = pcall(has, f.offset + i)
+        if ok and yes then return true end
+    end
+    return false
+end
+
 function Actions.LayoutMinis()
+    if InCombatLockdown() then Actions.minisPending = true return end
+    Actions.minisPending = false
     local frames = {}
     for _, page in ipairs({ "a", "c", "ac" }) do
-        if Actions.minis and Actions.minis[page] then frames[#frames + 1] = Actions.minis[page] end
+        local f = Actions.minis and Actions.minis[page]
+        if f then
+            -- Round 004 play: a page with nothing on it is left out, and the
+            -- rest centre without it.
+            if Actions.PageUsed(page) then
+                frames[#frames + 1] = f
+                f:Show()
+            else
+                f:Hide()
+            end
+        end
     end
     local k = #frames
     if k == 0 then return end
@@ -631,6 +656,7 @@ function Actions.Start()
     ev:RegisterEvent("UPDATE_BINDINGS")
     ev:RegisterEvent("ACTIONBAR_SHOWGRID")
     ev:RegisterEvent("ACTIONBAR_HIDEGRID")
+    ev:RegisterEvent("ACTIONBAR_SLOT_CHANGED")
     ev:RegisterEvent("PLAYER_REGEN_ENABLED")
     ev:RegisterEvent("PLAYER_REGEN_DISABLED")
     ev:RegisterEvent("ADDON_LOADED")
@@ -644,6 +670,7 @@ function Actions.Start()
                 Actions.PaintKeys()
             end
             Actions.Apply()
+            if Actions.minisPending then Actions.LayoutMinis() end
         elseif event == "PLAYER_REGEN_DISABLED" then
             -- Fires just before the lockdown: the last moment to fold.
             Actions.SetAssign(false)
@@ -654,6 +681,9 @@ function Actions.Start()
             Actions.Want("cursor", true)
         elseif event == "ACTIONBAR_HIDEGRID" then
             Actions.Want("cursor", false)
+        elseif event == "ACTIONBAR_SLOT_CHANGED" then
+            -- A page may have filled or emptied: which minis show.
+            Actions.LayoutMinis()
         end
     end)
     Actions.HookBooks()

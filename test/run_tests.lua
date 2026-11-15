@@ -2782,6 +2782,18 @@ do
         end
         return near(stack.health.danger:GetWidth(), Scale.U(240) * 0.35)
     end)())
+    check("experience as a thin line under SelfStack while levelling, gone at max", (function()
+        _G.UnitXP = function() return 300 end
+        _G.UnitXPMax = function() return 1000 end
+        _G.IsPlayerAtEffectiveMaxLevel = function() return false end
+        Bars.driver:Fire("PLAYER_XP_UPDATE")
+        local shown = stack.xp:IsShown()
+        _G.IsPlayerAtEffectiveMaxLevel = function() return true end
+        Bars.driver:Fire("PLAYER_XP_UPDATE")
+        local gone = not stack.xp:IsShown()
+        _G.UnitXP, _G.UnitXPMax, _G.IsPlayerAtEffectiveMaxLevel = nil, nil, nil
+        return shown and gone
+    end)())
     check("the target's percentage, formatted in C, on its bar (round 004)", (function()
         local c = lastCall(strip.number, "SetFormattedText")
         local p, rel = strip.pill:GetPoint(1)
@@ -2986,6 +2998,13 @@ do
           and Registry.Get("PetBar").target == 1 and Registry.Get("WingCooldowns").target == 1
           and Registry.Get("WingUtility").target == 1 and Registry.Get("WingBuffs").target == 1)
     Reveal.Release("combat")
+    local realClass = _G.UnitClass
+    _G.UnitClass = function() return "Hunter", "HUNTER" end
+    Reveal.Claim("combat")
+    check("  except a hunter's pet bar (stances set once)", Registry.Get("PetBar").target == 0
+          and Registry.Get("StanceBar").target == 1)
+    Reveal.Release("combat")
+    _G.UnitClass = realClass
     _G.UnitGroupRolesAssigned = function() return "HEALER" end
     Reveal.Claim("combat")
     check("  but a healer's group frames do come back (auto)",
@@ -3335,6 +3354,15 @@ do
            ("%s %s %s %s"):format(tostring(xa), tostring(s), tostring(leftMargin), tostring(rightMargin))
     end)())
     check("  no keybind text on the minis", A.miniButtons.a[1].__myuiKey == nil)
+    check("  a page with nothing on it is left out, the rest re-centred", (function()
+        _G.HasAction = function(slot) return slot >= 61 and slot <= 68 end   -- only ALT holds anything
+        A.LayoutMinis()
+        local ok = A.minis.a:IsShown() and not A.minis.c:IsShown() and not A.minis.ac:IsShown()
+        local _, _, _, xa = A.minis.a:GetPoint(1)
+        _G.HasAction = nil
+        A.LayoutMinis()
+        return ok and xa > 0 and A.minis.c:IsShown()
+    end)())
     check("  minis never take the player's keys", (function()
         for _, o in pairs(mock.overrides) do if o.button:find("Mini") then return false end end
         return true
