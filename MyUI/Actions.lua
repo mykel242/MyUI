@@ -243,7 +243,18 @@ function Actions.SetAssign(on)
     Actions.Layout(on)
     Reapply()
     if on then ns.Reveal.Claim("assign") else ns.Reveal.Release("assign") end
+    -- The target's claim decides the stance and pet bars by whether the
+    -- pages are stacked: claim it again so that is asked now.
+    if _G.UnitExists and _G.UnitExists("target") then
+        ns.Reveal.Release("target")
+        ns.Reveal.Claim("target")
+    end
     return true
+end
+
+--- True while every page is drawn stacked (arranging).
+function Actions.IsStacked()
+    return Actions.header ~= nil and Actions.header:GetAttribute("assign") == true
 end
 
 --- Why the bar is arranged: any reason keeps it stacked. "cursor" (something

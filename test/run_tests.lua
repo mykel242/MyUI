@@ -3384,6 +3384,20 @@ do
     mock.units.target = true
     ns.Reveal.Claim("target")
     check("a target brings the bar up (pull with an ALT taunt)", Registry.Get("ActionBar").target == 1)
+    do
+        local st = mock.frame({ name = "StanceBarMock" })
+        local had = Registry.Get("StanceBar")
+        if not had then Registry.Add("StanceBar", st, 0) end
+        ns.Reveal.Release("target"); ns.Reveal.Claim("target")
+        local before = Registry.Get("StanceBar").target
+        run("bars")
+        local during = Registry.Get("StanceBar").target
+        run("bars")
+        local after = Registry.Get("StanceBar").target
+        check("the forms bar comes with a target, steps aside while arranging, and comes back",
+              before == 1 and during == 0 and after == 1, ("%s %s %s"):format(tostring(before), tostring(during), tostring(after)))
+        if not had then Registry.Remove("StanceBar") end
+    end
     ns.Reveal.Release("target")
     mock.units.target = nil
     check("  and it goes again without one", Registry.Get("ActionBar").target == 0)
