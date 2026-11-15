@@ -43,4 +43,10 @@
     <Binding name="MYUI_WHAT" category="MyUI">
         MyUI_What()
     </Binding>
+
+    <!-- Round 004: every action bar page on screen, held still, to rearrange
+         buttons; the same key puts them away. -->
+    <Binding name="MYUI_ARRANGE" category="MyUI">
+        MyUI_ArrangeBars()
+    </Binding>
 </Bindings>

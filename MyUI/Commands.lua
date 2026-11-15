@@ -243,6 +243,7 @@ local COMMANDS = {
     { "restore",      "put back everything clearing took" },
     { "group",        "group frames in combat: auto (healers) | combat | hover" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
+    { "bars",         "arrange the action bars: every page on screen, held, until you run it again" },
     { "mods",         "for 10s, what the client sees of ALT / CTRL / SHIFT (mouse-mapped modifiers)" },
     { "pct",          "where the health % sits: above (over the bar) | pill (on it)" },
     { "text",         "legibility over bright scenery: shadow | outline | none" },
@@ -283,6 +284,7 @@ local HANDLERS = {
         for _, line in ipairs(r.blizzard or {}) do ns.Raw("    " .. line) end
         ns.Raw("  saved to MyUIDB.actionsProbe. /myui mods checks the modifier keys.")
     end,
+    bars         = function() _G.MyUI_ArrangeBars() end,
     mods         = function()
         if not ns.Actions then return end
         ns.Print("watching the modifier keys for 10s -- hold each key, then each mouse button")

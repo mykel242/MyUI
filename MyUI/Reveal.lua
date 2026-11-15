@@ -112,7 +112,9 @@ local SCOPE = {
                Party = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                CompactParty = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                Raid = function() return ns.Clear and ns.Clear.GroupInCombat() end },
-    target = { TargetStrip = true },
+    -- Round 004 play (Mykel): target something, hold ALT, tap a taunt to pull --
+    -- the bar comes up with a target.
+    target = { TargetStrip = true, ActionBar = true },
     lowhealth = { SelfStack = true },
     assign = { ActionBar = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },

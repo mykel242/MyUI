@@ -532,8 +532,12 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   not seen the modifier. A vehicle, possession or pet battle hides MyUI's bar and drops the
   overrides in the restricted environment, so Blizzard's override bar takes over; a form's bonus
   bar (stealth, cat form, skyriding) still pages bar 1.
-- **Assigning**: while a spell, item or macro is on the cursor, every page is drawn stacked above
-  bar 1 and labelled, so there is somewhere to drop it (out of combat).
+- **Arranging**: every page drawn stacked above bar 1, labelled and held still — while a spell,
+  item or macro is on the cursor, while the spellbook or macro window is open, or while the
+  player toggles it (`/myui bars`, key "Arrange the action bars"). Out of combat; a fight folds it
+  and it returns after.
+- **The bar comes up with a target** as well as in combat (Mykel: target, hold ALT, tap a taunt to
+  pull).
 - **Items, trinkets and potions** need nothing special: they sit on action slots, usually as
   macros, and show icon, count and cooldown like any action. The Cooldowns wing (§ 18) may hold
   any action slot too.

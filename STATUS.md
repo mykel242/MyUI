@@ -62,7 +62,10 @@ MyUI's. Second pass:
   mouse buttons report nothing held (at most a 30 ms LALT blip). The mouse software puts ALT on
   the key event only, so no state driver can see it. Fix is on the mouse side (a held modifier,
   e.g. Karabiner-Elements); the binds still fire the right slot either way.
-- **Pick up here (end of 2026-11-14):** Mykel sets up Karabiner-Elements (MX Master 4,
+- 2026-11-15: mouse modifiers fixed outside the addon (Karabiner; Options+ held the side
+  buttons). Mykel: "works pretty well". Then: arranging held still (spellbook / macros open,
+  `/myui bars` or a key), and the bar comes up with a target.
+- **Was "pick up here" (end of 2026-11-14):** Mykel sets up Karabiner-Elements (MX Master 4,
   Options+ can't hold a modifier): side buttons → held ⌥ / ⌃, then `/myui mods` should show
   `held ALT`. Still to confirm in game: drop glow centred (bar now scaled, buttons 45), Blizzard
   bars invisible during drag (`/myui actions`), no BugSack taint after a fight. Then the Ghost

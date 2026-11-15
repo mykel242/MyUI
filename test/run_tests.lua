@@ -3312,6 +3312,43 @@ do
         for i = 1, 12 do _G[spec[2] .. i] = nil end
     end
 
+    local function stacked()
+        local _, _, _, _, ya = a1:GetPoint(1)
+        return shown("a") and shown("c") and shown("1") and ya > 0
+    end
+    run("bars")
+    check("/myui bars holds every page on screen", stacked() and Registry.Get("ActionBar").target == 1)
+    A.events:Fire("ACTIONBAR_SHOWGRID")
+    A.events:Fire("ACTIONBAR_HIDEGRID")
+    check("  and putting something down does not fold it", stacked())
+    local realLock = _G.InCombatLockdown
+    A.events:Fire("PLAYER_REGEN_DISABLED")
+    _G.InCombatLockdown = function() return true end
+    check("  a fight folds it to one row", hidden("a") and shown("1"))
+    run("bars"); run("bars")            -- toggling in combat only records the wish
+    check("  toggling in combat changes nothing on screen", hidden("a"))
+    _G.InCombatLockdown = realLock
+    A.events:Fire("PLAYER_REGEN_ENABLED")
+    check("  and it comes back after", stacked())
+    run("bars")
+    check("  the same command puts it away", hidden("a") and Registry.Get("ActionBar").target == 0)
+
+    local book = mock.frame({ name = "PlayerSpellsFrame" })
+    _G.PlayerSpellsFrame = book
+    A.events:Fire("ADDON_LOADED", "Blizzard_PlayerSpells")
+    book:Show(); book.scripts.OnShow(book)
+    check("opening the spellbook arranges the bar", stacked())
+    book:Hide(); book.scripts.OnHide(book)
+    check("  closing it folds it", hidden("a"))
+    _G.PlayerSpellsFrame = nil
+
+    mock.units.target = true
+    ns.Reveal.Claim("target")
+    check("a target brings the bar up (pull with an ALT taunt)", Registry.Get("ActionBar").target == 1)
+    ns.Reveal.Release("target")
+    mock.units.target = nil
+    check("  and it goes again without one", Registry.Get("ActionBar").target == 0)
+
     check("registered resting at 0, in the combat scope; Blizzard's bar 1 left the registry",
           Registry.Get("ActionBar") ~= nil and Registry.Get("ActionBar").resting == 0
           and Registry.Get("MainBar") == nil

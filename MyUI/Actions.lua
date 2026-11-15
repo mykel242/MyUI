@@ -19,8 +19,11 @@
 -- override bar or pet battle hides the bar and drops the overrides in the
 -- restricted environment, so Blizzard's own bars take those keys back.
 --
--- Picking up a spell, item or macro (ACTIONBAR_SHOWGRID) stacks every page
--- with its label, so there is somewhere to drop it ("assign").
+-- Arranging: every page stacked with its label, held still, so there is
+-- somewhere to drop things -- while a spell, item or macro is on the cursor,
+-- while the spellbook or macro window is open, or while the player has
+-- turned it on (/myui bars, or a key). Out of combat only; a fight folds it
+-- and it comes back after.
 --
 -- Nothing here reads health, power or a cooldown: icons, sweeps, counts and
 -- range come from Blizzard's own ActionBarButtonTemplate code.
@@ -234,6 +237,67 @@ function Actions.SetAssign(on)
     Reapply()
     if on then ns.Reveal.Claim("assign", "ActionBar") else ns.Reveal.Release("assign", "ActionBar") end
     return true
+end
+
+--- Why the bar is arranged: any reason keeps it stacked. "cursor" (something
+-- picked up), "book" (spellbook or macros open), "arrange" (the player's
+-- toggle). Applied now, or when combat ends.
+Actions.reasons = {}
+
+function Actions.Want(reason, on)
+    Actions.reasons[reason] = on and true or nil
+    return Actions.Apply()
+end
+
+function Actions.Apply()
+    if InCombatLockdown() then return false end
+    return Actions.SetAssign(next(Actions.reasons) ~= nil)
+end
+
+function Actions.Arranging()
+    return Actions.reasons.arrange == true
+end
+
+--- /myui bars and the key: hold every page on screen until asked again.
+function Actions.ToggleArrange()
+    Actions.Want("arrange", not Actions.reasons.arrange)
+    return Actions.reasons.arrange == true
+end
+
+_G.MyUI_ArrangeBars = function()
+    local on = Actions.ToggleArrange()
+    if InCombatLockdown() then
+        ns.Print("bars: arranging after combat")
+    else
+        ns.Print(on and "bars: every page on screen -- drag to rearrange; the same key puts them away"
+                    or "bars: back to one row")
+    end
+end
+_G.BINDING_NAME_MYUI_ARRANGE = "Arrange the action bars"
+
+-- The spellbook (Blizzard_PlayerSpells) and macro window (Blizzard_MacroUI)
+-- load on demand: hooked when they load, or now if they already have.
+local BOOKS = { Blizzard_PlayerSpells = "PlayerSpellsFrame", Blizzard_MacroUI = "MacroFrame" }
+Actions.books = {}
+
+local function BookChanged()
+    local open = false
+    for _, f in pairs(Actions.books) do
+        if f:IsShown() then open = true end
+    end
+    Actions.Want("book", open)
+end
+
+function Actions.HookBooks()
+    for _, name in pairs(BOOKS) do
+        local f = _G[name]
+        if f and not Actions.books[name] then
+            Actions.books[name] = f
+            f:HookScript("OnShow", BookChanged)
+            f:HookScript("OnHide", BookChanged)
+            if f:IsShown() then BookChanged() end
+        end
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -454,17 +518,31 @@ function Actions.Start()
     ev:RegisterEvent("ACTIONBAR_SHOWGRID")
     ev:RegisterEvent("ACTIONBAR_HIDEGRID")
     ev:RegisterEvent("PLAYER_REGEN_ENABLED")
+    ev:RegisterEvent("PLAYER_REGEN_DISABLED")
+    ev:RegisterEvent("ADDON_LOADED")
     ev:SetScript("OnEvent", function(_, event)
-        if event == "UPDATE_BINDINGS" or (event == "PLAYER_REGEN_ENABLED" and Actions.rebind) then
+        if event == "UPDATE_BINDINGS" then
             Actions.rebind = not Actions.Bind()
             Actions.PaintKeys()
+        elseif event == "PLAYER_REGEN_ENABLED" then
+            if Actions.rebind then
+                Actions.rebind = not Actions.Bind()
+                Actions.PaintKeys()
+            end
+            Actions.Apply()
+        elseif event == "PLAYER_REGEN_DISABLED" then
+            -- Fires just before the lockdown: the last moment to fold.
+            Actions.SetAssign(false)
+        elseif event == "ADDON_LOADED" then
+            Actions.HookBooks()
         elseif event == "ACTIONBAR_SHOWGRID" then
             if ns.Clear and ns.Clear.barsPinned then ns.Clear.PinBars() end
-            Actions.SetAssign(true)
+            Actions.Want("cursor", true)
         elseif event == "ACTIONBAR_HIDEGRID" then
-            Actions.SetAssign(false)
+            Actions.Want("cursor", false)
         end
     end)
+    Actions.HookBooks()
     return true
 end
 
