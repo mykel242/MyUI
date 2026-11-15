@@ -180,6 +180,13 @@ leans on it:
 5. **M5 — Target strip kinds** (§ 20) and **play**: the low-health check, a real session in a group
    and a raid, fixes; tag `v0.6.0-mvp`.
 
+**Direction, Mykel 2026-11-15 (for a round 005):** MyUI *replaces* Blizzard's chrome rather than
+hiding it — "toast-oriented, UI when you need it, stripped to the bone"; Blizzard's frames only
+for rarely used things. Every MyUI override is a player switch (on: MyUI's version; off:
+Blizzard's back), so others can take what they want. Biggest pet peeves, first in line: the
+**quest tracker**, the **map**, and the **chat frames**. Done now: the pointer no longer wakes
+adopted Blizzard frames (peek and their own events still do).
+
 **Then, one at a time, in Mykel's order:** the mode switch proper (§ 16 — rest, travel and boss
 layouts, the layout rail); boss mode (§ 21, after P4); the map key (§ 22); Blizzard's toasts
 (§ 6 amendment); a collected enemy list; the history window and other toast sources; MyUI's chat

@@ -207,6 +207,14 @@ local function InScope(channel, name)
     if scope == nil then
         local unless = Reveal.UNLESS[channel] and Reveal.UNLESS[channel][name]
         if unless and unless() then return false end
+        -- Round 004 (Mykel: "I don't want any of the Blizzard chrome except
+        -- for rarely used things ... UI when you need it"): the pointer
+        -- wakes only MyUI's own HUD. Blizzard's adopted frames -- cast bar,
+        -- quest tracker, buffs, bags, chat -- come back on peek, or by
+        -- their own events (a whisper, the calm minimap).
+        if channel == "cursor" and ns.Clear and ns.Clear.IsAdopted and ns.Clear.IsAdopted(name) then
+            return false
+        end
         return true
     end
     local rule = scope[name]

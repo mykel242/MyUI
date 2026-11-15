@@ -3542,6 +3542,17 @@ do
     check("  closing it folds it", hidden("a"))
     _G.PlayerSpellsFrame = nil
 
+    check("the pointer wakes only MyUI's own HUD, not Blizzard's adopted chrome", (function()
+        local adopted
+        for _, spec in ipairs(ns.Clear.ADOPT) do
+            if ns.Clear.IsAdopted(spec[1]) and Registry.Get(spec[1]) then adopted = spec[1] break end
+        end
+        if not adopted then return true end      -- nothing adopted in this section
+        ns.Reveal.Claim("cursor", adopted)
+        local down = Registry.Get(adopted).target == 0
+        ns.Reveal.Release("cursor", adopted)
+        return down
+    end)())
     ns.Reveal.Claim("cursor", "TargetStrip")
     check("the pointer near an empty target strip leaves it down (no target, nothing to say)",
           Registry.Get("TargetStrip").target == 0)
