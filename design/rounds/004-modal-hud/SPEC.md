@@ -66,8 +66,9 @@ resting alpha 0, revealed by the engine, alpha only. Adoption is the interim, no
 - Health bar — 240 × 4, trough `rgba(255,255,255,0.14)`
 - Resource bar — 240 × 2, 4 below health
 - Cast bar — 240 × 4, 6 below resource
-- Name — 11pt, left; level — 11pt dim, right; a row 20 above the health bar, as on the target
-  strip (round 004, Mykel). The group grows upward to 51; the bars do not move.
+- Name — 11pt, left; level — 11pt dim, right; **one row with the health number**, bottoms 2
+  above the health bar, the same on the target strip (round 004, Mykel: "align the text"). The
+  group grows upward to 33; the bars do not move.
 - Health number — 12pt, **centred, just above the health bar** (round 004, Mykel: "much
   cleaner"; was 40 wide, right-aligned, 8 left of the bar group). `/myui pct pill` puts it on the
   bar on a `rgba(0,0,0,0.55)` pill instead.
@@ -81,8 +82,10 @@ value.
 
 ### TargetStrip internals
 
-- Name — 11pt, `rgba(240,241,243,1)`, left-aligned at group left
-- Level — 11pt, `rgba(173,177,184,1)`, right-aligned at group right
+- Name — 11pt, `rgba(240,241,243,1)`, left-aligned at the bar's left
+- Level — 11pt, `rgba(173,177,184,1)`, right-aligned at the bar's right
+- Round 004: name, health number and level on one row, bottoms 2 above the bar (the bar does
+  not move; the name row used to sit at the group top)
 - Health bar — 400 × 3, 20 below the name row
 - Health number — 12pt, centred just above the bar, the same way as SelfStack's (round 004); a
   boss bar (§ 21) carries its number the same way

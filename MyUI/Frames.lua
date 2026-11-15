@@ -138,6 +138,7 @@ local Text = Frames.Text
 -- ---------------------------------------------------------------------------
 
 Frames.PCT_STYLES = { pill = true, above = true }
+Frames.ROW_GAP = 2     -- the text row's bottom, above its bar
 
 function Frames.PctStyle()
     local s = ns.db and ns.db.pct
@@ -149,12 +150,14 @@ end
 function Frames.PlacePill(pill)
     local bar, size = pill.bar, pill.size
     pill:SetFrameLevel(bar:GetFrameLevel() + 3)
-    pill:SetSize(U(size * 2 + 8), U(size + 4))
     pill:ClearAllPoints()
     if Frames.PctStyle() == "above" then
-        pill:SetPoint("BOTTOM", bar, "TOP", 0, U(2))
+        -- Exactly the text's height, so its bottom sits on the name's line.
+        pill:SetSize(U(size * 2 + 8), U(size))
+        pill:SetPoint("BOTTOM", bar, "TOP", 0, U(Frames.ROW_GAP))
         pill.bg:Hide()
     else
+        pill:SetSize(U(size * 2 + 8), U(size + 4))
         pill:SetPoint("CENTER", bar, "CENTER", 0, 0)
         pill.bg:Show()
     end
@@ -177,6 +180,16 @@ function Frames.Pill(parent, bar, size)
     Frames.pills[#Frames.pills + 1] = pill
     Frames.PlacePill(pill)
     return pill, fs
+end
+
+--- Name (left) and level (right, dim) on one row with the percentage, their
+-- bottoms ROW_GAP above the bar, so the three read as one line.
+function Frames.TextRow(group, bar)
+    local name = Text(group, 11, "textPrimary", "LEFT")
+    name:SetPoint("BOTTOMLEFT", bar, "TOPLEFT", 0, U(Frames.ROW_GAP))
+    local level = Text(group, 11, "textDim", "RIGHT")
+    level:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, U(Frames.ROW_GAP))
+    return name, level
 end
 
 function Frames.SetPctStyle(style)
@@ -226,24 +239,22 @@ Frames.Bar, Frames.Fill = Bar, Fill
 -- ---------------------------------------------------------------------------
 -- SelfStack -- BOTTOM, centred, 214 up. 240 wide, resting 0.35.
 -- ---------------------------------------------------------------------------
--- Height is the sum of the internals: an 11pt name row and 20 to the bar
--- (round 004: like the target strip), then 4 health + 4 gap + 2 resource +
--- 6 gap + 4 cast = 51. The bars sit where they always did: the group grew up.
+-- Height is the sum of the internals: a text row (name, percentage, level --
+-- round 004) 11 tall and 2 above the bar, then 4 health + 4 gap + 2 resource
+-- + 6 gap + 4 cast = 33. The bars sit where they always did: the group grew up.
 
 local function BuildSelfStack()
     local group = CreateFrame("Frame", "MyUISelfStack", UIParent)
     group:SetFrameStrata(Frames.STRATA)
-    group:SetSize(U(240), U(51))
+    group:SetSize(U(240), U(33))
     group:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(214))
 
-    -- Round 004 (Mykel): name left, level right, as on the target strip.
-    local name = Text(group, 11, "textPrimary", "LEFT")
-    name:SetPoint("TOPLEFT", group, "TOPLEFT", 0, 0)
-    local level = Text(group, 11, "textDim", "RIGHT")
-    level:SetPoint("TOPRIGHT", group, "TOPRIGHT", 0, 0)
-
     local health = Bar(group, 240, 4)
-    health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(31))
+    health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(13))
+
+    -- Round 004 (Mykel): name left, level right, the percentage between them
+    -- -- one row, just above the bar, the same on the target strip.
+    local name, level = Frames.TextRow(group, health)
 
     local resource = Bar(group, 240, 2)
     resource:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -U(4))
@@ -301,14 +312,12 @@ local function BuildTargetStrip()
     group:SetSize(U(400), U(49))
     group:SetPoint("TOP", UIParent, "TOP", 0, -U(20))
 
-    local name = Text(group, 11, "textPrimary", "LEFT")
-    name:SetPoint("TOPLEFT", group, "TOPLEFT", 0, 0)
-
-    local level = Text(group, 11, "textDim", "RIGHT")
-    level:SetPoint("TOPRIGHT", group, "TOPRIGHT", 0, 0)
-
     local health = Bar(group, 400, 3)
     health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(31))
+
+    -- Name left, level right, on the percentage's row just above the bar
+    -- (round 004, Mykel: "align the text on the bars").
+    local name, level = Frames.TextRow(group, health)
 
     local cast = Fill(group, "fill", "OVERLAY")
     cast:SetSize(U(3), U(6))

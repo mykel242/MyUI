@@ -321,7 +321,7 @@ check("the three SPEC 2 frames registered (the rail is cut), plus round 004's ac
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
-    { "SelfStack",   0.35, 240, 51, "BOTTOM",   0,  214 },   -- round 004: grew a name row
+    { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,  214 },   -- round 004: grew a text row
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
     { "TargetStrip", 0,    400, 49, "TOP",      0,  -20 },
 }
@@ -367,11 +367,22 @@ check("health number sits just above the middle of the health bar, no pill (roun
     return p == "BOTTOM" and rel == stack.health and rp == "TOP"
            and np == "CENTER" and nrel == stack.pill and not stack.pill.bg:IsShown()
 end)())
-check("name left and level right on a row 20 above the bar, as on the target strip", (function()
-    local np, nrel = stack.name:GetPoint(1)
-    local lp, lrel = stack.level:GetPoint(1)
+check("name, percentage and level on one row, bottoms 2 above the bar -- self and target", (function()
+    for _, g in ipairs({ stack, Registry.Get("TargetStrip").frame }) do
+        local np, nrel, nrp, _, ny = g.name:GetPoint(1)
+        local lp, lrel, lrp, _, ly = g.level:GetPoint(1)
+        local pp, prel, prp, _, py = g.pill:GetPoint(1)
+        local _, ph = g.pill:GetSize()
+        if not (np == "BOTTOMLEFT" and nrel == g.health and nrp == "TOPLEFT"
+                and lp == "BOTTOMRIGHT" and lrel == g.health and lrp == "TOPRIGHT"
+                and pp == "BOTTOM" and prel == g.health and prp == "TOP"
+                and near(ny, Scale.U(2)) and near(ly, ny) and near(py, ny)
+                and near(ph, Scale.U(12))) then
+            return false
+        end
+    end
     local _, _, _, _, hy = stack.health:GetPoint(1)
-    return np == "TOPLEFT" and nrel == stack and lp == "TOPRIGHT" and lrel == stack and near(hy, -Scale.U(31))
+    return near(hy, -Scale.U(13))
 end)())
 
 -- The compliance keystone. The ticks are fixed marks at 20% and 40% of a
