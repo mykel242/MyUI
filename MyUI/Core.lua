@@ -185,7 +185,7 @@ seam:SetScript("OnEvent", function(self, _, addon)
     end
 end)
 
-local loader = CreateFrame("Frame")
+local loader = CreateFrame("Frame", "MyUILoader")
 loader:RegisterEvent("ADDON_LOADED")
 loader:SetScript("OnEvent", function(self, event, addon)
     if event == "ADDON_LOADED" then

@@ -31,7 +31,7 @@ local Compat, Guard, Registry, Rules = ns.Compat, ns.Guard, ns.Registry, ns.Rule
 -- extras-off behaviour has its own section near the end.
 _G.MyUIDB = { schema = ns.SCHEMA_VERSION, extras = true }
 
-local loader = mock.created[#mock.created]
+local loader = _G.MyUILoader
 loader:Fire("ADDON_LOADED", "MyUI")
 loader:Fire("PLAYER_LOGIN")
 

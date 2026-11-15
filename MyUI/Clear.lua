@@ -552,15 +552,21 @@ end
 
 -- The debuffs are anchored in the Edit Mode layout to this MyUI frame rather
 -- than to UIParent, so MyUI can slide them (Mykel: into the zone button's
--- place when it is not up) without touching Blizzard's frame. Created at
--- login, before Edit Mode applies a layout that names it.
+-- place when it is not up) without touching Blizzard's frame. Created when
+-- this file loads: Edit Mode applies the saved layout (EDIT_MODE_LAYOUTS_
+-- UPDATED) before PLAYER_LOGIN, and an anchor made at login was not there
+-- yet ("Couldn't find region named 'MyUIDebuffAnchor'", round 004 play).
 function Clear.DebuffAnchor()
     if not Clear.debuffAnchor then
         Clear.debuffAnchor = CreateFrame("Frame", "MyUIDebuffAnchor", UIParent)
         Clear.debuffAnchor:SetSize(1, 1)
+        -- Somewhere sane until login places it (Clear.OnLogin).
+        Clear.debuffAnchor:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", 240, 80)
     end
     return Clear.debuffAnchor
 end
+
+Clear.DebuffAnchor()
 
 function Clear.PlaceDebuffAnchor()
     Clear.DebuffAnchor()
@@ -769,7 +775,7 @@ function Clear.Restore()
 end
 
 function Clear.OnLogin()
-    Clear.DebuffAnchor()
+    Clear.PlaceDebuffAnchor()
     local driver = CreateFrame("Frame", "MyUIClearDriver", UIParent)
     Clear.driver = driver
     driver:RegisterEvent("PLAYER_ENTERING_WORLD")
