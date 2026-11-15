@@ -38,8 +38,9 @@ Layout.PRESETS = {
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 132 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
         -- Left of the strip, mirroring the group list: the Cooldown
-        -- Manager's tracked buff bars.
-        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 176 },
+        -- Manager's tracked buff bars. (The preview showed them sitting on
+        -- the utility row at 176.)
+        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 196 },
         -- On bar 1's row, past button 8 (Mykel: "line it up with the action
         -- bars"). Its container lays the button out off-centre (~39 right of
         -- this anchor); the height is Mykel's own, set in game with
@@ -234,8 +235,9 @@ Layout.PREVIEW = {
     { key = "PetActionBar", label = "Pet bar",       w = 5 * 36, h = 30 },
     { key = "Debuffs",      label = "Debuffs",       w = 4 * 49, h = 43 },
     { key = "BuffBars",     label = "Buff bars",     w = 220,    h = 64 },
-    -- The zone button lands ~39 right of and ~43 above its anchor.
-    { key = "ZoneAbility",  label = "Zone",          w = 50,     h = 50, dx = 39, dy = 43 - 25, centre = true },
+    -- The zone button's centre lands ~27 right of and ~71 above its anchor
+    -- (measured from the preview in game).
+    { key = "ZoneAbility",  label = "Zone",          w = 50,     h = 50, dx = 27, dy = 71, centre = true },
     { key = "Group",        label = "Group",         w = 150,    h = 5 * 32, group = true },
 }
 
@@ -259,8 +261,10 @@ local function Box(spec)
             t:SetWidth(px); t:SetPoint("TOP" .. side); t:SetPoint("BOTTOM" .. side)
         end
     end
-    local label = ns.Frames.Text(b, 10, "textPrimary", "CENTER")
-    label:SetPoint("CENTER")
+    -- Top-left, small, amber: clear of whatever is drawn in the box.
+    local label = ns.Frames.Text(b, 9, "textPrimary", "LEFT")
+    label:SetTextColor(ns.Palette.Get("notifAmber"))
+    label:SetPoint("BOTTOMLEFT", b, "TOPLEFT", 2, 2)
     label:SetText(spec.label)
     b.label = label
     boxes[spec.key] = b
@@ -282,16 +286,24 @@ function Layout.PlaceBoxes()
     end
 end
 
+-- The HUD's frames, held visible while previewing -- not chat, the
+-- minimap or the tracker, which the whole-screen debug claim also lit.
+Layout.HUD = { "SelfStack", "TargetStrip", "ActionBar", "Group", "Debuffs", "StanceBar", "PetBar",
+               "WingCooldowns", "WingUtility", "WingBuffs" }
+
 function Layout.Preview(on)
     if on == nil then on = not Layout.previewing end
     Layout.previewing = on and true or false
+    for _, name in ipairs(Layout.HUD) do
+        if ns.Reveal and ns.Registry.Get(name) then
+            if on then ns.Reveal.Claim("debug", name) else ns.Reveal.Release("debug", name) end
+        end
+    end
     if on then
         Layout.PlaceBoxes()
         for _, b in pairs(boxes) do b:Show() end
-        if ns.Reveal then ns.Reveal.Claim("debug") end
     else
         for _, b in pairs(boxes) do b:Hide() end
-        if ns.Reveal then ns.Reveal.Release("debug") end
     end
     return Layout.previewing
 end

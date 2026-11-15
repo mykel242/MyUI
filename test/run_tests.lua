@@ -3097,7 +3097,7 @@ do
     end)())
     check("  the tracked buff bars left of the target strip, mirroring the group list", (function()
         local a = sys(8).anchorInfo
-        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(176))
+        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, Scale.U(196))
     end)())
     check("  debuffs on you: anchored to MyUI's debuff anchor, ~bar-1 size, dispel types shown", (function()
         local d = sys(9)
@@ -3624,8 +3624,9 @@ do
           and near(y(strip), Scale.U(132)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
     run("layout")
-    check("/myui layout boxes every placed part, even what is not up, and holds MyUI's frames visible",
+    check("/myui layout boxes every placed part, even what is not up, and holds the HUD visible",
           L.previewing == true and Registry.Get("ActionBar").target == 1)
+    check("  but not chat or the minimap", (Registry.Get("Chat") == nil or Registry.Get("Chat").target == 0))
     run("layout")
     check("  and the same command hides them", L.previewing == false and Registry.Get("ActionBar").target == 0)
 end
