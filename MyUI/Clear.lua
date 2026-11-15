@@ -467,10 +467,10 @@ Clear.WINGS = {
 -- SPEC 18, right wing, bar 1's row: debuffs on you. Blizzard's own debuff
 -- frame (adopted as "Debuffs"), which already edges each debuff by dispel
 -- type (ShowDispelType) and draws whatever arrives secret itself -- so probe
--- P1 does not gate it. 30 px icons at 150% ~ bar 1's 44; one row, growing
--- away from the bar.
+-- P1 does not gate it. One row, growing away from the bar. Round 004 play:
+-- 150% drew ~59 units, bigger than bar 1; 110% is ~43, bar-1 size.
 Clear.AURA_WINGS = {
-    DebuffFrame = { side = 1, row = 0, size = 10, limit = 8 },
+    DebuffFrame = { side = 1, row = 0, size = 6, limit = 8 },
 }
 
 --- A viewer's icon height in UI units: its template's size times the Edit

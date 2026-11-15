@@ -3100,7 +3100,7 @@ do
         local a = d.anchorInfo
         local half, bottom = ns.Actions.Extent()
         return a and a.point == "BOTTOMLEFT" and near(a.offsetX, half + Scale.U(32)) and near(a.offsetY, bottom)
-           and setting(d, 5) == 10 and setting(d, 9) == 1 and setting(d, 4) == 8
+           and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
     end)())
     check("  the buff frame is left alone", sys(10).anchorInfo == nil)
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
