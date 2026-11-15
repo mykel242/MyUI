@@ -3824,6 +3824,23 @@ do
         return x == 0 and near(low, Scale.U(ty + 15 - by)) and high > low
            and fb:GetAttribute("_onstate-slot") ~= nil and fb:GetFrameRef("anchor") == ns.Actions.header
     end)())
+    check("  out of combat with no target it rests lower still, in the faded bar's row", (function()
+        local chunk = assert(loadstring("local newstate = 'rest'\n" .. fb:GetAttribute("_onstate-slot")))
+        setfenv(chunk, { self = fb })
+        chunk()
+        local _, rel, _, _, y = fb:GetPoint(1)
+        return G.FOCUS_SLOT_DRIVER == "[@target,exists] high; [combat] low; rest"
+           and rel == ns.Actions.header and near(y, Scale.U(10)) and y < fb:GetAttribute("ylow")
+    end)())
+    check("one hover edge everywhere: pet, focus, target, pet buttons", G.petButton.__hoverEdge ~= nil
+          and fb.__hoverEdge ~= nil and G.targetButton.__hoverEdge ~= nil
+          and G.petBar.buttons[1].__hoverEdge ~= nil and (function()
+              local e = fb.__hoverEdge
+              fb.scripts.OnEnter(fb)
+              local on = e:IsShown()
+              fb.scripts.OnLeave(fb)
+              return on and not e:IsShown()
+          end)())
     check("  the snippet puts it at the low slot when told 'low'", (function()
         local chunk = assert(loadstring("local newstate = 'low'\n" .. fb:GetAttribute("_onstate-slot")))
         setfenv(chunk, { self = fb })

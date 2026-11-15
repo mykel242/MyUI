@@ -295,6 +295,54 @@ end
 
 Frames.Bar, Frames.Fill = Bar, Fill
 
+-- ---------------------------------------------------------------------------
+-- The hover edge (round 004 play, Mykel: "tying all the hovers into a
+-- shared design language"): one 1 px light line around whatever the pointer
+-- is on -- your bar, the pet, the focus, the target, party rows, pet
+-- buttons -- `pad` SPEC units outside the frame so it never touches text.
+-- ---------------------------------------------------------------------------
+
+function Frames.Edge(frame, pad, colour)
+    local px, p = Scale.Hairline(), U(pad or 0)
+    local edge = { lines = {} }
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+        local t = frame:CreateTexture(nil, "OVERLAY")
+        t:SetColorTexture(Palette.Get(colour or "fill"))
+        if side == "TOP" or side == "BOTTOM" then
+            local dy = side == "TOP" and p or -p
+            t:SetHeight(px)
+            t:SetPoint(side .. "LEFT", frame, side .. "LEFT", -p, dy)
+            t:SetPoint(side .. "RIGHT", frame, side .. "RIGHT", p, dy)
+        else
+            local dx = side == "LEFT" and -p or p
+            t:SetWidth(px)
+            t:SetPoint("TOP" .. side, frame, "TOP" .. side, dx, p)
+            t:SetPoint("BOTTOM" .. side, frame, "BOTTOM" .. side, dx, -p)
+        end
+        t:Hide()
+        edge.lines[#edge.lines + 1] = t
+    end
+    function edge:Show(c)
+        for _, t in ipairs(self.lines) do
+            if c then t:SetColorTexture(Palette.Get(c)) end
+            t:Show()
+        end
+    end
+    function edge:Hide() for _, t in ipairs(self.lines) do t:Hide() end end
+    function edge:IsShown() return self.lines[1]:IsShown() end
+    return edge
+end
+
+--- The hover edge, shown while the pointer is on `frame` (hooked: a secure
+-- frame's own scripts are untouched).
+function Frames.HoverEdge(frame, pad)
+    local edge = Frames.Edge(frame, pad, "fill")
+    frame:HookScript("OnEnter", function() edge:Show() end)
+    frame:HookScript("OnLeave", function() edge:Hide() end)
+    frame.__hoverEdge = edge
+    return edge
+end
+
 -- Round 004 (Mykel): a red-to-clear gradient under a health bar's fill, over
 -- its first 35% -- the low-health warning's threshold. The fill covers it;
 -- as health falls the empty part uncovers it from the clear end, so red

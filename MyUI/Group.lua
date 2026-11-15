@@ -366,22 +366,10 @@ function Group.BuildSelf()
     b:SetAttribute("*type1", "target")
     b:SetAttribute("ctrl-type1", "focus")
     b:SetAttribute("*type2", "togglemenu")
-    -- The same 1 px hover edge as a party row, so it can be found.
-    local px = Scale.Hairline()
-    b.__hover = {}
-    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
-        local t = b:CreateTexture(nil, "OVERLAY")
-        t:SetColorTexture(Palette.Get("fill"))
-        if side == "TOP" or side == "BOTTOM" then
-            t:SetHeight(px); t:SetPoint(side .. "LEFT"); t:SetPoint(side .. "RIGHT")
-        else
-            t:SetWidth(px); t:SetPoint("TOP" .. side); t:SetPoint("BOTTOM" .. side)
-        end
-        t:Hide()
-        b.__hover[#b.__hover + 1] = t
-    end
-    b:HookScript("OnEnter", function(self) for _, t in ipairs(self.__hover) do t:Show() end end)
-    b:HookScript("OnLeave", function(self) for _, t in ipairs(self.__hover) do t:Hide() end end)
+    -- The shared hover edge (the button already reaches SELF_PAD past the
+    -- stack, so the edge sits on its own bounds).
+    local edge = ns.Frames.HoverEdge(b, 0)
+    b.__hover = edge.lines
     Group.selfButton = b
     Group.PlaceSelf()
     return true
@@ -436,6 +424,7 @@ function Group.BuildPet()
     if name.SetWordWrap then name:SetWordWrap(false) end
     local pill, number = F.Pill(b, health, 12)
     b.__health, b.__resource, b.__name, b.__level, b.__number = health, resource, name, level, number
+    F.HoverEdge(b, Group.SELF_PAD)
 
     Group.petButton = b
     Group.PlacePet()
@@ -530,6 +519,7 @@ function Group.BuildPetBar()
             t:Hide()
             b.__edge[#b.__edge + 1] = t
         end
+        ns.Frames.HoverEdge(b, 2)
         b:HookScript("OnEnter", function() PetBarShow(true) end)
         b:HookScript("OnLeave", function() PetBarShow(false) end)
         b:Hide()
@@ -651,6 +641,7 @@ function Group.BuildTarget()
     b:SetAttribute("*type1", "target")
     b:SetAttribute("ctrl-type1", "focus")
     b:SetAttribute("*type2", "togglemenu")
+    ns.Frames.HoverEdge(b, 0)   -- the button already reaches TARGET_PAD past the strip
     Group.targetButton = b
     Group.PlaceTarget()
     RegisterStateDriver(b, "visibility", Group.TARGET_DRIVER)
@@ -675,12 +666,18 @@ local FOCUS_W, FOCUS_H = 240, 16   -- a 3 px bar under an 11pt text row
 -- A secure state driver moves it, so it follows targets in combat too: the
 -- snippet re-anchors it to the action bar's header (protected, fixed) by
 -- one of two offsets computed out of combat.
-Group.FOCUS_SLOT_DRIVER = "[@target,exists] high; low"
+-- Round 004 play (Mykel, option 1): out of combat with no target the action
+-- bar is faded, so the focus drops further, into the bar's row just over
+-- your own bar ("rest"); combat or a target lifts it again.
+Group.FOCUS_SLOT_DRIVER = "[@target,exists] high; [combat] low; rest"
+Group.FOCUS_REST = 10   -- SPEC units above the action bar's bottom
 local FOCUS_SLOT = [[
     local a = self:GetFrameRef("anchor")
     if not a then return end
     self:ClearAllPoints()
-    local y = (newstate == "high") and self:GetAttribute("yhigh") or self:GetAttribute("ylow")
+    local y = (newstate == "high") and self:GetAttribute("yhigh")
+              or (newstate == "low") and self:GetAttribute("ylow")
+              or self:GetAttribute("yrest")
     self:SetPoint("BOTTOM", a, "BOTTOM", self:GetAttribute("xoff") or 0, y or 0)
 ]]
 
@@ -708,6 +705,7 @@ function Group.PlaceFocus()
         b:SetAttribute("xoff", x)
         b:SetAttribute("yhigh", high)
         b:SetAttribute("ylow", low)
+        b:SetAttribute("yrest", U(Group.FOCUS_REST))
         b:SetAttribute("_onstate-slot", FOCUS_SLOT)
         if not Group.focusSlotDriver then
             RegisterStateDriver(b, "slot", Group.FOCUS_SLOT_DRIVER)
@@ -738,6 +736,7 @@ function Group.BuildFocus()
     if name.SetWordWrap then name:SetWordWrap(false) end
     local pill, number = F.Pill(b, health, 11)
     b.__health, b.__name, b.__level, b.__number = health, name, level, number
+    F.HoverEdge(b, Group.SELF_PAD)
     -- Labelled like the ALT and CTRL pages (round 004 play, Mykel).
     local label = b:CreateFontString(nil, "OVERLAY")
     label:SetFont(F.FONT, U(10), "")
