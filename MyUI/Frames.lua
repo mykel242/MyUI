@@ -303,6 +303,10 @@ Frames.Bar, Frames.Fill = Bar, Fill
 Frames.DANGER_SPAN = 0.35
 
 function Frames.DangerGradient(bar, w, h)
+    -- The fill over it must be opaque, or the red shows through at full
+    -- health (round 004 play).
+    local fr, fg, fb = Palette.Get("fill")
+    bar.fill:SetColorTexture(fr, fg, fb, 1)
     local g = bar:CreateTexture(nil, "BORDER")
     g:SetPoint("TOPLEFT", bar, "TOPLEFT", 0, 0)
     g:SetSize(U(w) * Frames.DANGER_SPAN, U(h))

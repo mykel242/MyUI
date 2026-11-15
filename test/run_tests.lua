@@ -2799,9 +2799,11 @@ do
         local p, rel = strip.pill:GetPoint(1)
         return c ~= nil and c[1] == "%d" and mock.isSecret(c[2]) and p == "BOTTOM" and rel == strip.health
     end)())
+    check("  with its danger gradient", strip.health.danger:IsShown())
     mock.units.target = nil
     Bars.driver:Fire("PLAYER_TARGET_CHANGED")
-    check("  and cleared with no target", strip.number:GetText() == "")
+    check("  and cleared with no target -- the gradient too", strip.number:GetText() == ""
+          and not strip.health.danger:IsShown())
     check("  the low copy's 14pt number has its own pill on the low bar", (function()
         local _, rel = Bars.low.pill:GetPoint(1)
         return rel == Bars.low.health and Bars.low.pill.size == 14

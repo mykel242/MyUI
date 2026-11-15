@@ -136,9 +136,16 @@ end
 
 -- Fill textures go white so the curve's colour arrives unmultiplied:
 -- SetVertexColor multiplies the texture's own colour.
+-- Health fills draw opaque: the danger gradient under them must not show
+-- through (round 004 play: a pink tint at full health).
+local function Opaque(name)
+    local r, g, b = Palette.Get(name)
+    return r, g, b, 1
+end
+
 local function Whiten(bar, colourName)
     bar.fill:SetColorTexture(1, 1, 1, 1)
-    bar.fill:SetVertexColor(Palette.Get(colourName))
+    bar.fill:SetVertexColor(Opaque(colourName))
 end
 
 local function BuildLowLayer(stack)
@@ -233,7 +240,7 @@ local stack, strip, low, steady, edge
 function Bars.Neutral()
     if not stack then return end
     for _, bar in ipairs({ stack.health, low.health }) do
-        bar.fill:SetVertexColor(Palette.Get("fill"))
+        bar.fill:SetVertexColor(Opaque("fill"))
         bar.wash.fill:SetVertexColor(1, 1, 1, 0)
         bar.wash:SetValue(0)
     end
@@ -254,8 +261,8 @@ function Bars.UpdateHealth()
     local v, missing = Scalar(u, curves.frac), Scalar(u, curves.missing)
     for _, bar in ipairs({ stack.health, low.health }) do
         Value(bar, v)
-        local r, g, b, a = Colour(u, curves.fill)
-        if r ~= nil then Guard.Send(bar.fill, "SetVertexColor", r, g, b, a) end
+        local r, g, b = Colour(u, curves.fill)
+        if r ~= nil then Guard.Send(bar.fill, "SetVertexColor", r, g, b, 1) end
         Value(bar.wash, missing)
         local wr, wg, wb, wa = Colour(u, curves.wash)
         if wr ~= nil then Guard.Send(bar.wash.fill, "SetVertexColor", wr, wg, wb, wa) end
@@ -365,9 +372,13 @@ function Bars.UpdateTarget()
         strip.level:SetText("")
         strip.number:SetText("")
         strip.health:SetValue(0)
+        -- No target, no danger: the gradient would read as an empty bar
+        -- in trouble (round 004 play).
+        if strip.health.danger then strip.health.danger:Hide() end
         strip.cast:Hide()
         return
     end
+    if strip.health.danger then strip.health.danger:Show() end
     Guard.Send(strip.name, "SetText", _G.UnitName("target"))
     local level = _G.UnitLevel("target")
     if level ~= nil and Compat.IsSecret(level) then
