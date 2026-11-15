@@ -180,6 +180,7 @@ local function BuildLowLayer(stack)
     breathe:Play()
 
     low.health, low.number, low.pill, low.inner, low.breathe = health, number, pill, inner, breathe
+    low.tick20, low.tick40 = tick20, tick40
     low:SetAlpha(0)
     return low
 end

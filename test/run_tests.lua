@@ -2812,7 +2812,7 @@ do
             local p, rel, rp = pill:GetPoint(1)
             if p ~= "CENTER" or rel ~= pill.bar or rp ~= "CENTER" or not pill.bg:IsShown() then return false end
         end
-        return ns.db.pct == "pill" and #ns.Frames.pills == 3
+        return ns.db.pct == "pill" and #ns.Frames.pills == 4   -- self, low, target, pet
     end)())
     check("  /myui pct above puts them back just above the bar (the default)", (function()
         run("pct above")
@@ -3702,6 +3702,23 @@ do
           and pet:GetAttribute("*type2") == "togglemenu" and Registry.Get("Pet") ~= nil)
     check("  only while you have one", G.PET_DRIVER == "[@pet,exists] show; hide")
     mock.units.pet = true
+    G.events:Fire("UNIT_PET", "player")
+    local F = ns.Frames
+    local stack = ns.Registry.Get("SelfStack").frame
+    check("with a pet out, you and it side by side at 45% each, 10% between, in SelfStack's place", (function()
+        local _, _, _, sx = stack:GetPoint(1)
+        local _, _, _, px = pet:GetPoint(1)
+        local w = Scale.U(240 * 0.45)
+        return F.split and near(stack:GetWidth(), w) and near(pet:GetWidth(), w)
+           and near(px - sx, Scale.U(240 * 0.55)) and near(sx + px, 0)
+           and near(stack.health:GetWidth(), w)
+    end)())
+    check("  your 20% and 40% marks stay true to the narrower bar", (function()
+        local _, _, _, x20 = stack.tick20:GetPoint(1)
+        local _, _, _, x40 = stack.tick40:GetPoint(1)
+        return near(x20, Scale.U(240 * 0.45 * 0.2)) and near(x40, Scale.U(240 * 0.45 * 0.4))
+    end)())
+    check("  and your clickable bar narrows with it", near(G.selfButton:GetWidth(), Scale.U(240 * 0.45 + 12)))
     Guard.Reset()
     G.events:Fire("UNIT_HEALTH", "pet")
     check("  its health through the curve, its name", (function()
@@ -3711,7 +3728,16 @@ do
         end
         return mock.isSecret(hv) and pet.__name:GetText() ~= nil and #Guard.violations == 0
     end)())
+    check("  the pet's percentage too", (function()
+        for i = #pet.__number.__calls, 1, -1 do
+            local c = pet.__number.__calls[i]
+            if c.method == "SetFormattedText" then return c[1] == "%d" and mock.isSecret(c[2]) end
+        end
+    end)())
     mock.units.pet = nil
+    G.events:Fire("UNIT_PET", "player")
+    check("no pet: SelfStack gets its full width and place back", not F.split
+          and near(stack:GetWidth(), Scale.U(240)) and select(4, stack:GetPoint(1)) == 0)
     check("Blizzard's party and raid frames are hidden outright once these exist", (function()
         local want = { PartyFrame = true, CompactPartyFrame = true, CompactRaidFrameContainer = true, PetFrame = true }
         for _, u in ipairs(ns.Clear.UNITS) do want[u] = nil end

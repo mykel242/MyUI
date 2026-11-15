@@ -66,6 +66,10 @@ resting alpha 0, revealed by the engine, alpha only. Adoption is the interim, no
 - Health bar — 240 × 4, trough `rgba(255,255,255,0.14)`
 - Resource bar — 240 × 2, 4 below health
 - Cast bar — 240 × 4, 6 below resource
+- **With a pet out** (round 004, Mykel): SelfStack and a pet stack side by side, each 45% of the
+  width with 10% between, together in SelfStack's place. The pet stack has the same text row,
+  health (danger gradient) and resource, on a secure unit button (click target, right-click pet
+  menu). The 20% / 40% marks stay at 20% / 40% of the narrower bar. Resizes out of combat.
 - Name — 11pt, left; level — 11pt dim, right; **one row with the health number**, bottoms 2
   above the health bar, the same on the target strip (round 004, Mykel: "align the text"). The
   group grows upward to 33; the bars do not move.

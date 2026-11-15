@@ -334,7 +334,7 @@ end
 -- Anchored to UIParent where the profile puts SelfStack, not to SelfStack
 -- itself, so SelfStack stays free to move in combat.
 
-local SELF_W, SELF_H = 240, 33   -- SelfStack's size (Frames.lua)
+local SELF_H = 33   -- SelfStack's height (Frames.lua); its width follows the pet split
 -- The button (and its hover edge) reaches this far past SelfStack on every
 -- side, so the edge never touches the text (round 004 play).
 Group.SELF_PAD = 6
@@ -343,8 +343,10 @@ function Group.PlaceSelf()
     local b = Group.selfButton
     if not b or InCombatLockdown() then return false end
     local point, rel, x, y = ns.Layout.Pos("SelfStack")
+    local F = ns.Frames
+    if F.split then x = x - F.SplitOffset() end
     local pad = Group.SELF_PAD
-    b:SetSize(U(SELF_W + 2 * pad), U(SELF_H + 2 * pad))
+    b:SetSize(U(F.SelfWidth() + 2 * pad), U(SELF_H + 2 * pad))
     -- Grow the box outward from whichever point SelfStack is anchored by.
     local dx = point:find("LEFT") and -pad or point:find("RIGHT") and pad or 0
     local dy = point:find("BOTTOM") and -pad or point:find("TOP") and pad or 0
@@ -388,26 +390,32 @@ end
 -- ---------------------------------------------------------------------------
 -- Your pet (round 004 play: a hunter's Blizzard pet frame sat in the wing)
 -- ---------------------------------------------------------------------------
--- A small strip like SelfStack -- name, thin health through the curve -- on
--- a secure unit button for "pet": click targets it, right-click opens the
--- pet menu, ctrl-click focuses. Shown only while you have a pet (a state
--- driver, so a pet summoned in combat appears). Placed by the profile.
+-- Mykel: with a pet, "two side by side MyUI frames like the character frame
+-- but at 45% the width, so altogether they are the same width with a 10%
+-- gap". The pet stack -- name, percentage, level, health with its danger
+-- gradient, the pet's resource -- on a secure unit button for "pet": click
+-- targets it, right-click the pet menu, ctrl-click focuses. Shown by a state
+-- driver while a pet exists. SelfStack narrows to the left half beside it;
+-- that resize, and the buttons' sizes, wait for combat to end.
 
-local PET_W, PET_H = 96, 20
 Group.PET_DRIVER = "[@pet,exists] show; hide"
 
 function Group.PlacePet()
     local b = Group.petButton
     if not b or InCombatLockdown() then return false end
-    local point, rel, x, y = ns.Layout.Pos("Pet")
-    b:SetSize(U(PET_W), U(PET_H))
+    local F = ns.Frames
+    local w = F.SELF_W * F.SPLIT
+    local point, rel, x, y = ns.Layout.Pos("SelfStack")
+    b:SetSize(U(w), U(33))
     b:ClearAllPoints()
-    b:SetPoint(point, UIParent, rel, U(x), U(y))
+    b:SetPoint(point, UIParent, rel, U(x + F.SplitOffset()), U(y))
     return true
 end
 
 function Group.BuildPet()
     if Group.petButton or InCombatLockdown() then return Group.petButton ~= nil end
+    local F = ns.Frames
+    local w = F.SELF_W * F.SPLIT
     local b = CreateFrame("Button", "MyUIPetButton", UIParent, "SecureUnitButtonTemplate")
     b:SetFrameStrata("HIGH")
     b:RegisterForClicks("AnyUp")
@@ -416,16 +424,18 @@ function Group.BuildPet()
     b:SetAttribute("ctrl-type1", "focus")
     b:SetAttribute("*type2", "togglemenu")
 
-    local health = ns.Frames.Bar(b, PET_W, 3)
-    health:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
-    health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
-    ns.Frames.DangerGradient(health, PET_W, 3)
-    b.__health = health
-    local name = ns.Frames.Text(b, 11, "textDim", "LEFT")
-    name:SetPoint("BOTTOMLEFT", health, "TOPLEFT", 0, U(ns.Frames.ROW_GAP))
-    name:SetPoint("RIGHT", b, "RIGHT", 0, 0)
+    -- The same internals as SelfStack, at its height: text row, health,
+    -- resource. (No cast bar: the pet's casts are not the player's.)
+    local health = F.Bar(b, w, 4)
+    health:SetPoint("TOPLEFT", b, "TOPLEFT", 0, -U(13))
+    F.DangerGradient(health, w, 4)
+    local resource = F.Bar(b, w, 2)
+    resource:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -U(4))
+    resource.fill:SetColorTexture(Palette.Get("resource"))
+    local name, level = F.TextRow(b, health)
     if name.SetWordWrap then name:SetWordWrap(false) end
-    b.__name = name
+    local pill, number = F.Pill(b, health, 12)
+    b.__health, b.__resource, b.__name, b.__level, b.__number = health, resource, name, level, number
 
     Group.petButton = b
     Group.PlacePet()
@@ -439,15 +449,41 @@ function Group.UpdatePet()
     if not b or not (_G.UnitExists and _G.UnitExists("pet")) then return end
     Guard.Send(b.__name, "SetText", _G.UnitName("pet"))
     local curves = ns.Bars and ns.Bars.curves
-    local v = curves and Guard.HealthThrough("pet", curves.frac)
-    if v ~= nil then Guard.Send(b.__health, "SetValue", v) end
+    if curves then
+        local v = Guard.HealthThrough("pet", curves.frac)
+        if v ~= nil then Guard.Send(b.__health, "SetValue", v) end
+        local pct = Guard.HealthThrough("pet", curves.pct)
+        if pct ~= nil then Guard.Send(b.__number, "SetFormattedText", "%d", pct) end
+        local pw = Guard.PowerThrough("pet", curves.frac)
+        if pw ~= nil then Guard.Send(b.__resource, "SetValue", pw) end
+    end
+    local level = _G.UnitLevel and _G.UnitLevel("pet")
+    if type(level) == "number" and not ns.Compat.IsSecret(level) and level > 0 then
+        b.__level:SetText(tostring(level))
+    else
+        b.__level:SetText("")
+    end
+end
+
+--- Split SelfStack for the pet, or give it its full width back. Out of
+-- combat (the your-bar and pet buttons are secure); a change in combat
+-- waits for it to end.
+function Group.UpdateSplit()
+    if InCombatLockdown() then Group.splitPending = true return false end
+    Group.splitPending = false
+    local has = _G.UnitExists and _G.UnitExists("pet") and true or false
+    ns.Frames.SetSplit(has)
+    Group.PlaceSelf()
+    Group.PlacePet()
+    return has
 end
 
 -- ---------------------------------------------------------------------------
 -- Events and login
 -- ---------------------------------------------------------------------------
 
-local UNIT_EVENTS = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT_CONNECTION" }
+local UNIT_EVENTS = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT_CONNECTION",
+                      "UNIT_POWER_UPDATE", "UNIT_LEVEL" }
 
 function Group.Start()
     if not Group.Build() then return false end
@@ -468,21 +504,30 @@ function Group.Start()
             Group.PaintTargets()
             return
         end
-        if unit == "pet" or event == "UNIT_PET" then
+        if event == "UNIT_PET" then
+            if unit == "player" then Group.UpdateSplit() end
             Group.UpdatePet()
-            if event == "UNIT_PET" then return end
+            return
         end
-        if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_NAME_UPDATE"
+        if unit == "pet" then
+            Group.UpdatePet()
+            return
+        end
+        if event == "UNIT_POWER_UPDATE" or event == "UNIT_LEVEL" then
+            return   -- only the pet's matter, handled above
+        elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_NAME_UPDATE"
            or event == "UNIT_CONNECTION" then
             Group.UpdateUnit(unit)
         elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "PLAYER_REGEN_ENABLED" then
             Group.Resize()
             Group.Refresh()
+            if Group.splitPending then Group.UpdateSplit() end
         else
             Group.Refresh()
         end
     end)
     if ns.Clear and ns.Clear.HideGroupFrames then ns.Clear.HideGroupFrames() end
+    Group.UpdateSplit()
     Group.UpdatePet()
     ns.Reveal.Resolve()
     ns.Reveal.Snap()

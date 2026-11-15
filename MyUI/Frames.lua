@@ -130,17 +130,62 @@ end
 
 local Text = Frames.Text
 
---- Anchor one of MyUI's own frames where the layout profile says.
-function Frames.PlaceOne(frame, key)
+--- Anchor one of MyUI's own frames where the layout profile says, moved
+-- sideways by dx SPEC units.
+function Frames.PlaceOne(frame, key, dx)
     local point, rel, x, y = ns.Layout.Pos(key)
     frame:ClearAllPoints()
-    frame:SetPoint(point, UIParent, rel, U(x), U(y))
+    frame:SetPoint(point, UIParent, rel, U(x + (dx or 0)), U(y))
+end
+
+-- ---------------------------------------------------------------------------
+-- The pet split (round 004 play, Mykel): with a pet out, SelfStack and a pet
+-- stack sit side by side, each 45% of SelfStack's width with 10% between,
+-- so together they take SelfStack's place exactly.
+-- ---------------------------------------------------------------------------
+
+Frames.SELF_W = 240
+Frames.SPLIT = 0.45
+
+function Frames.SelfWidth()
+    return Frames.split and Frames.SELF_W * Frames.SPLIT or Frames.SELF_W
+end
+
+--- Centre offsets of the two halves from SelfStack's own anchor.
+function Frames.SplitOffset()
+    local w = Frames.SELF_W * Frames.SPLIT
+    return w / 2 + Frames.SELF_W * (1 - 2 * Frames.SPLIT) / 2
+end
+
+local function SizeBars(w, health, tick20, tick40, ...)
+    health:SetWidth(U(w))
+    if health.danger then health.danger:SetWidth(U(w) * Frames.DANGER_SPAN) end
+    -- The 20% and 40% marks, still by construction from the width.
+    tick20:ClearAllPoints(); tick20:SetPoint("TOPLEFT", health, "TOPLEFT", U(w * 0.2), 0)
+    tick40:ClearAllPoints(); tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(w * 0.4), 0)
+    for i = 1, select("#", ...) do
+        local bar = select(i, ...)
+        if bar then bar:SetWidth(U(w)) end
+    end
+end
+
+--- Full width, or the left half of the split. Plain frames: any time.
+function Frames.SetSplit(on)
+    Frames.split = on and true or false
+    if not Frames.built then return end
+    local stack = Registry.Get("SelfStack").frame
+    local w = Frames.SelfWidth()
+    stack:SetWidth(U(w))
+    SizeBars(w, stack.health, stack.tick20, stack.tick40, stack.resource, stack.cast, stack.xp)
+    local low = ns.Bars and ns.Bars.low
+    if low then SizeBars(w, low.health, low.tick20, low.tick40) end
+    Frames.Place()
 end
 
 --- Re-anchor SelfStack and the target strip (plain frames: any time).
 function Frames.Place()
     if not Frames.built then return end
-    Frames.PlaceOne(Registry.Get("SelfStack").frame, "SelfStack")
+    Frames.PlaceOne(Registry.Get("SelfStack").frame, "SelfStack", Frames.split and -Frames.SplitOffset() or 0)
     Frames.PlaceOne(Registry.Get("TargetStrip").frame, "TargetStrip")
 end
 

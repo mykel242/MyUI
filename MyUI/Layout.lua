@@ -41,9 +41,6 @@ Layout.PRESETS = {
         -- top (~146) -- the strip's bar sits 15 above its own bottom.
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 163 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
-        -- Your pet: right of SelfStack, on its row, clear of the pet bar
-        -- under the right wing (round 004 play, a hunter).
-        Pet         = { "BOTTOMLEFT", "BOTTOM", 132, 24 },
         -- Left of the strip, mirroring the group list: the Cooldown
         -- Manager's tracked buff bars, over the left wing's rows, growing up.
         -- Only x is a position: y is how far above the chosen buffs' row
@@ -65,7 +62,6 @@ Layout.PRESETS = {
         ActionBar   = { "BOTTOM", "BOTTOM", 0, 48 },
         TargetStrip = { "TOP", "TOP", 0, -20 },
         Group       = { "BOTTOMLEFT", "BOTTOM", 140, 150 },
-        Pet         = { "BOTTOMLEFT", "BOTTOM", 132, 214 },
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 0 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
         debuffGap   = 32,
@@ -79,7 +75,7 @@ Layout.DEFAULT = "focus"
 Layout.ALIASES = {
     self = "SelfStack", me = "SelfStack", health = "SelfStack",
     target = "TargetStrip", bar = "ActionBar", bars = "ActionBar",
-    group = "Group", party = "Group", raid = "Group", pet = "Pet",
+    group = "Group", party = "Group", raid = "Group",
     zone = "ZoneAbility", extra = "ZoneAbility", ability = "ZoneAbility",
     timers = "BuffBars", buffbars = "BuffBars",
 }
