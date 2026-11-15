@@ -554,10 +554,13 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
 Two small groups that line up row for row with the bar stack, so nothing floats.
 
 - **Left — Cooldowns.** Major cooldowns on bar 1's row at bar-1 size; utility cooldowns above on
-  the next row, small. Source: the Cooldown Manager at alpha 0, mirrored into MyUI buttons
-  (RULES' CDM mechanism) — forwarded, never read.
+  the next row, small. **Built as the Cooldown Manager's own viewers** (Essential, Utility),
+  placed by the MyUI Edit Mode layout at the bar's left edge, growing away from it, adopted at
+  alpha 0 and revealed with the bar. Mirroring into MyUI buttons is not possible on 12.1:
+  `Cooldown:SetCooldown` is protected (probe P2 answered from the API).
 - **Right — On you.** Debuffs on you on bar 1's row, edged by dispel type; a **few chosen buffs**
-  above, small. Dispel types take the palette's notification hues — magic blue, curse violet,
+  above, small — the chosen buffs are the Cooldown Manager's tracked buffs (BuffIcon viewer),
+  placed the same way (built); debuffs wait for P1. Dispel types take the palette's notification hues — magic blue, curse violet,
   poison green, disease amber — so no colour is added. Whether aura data arrives secret in
   restricted content is unverified (PLAN probe P1); if it does, the same degrade-not-read rule as
   the cast bar applies.

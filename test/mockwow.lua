@@ -326,7 +326,13 @@ function M.install()
     -- in it), an active index that counts the two presets first, and the
     -- enums. M.editMode records what was saved and selected.
     M.editMode = { saved = nil, active = nil }
-    _G.Enum.EditModeSystem = { ActionBar = 0, UnitFrame = 3 }
+    _G.Enum.EditModeSystem = { ActionBar = 0, UnitFrame = 3, CooldownViewer = 20 }
+    _G.Enum.EditModeCooldownViewerSetting = { Orientation = 0, IconLimit = 1, IconDirection = 2,
+        IconSize = 3, IconPadding = 4, Opacity = 5, VisibleSetting = 6 }
+    _G.Enum.EditModeCooldownViewerSystemIndices = { Essential = 1, Utility = 2, BuffIcon = 3, BuffBar = 4 }
+    _G.Enum.CooldownViewerVisibleSetting = { Always = 0, InCombat = 1, Hidden = 2 }
+    _G.Enum.CooldownViewerOrientation = { Horizontal = 0, Vertical = 1 }
+    _G.Enum.CooldownViewerIconDirection = { Left = 0, Right = 1 }
     _G.Enum.EditModeActionBarSetting = { Orientation = 0, VisibleSetting = 6 }
     _G.Enum.ActionBarVisibleSetting = { Always = 0, InCombat = 1, OutOfCombat = 2, Hidden = 3 }
     _G.Enum.EditModeLayoutType = { Preset = 0, Account = 1, Character = 2, Server = 3 }
@@ -338,6 +344,10 @@ function M.install()
                 { system = 0, systemIndex = 2, settings = { { setting = 6, value = 0 } } },
                 { system = 0, systemIndex = 3, settings = { { setting = 6, value = 0 } } },
                 { system = 3, systemIndex = 1, settings = { { setting = 6, value = 0 } } },
+                { system = 20, systemIndex = 1, settings = { { setting = 6, value = 1 } } },
+                { system = 20, systemIndex = 2, settings = { { setting = 6, value = 1 } } },
+                { system = 20, systemIndex = 3, settings = { { setting = 6, value = 1 } } },
+                { system = 20, systemIndex = 4, settings = { { setting = 6, value = 0 } } },
             } },
             { layoutName = "Alt", layoutType = 2, systems = {} },
         },

@@ -109,14 +109,16 @@ local SCOPE = {
     -- by role or preference -- Clear.GroupInCombat().
     -- Round 004: MyUI's own action bar (Actions.lua) comes back in combat.
     combat = { SelfStack = true, Cooldowns = true, ActionBar = true,
+               WingCooldowns = true, WingUtility = true, WingBuffs = true,
                Party = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                CompactParty = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                Raid = function() return ns.Clear and ns.Clear.GroupInCombat() end },
     -- Round 004 play (Mykel): target something, hold ALT, tap a taunt to pull --
     -- the bar comes up with a target.
-    target = { TargetStrip = true, ActionBar = true },
+    target = { TargetStrip = true, ActionBar = true,
+               WingCooldowns = true, WingUtility = true, WingBuffs = true },
     lowhealth = { SelfStack = true },
-    assign = { ActionBar = true },
+    assign = { ActionBar = true, WingCooldowns = true, WingUtility = true, WingBuffs = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
 }
 

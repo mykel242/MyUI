@@ -220,6 +220,13 @@ function Actions.Layout(stacked)
     end
 end
 
+--- Where the bar sits on screen, in UIParent units: half its width, its
+-- bottom, and one row's height -- what the wings line up against (SPEC 18).
+function Actions.Extent()
+    local width = Actions.BUTTONS * U(Actions.SIZE) + (Actions.BUTTONS - 1) * U(Actions.GAP)
+    return width / 2, U(Actions.BOTTOM), U(Actions.SIZE), U(Actions.ROW_GAP)
+end
+
 --- Re-run the page snippet now, against the current state (out of combat).
 local function Reapply()
     Actions.header:Execute("local newstate = self:GetAttribute('state-page') or '1'\n" .. Actions.snippet)
@@ -235,7 +242,7 @@ function Actions.SetAssign(on)
     Actions.header:SetAttribute("assign", on)
     Actions.Layout(on)
     Reapply()
-    if on then ns.Reveal.Claim("assign", "ActionBar") else ns.Reveal.Release("assign", "ActionBar") end
+    if on then ns.Reveal.Claim("assign") else ns.Reveal.Release("assign") end
     return true
 end
 

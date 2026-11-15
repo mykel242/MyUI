@@ -68,6 +68,13 @@ Clear.ADOPT = {
     { "MinimapMap", "Minimap", hideAtZero = true },
     -- The social button on the chat panel: friends and guild online.
     { "ChatSocial", "QuickJoinToastButton" },
+    -- Round 004, SPEC 18: the wings are the Cooldown Manager's own viewers,
+    -- placed beside MyUI's bar by the MyUI layout (Clear.PlaceWings) and
+    -- revealed with it. Mirroring them is not possible: Cooldown:SetCooldown
+    -- is protected on 12.1 (API-NOTES), so MyUI cannot draw a sweep itself.
+    { "WingCooldowns", "EssentialCooldownViewer" },
+    { "WingUtility",   "UtilityCooldownViewer" },
+    { "WingBuffs",     "BuffIconCooldownViewer" },
     -- Party and raid frames: adopted, revealed in combat.
     { "Party",      "PartyFrame" },
     { "CompactParty", "CompactPartyFrame" },
@@ -413,7 +420,70 @@ function Clear.BarsInCombat(layout)
         elseif cdm and E.EditModeSystem.CooldownViewer and sys.system == E.EditModeSystem.CooldownViewer then
             for _, st in ipairs(sys.settings or {}) do
                 if st.setting == cdm.VisibleSetting then
-                    st.value = E.CooldownViewerVisibleSetting.InCombat
+                    -- Round 004: the wings are always "shown" to Blizzard;
+                    -- adopted at alpha 0, they come back with the bar (combat,
+                    -- a target, arranging) -- the reveal engine decides. The
+                    -- buff bars are not a wing and stay in-combat only.
+                    local idx = E.EditModeCooldownViewerSystemIndices
+                    local wing = not idx or sys.systemIndex ~= idx.BuffBar
+                    st.value = wing and E.CooldownViewerVisibleSetting.Always
+                               or E.CooldownViewerVisibleSetting.InCombat
+                    n = n + 1
+                end
+            end
+        end
+    end
+    return n
+end
+
+-- SPEC 18: where each Cooldown Manager viewer goes, beside MyUI's bar.
+-- `side` -1 is the left wing, 1 the right; `row` 0 is bar 1's row, 1 the
+-- row above. Icon sizes are Edit Mode's slider steps ((percent - 50) / 10):
+-- essential 50 px at 90% ~ bar 1's 44; utility 30 px at 100%; buffs 40 at 80%.
+Clear.WINGS = {
+    Essential = { side = -1, row = 0, size = 4, limit = 8 },   -- major cooldowns
+    Utility   = { side = -1, row = 1, size = 5, limit = 8 },   -- utility, small, above
+    BuffIcon  = { side =  1, row = 1, size = 3, limit = 8 },   -- the chosen buffs, small, above
+}
+Clear.WING_GAP = 12
+
+local function SetSetting(sys, setting, value)
+    for _, st in ipairs(sys.settings) do
+        if st.setting == setting then st.value = value; return end
+    end
+    sys.settings[#sys.settings + 1] = { setting = setting, value = value }
+end
+
+--- Place the wings in the layout: each viewer anchored to UIParent's bottom
+-- centre at the bar's edge, growing away from it, so its first icon sits
+-- next to the bar. Returns how many viewers were placed.
+function Clear.PlaceWings(layout)
+    local E = _G.Enum
+    local A = ns.Actions
+    local idx, cdm = E.EditModeCooldownViewerSystemIndices, E.EditModeCooldownViewerSetting
+    if not (A and A.Extent and idx and cdm and E.EditModeSystem.CooldownViewer) then return 0 end
+    local half, bottom, row, rowGap = A.Extent()
+    local gap = ns.Scale.U(Clear.WING_GAP)
+    local n = 0
+    for _, sys in ipairs(layout.systems or {}) do
+        if sys.system == E.EditModeSystem.CooldownViewer then
+            for key, w in pairs(Clear.WINGS) do
+                if idx[key] == sys.systemIndex then
+                    local left = w.side < 0
+                    sys.isInDefaultPosition = false
+                    sys.anchorInfo = {
+                        point = left and "BOTTOMRIGHT" or "BOTTOMLEFT",
+                        relativeTo = "UIParent",
+                        relativePoint = "BOTTOM",
+                        offsetX = w.side * (half + gap),
+                        offsetY = bottom + w.row * (row + rowGap),
+                    }
+                    sys.settings = sys.settings or {}
+                    SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Horizontal)
+                    SetSetting(sys, cdm.IconDirection,
+                               left and E.CooldownViewerIconDirection.Left or E.CooldownViewerIconDirection.Right)
+                    SetSetting(sys, cdm.IconSize, w.size)
+                    SetSetting(sys, cdm.IconLimit, w.limit)
                     n = n + 1
                 end
             end
@@ -464,6 +534,7 @@ function Clear.ApplyLayout()
     end
 
     local changed = Clear.BarsInCombat(info.layouts[mine])
+    changed = changed + Clear.PlaceWings(info.layouts[mine])
     info.activeLayout = presets + mine
     C_EditMode.SaveLayouts(info)
     C_EditMode.SetActiveLayout(presets + mine)
@@ -503,6 +574,10 @@ function Clear.Apply()
     Clear.Defer("layout", function()
         local ok, err = Clear.ApplyLayout()
         DB().layoutResult = ok and ("bars changed: " .. tostring(ok)) or tostring(err)
+        -- Applying a layout sets each viewer's Edit Mode opacity (SetAlpha);
+        -- put the adopted ones back where the reveal engine has them.
+        ns.Reveal.Snap()
+        C_Timer.After(1, function() ns.Reveal.Snap() end)
     end)
     return adopted
 end
