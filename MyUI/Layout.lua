@@ -215,6 +215,7 @@ function Layout.Apply()
     local function secure()
         if ns.Actions and ns.Actions.Place then ns.Actions.Place() end
         if ns.Group and ns.Group.Place then ns.Group.Place() end
+        if ns.Group and ns.Group.PlaceSelf then ns.Group.PlaceSelf() end
         if ns.Clear and ns.Clear.Enabled and ns.Clear.Enabled() and ns.Clear.ApplyLayout then
             ns.Clear.ApplyLayout()
             if ns.Reveal then ns.Reveal.Snap() end

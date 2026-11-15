@@ -325,6 +325,58 @@ function Group.Resize()
 end
 
 -- ---------------------------------------------------------------------------
+-- Your own bar, clickable (round 004 play)
+-- ---------------------------------------------------------------------------
+-- Mykel, solo: no function keys, clicking the character does not target, no
+-- party frames -- "I need access to the right-click menu". An invisible
+-- secure unit button over SelfStack with the same click map as a party
+-- row: click targets you, ctrl-click focuses, right-click opens your menu.
+-- Anchored to UIParent where the profile puts SelfStack, not to SelfStack
+-- itself, so SelfStack stays free to move in combat.
+
+local SELF_W, SELF_H = 240, 33   -- SelfStack's size (Frames.lua)
+
+function Group.PlaceSelf()
+    local b = Group.selfButton
+    if not b or InCombatLockdown() then return false end
+    local point, rel, x, y = ns.Layout.Pos("SelfStack")
+    b:SetSize(U(SELF_W), U(SELF_H))
+    b:ClearAllPoints()
+    b:SetPoint(point, UIParent, rel, U(x), U(y))
+    return true
+end
+
+function Group.BuildSelf()
+    if Group.selfButton or InCombatLockdown() then return Group.selfButton ~= nil end
+    local b = CreateFrame("Button", "MyUISelfButton", UIParent, "SecureUnitButtonTemplate")
+    b:SetFrameStrata(ns.Frames.STRATA or "MEDIUM")
+    b:RegisterForClicks("AnyUp")
+    b:SetAttribute("unit", "player")
+    b:SetAttribute("*type1", "target")
+    b:SetAttribute("ctrl-type1", "focus")
+    b:SetAttribute("*type2", "togglemenu")
+    -- The same 1 px hover edge as a party row, so it can be found.
+    local px = Scale.Hairline()
+    b.__hover = {}
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+        local t = b:CreateTexture(nil, "OVERLAY")
+        t:SetColorTexture(Palette.Get("fill"))
+        if side == "TOP" or side == "BOTTOM" then
+            t:SetHeight(px); t:SetPoint(side .. "LEFT"); t:SetPoint(side .. "RIGHT")
+        else
+            t:SetWidth(px); t:SetPoint("TOP" .. side); t:SetPoint("BOTTOM" .. side)
+        end
+        t:Hide()
+        b.__hover[#b.__hover + 1] = t
+    end
+    b:HookScript("OnEnter", function(self) for _, t in ipairs(self.__hover) do t:Show() end end)
+    b:HookScript("OnLeave", function(self) for _, t in ipairs(self.__hover) do t:Hide() end end)
+    Group.selfButton = b
+    Group.PlaceSelf()
+    return true
+end
+
+-- ---------------------------------------------------------------------------
 -- Events and login
 -- ---------------------------------------------------------------------------
 
@@ -332,6 +384,7 @@ local UNIT_EVENTS = { "UNIT_HEALTH", "UNIT_MAXHEALTH", "UNIT_NAME_UPDATE", "UNIT
 
 function Group.Start()
     if not Group.Build() then return false end
+    Group.BuildSelf()
     ns.Registry.Add("Group", Group.frame, 0)
     local ev = CreateFrame("Frame")
     Group.events = ev
