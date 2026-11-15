@@ -450,6 +450,15 @@ Clear.WINGS = {
     BuffIcon  = { side =  1, row = 1, size = 3, limit = 8, base = 40 },   -- the chosen buffs, small, above
 }
 
+-- SPEC 18, right wing, bar 1's row: debuffs on you. Blizzard's own debuff
+-- frame (adopted as "Debuffs"), which already edges each debuff by dispel
+-- type (ShowDispelType) and draws whatever arrives secret itself -- so probe
+-- P1 does not gate it. 30 px icons at 150% ~ bar 1's 44; one row, growing
+-- away from the bar.
+Clear.AURA_WINGS = {
+    DebuffFrame = { side = 1, row = 0, size = 10, limit = 8 },
+}
+
 --- A viewer's icon height in UI units: its template's size times the Edit
 -- Mode step's percentage. Blizzard's own units, not SPEC's (no U()).
 function Clear.WingIconHeight(key)
@@ -498,6 +507,28 @@ function Clear.PlaceWings(layout)
                         offsetX = o.side * half,
                         offsetY = bottom + row + rowGap,
                     }
+                    n = n + 1
+                end
+            end
+        elseif E.EditModeSystem.AuraFrame and sys.system == E.EditModeSystem.AuraFrame then
+            local aidx, aset = E.EditModeAuraFrameSystemIndices, E.EditModeAuraFrameSetting
+            for key, w in pairs(Clear.AURA_WINGS) do
+                if aidx and aset and aidx[key] == sys.systemIndex then
+                    sys.isInDefaultPosition = false
+                    sys.anchorInfo = {
+                        point = "BOTTOMLEFT",
+                        relativeTo = "UIParent",
+                        relativePoint = "BOTTOM",
+                        offsetX = w.side * (half + gap),
+                        offsetY = bottom + w.row * (row + rowGap),
+                    }
+                    sys.settings = sys.settings or {}
+                    SetSetting(sys, aset.Orientation, E.AuraFrameOrientation.Horizontal)
+                    SetSetting(sys, aset.IconDirection, E.AuraFrameIconDirection.Right)
+                    SetSetting(sys, aset.IconWrap, E.AuraFrameIconWrap.Up)
+                    SetSetting(sys, aset.IconLimitDebuffFrame, w.limit)
+                    SetSetting(sys, aset.IconSize, w.size)
+                    if aset.ShowDispelType then SetSetting(sys, aset.ShowDispelType, 1) end
                     n = n + 1
                 end
             end

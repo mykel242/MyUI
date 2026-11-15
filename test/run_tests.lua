@@ -2960,7 +2960,8 @@ do
     check("  nor the bags or micro menu, nor a DPS's group frames",
           Registry.Get("Bags").target == 0 and Registry.Get("MicroMenu").target == 0 and Registry.Get("Party").target == 0)
     check("  but MyUI's own action bar does (round 004)", Registry.Get("ActionBar").target == 1)
-    check("  and the wings, stance and pet bars with it", Registry.Get("StanceBar").target == 1
+    check("  and the wings, debuffs, stance and pet bars with it", Registry.Get("StanceBar").target == 1
+          and Registry.Get("Debuffs").target == 1
           and Registry.Get("PetBar").target == 1 and Registry.Get("WingCooldowns").target == 1
           and Registry.Get("WingUtility").target == 1 and Registry.Get("WingBuffs").target == 1)
     Reveal.Release("combat")
@@ -3087,6 +3088,14 @@ do
            and setting(sys(7), 2) == 1
     end)())
     check("  the buff bars are not moved", sys(8).anchorInfo == nil)
+    check("  debuffs on you: right of bar 1's row, ~bar-1 size, dispel types shown, growing away", (function()
+        local d = sys(9)
+        local a = d.anchorInfo
+        local half, bottom = ns.Actions.Extent()
+        return a and a.point == "BOTTOMLEFT" and near(a.offsetX, half + Scale.U(32)) and near(a.offsetY, bottom)
+           and setting(d, 5) == 10 and setting(d, 9) == 1 and setting(d, 4) == 8
+    end)())
+    check("  the buff frame is left alone", sys(10).anchorInfo == nil)
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
     check("  and it is selected", mock.editMode.active == 2 + mine, mock.editMode.active)

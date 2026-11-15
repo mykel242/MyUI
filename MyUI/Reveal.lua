@@ -110,7 +110,7 @@ local SCOPE = {
     -- Round 004: MyUI's own action bar (Actions.lua) comes back in combat.
     combat = { SelfStack = true, Cooldowns = true, ActionBar = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
-               StanceBar = true, PetBar = true,
+               StanceBar = true, PetBar = true, Debuffs = true,
                Party = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                CompactParty = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                Raid = function() return ns.Clear and ns.Clear.GroupInCombat() end },
@@ -119,7 +119,7 @@ local SCOPE = {
     -- The stance and pet bars sit where the stacked pages go while arranging
     -- (Mykel: hide them then); evaluated at claim time, so Actions re-claims
     -- the target when arranging starts or stops.
-    target = { TargetStrip = true, ActionBar = true,
+    target = { TargetStrip = true, ActionBar = true, Debuffs = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end,
                PetBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },

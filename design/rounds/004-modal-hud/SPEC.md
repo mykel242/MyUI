@@ -564,7 +564,9 @@ Two small groups that line up row for row with the bar stack, so nothing floats.
   `Cooldown:SetCooldown` is protected (probe P2 answered from the API).
 - **Right — On you.** Debuffs on you on bar 1's row, edged by dispel type; a **few chosen buffs**
   above, small — the chosen buffs are the Cooldown Manager's tracked buffs (BuffIcon viewer),
-  placed the same way (built); debuffs wait for P1. Dispel types take the palette's notification hues — magic blue, curse violet,
+  placed the same way (built). **Debuffs are Blizzard's debuff frame**, placed on bar 1's row right
+  of the bar at ~bar-1 size with its own dispel-type borders (built); Blizzard draws whatever
+  arrives secret, so P1 no longer gates the wing — only MyUI's own unit cards (§ 19). Dispel types take the palette's notification hues — magic blue, curse violet,
   poison green, disease amber — so no colour is added. Whether aura data arrives secret in
   restricted content is unverified (PLAN probe P1); if it does, the same degrade-not-read rule as
   the cast bar applies.
