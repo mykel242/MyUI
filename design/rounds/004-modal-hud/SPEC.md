@@ -66,7 +66,9 @@ resting alpha 0, revealed by the engine, alpha only. Adoption is the interim, no
 - Health bar — 240 × 4, trough `rgba(255,255,255,0.14)`
 - Resource bar — 240 × 2, 4 below health
 - Cast bar — 240 × 4, 6 below resource
-- Health number — 40 wide, right-aligned, 8 left of the bar group, 12pt
+- Health number — 12pt, **centred on the health bar, on a `rgba(0,0,0,0.55)` pill** (round 004,
+  Mykel; was 40 wide, right-aligned, 8 left of the bar group). A player setting, `/myui pct`:
+  *pill* (default) or *above* — just over the bar, no pill.
 - Threshold ticks on the health bar — static geometry, always present:
   - 20% mark at x = 48, `rgba(0,0,0,0.55)` (reads against the fill)
   - 40% mark at x = 96, `rgba(255,255,255,0.25)` (reads against the empty trough)
@@ -80,6 +82,8 @@ value.
 - Name — 11pt, `rgba(240,241,243,1)`, left-aligned at group left
 - Level — 11pt, `rgba(173,177,184,1)`, right-aligned at group right
 - Health bar — 400 × 3, 20 below the name row
+- Health number — 12pt, centred on the bar the same way as SelfStack's (round 004); a boss bar
+  (§ 21) carries its number the same way
 - Cast indicator — 3 × 6 tick, 9 below the bar
 
 ---
@@ -517,7 +521,10 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   hidden (the MyUI layout) and keep the player's keybinds; MyUI's buttons draw the same slots and
   click them. Swap and Ghost page by a **secure state driver** on MyUI's header, the one way a
   display may change on a modifier in combat. Skinning Blizzard's bars was considered and is safer
-  but cannot do either style (confirm with probe P5).
+  but cannot do either style (confirm with probe P5). Each modifier's page is **read from the
+  player's own binds** — whatever ALT-1, CTRL-1 and ALT-CTRL-1 are bound to names the bar — so
+  nothing has to be configured. A vehicle, possession or pet battle hides MyUI's bar and Blizzard's
+  override bar takes over; a form's bonus bar (stealth, cat form, skyriding) still pages bar 1.
 - **Items, trinkets and potions** need nothing special: they sit on action slots, usually as
   macros, and show icon, count and cooldown like any action. The Cooldowns wing (§ 18) may hold
   any action slot too.

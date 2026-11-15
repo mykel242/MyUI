@@ -247,6 +247,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             { "chat override", ns.Chat   },
             -- After chat: adopting the log frees the edit box first.
             { "clearing",     ns.Clear    },
+            -- After clearing: MyUI's bar takes bar 1's place in the registry.
+            { "action bar",   ns.Actions  },
         }) do
             local label, module = step[1], step[2]
             if module and module.OnLogin then

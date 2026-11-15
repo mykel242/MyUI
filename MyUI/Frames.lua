@@ -130,6 +130,62 @@ end
 
 local Text = Frames.Text
 
+-- ---------------------------------------------------------------------------
+-- The health percentage (round 004, Mykel): on the middle of its own bar, on
+-- a dark pill -- or just above the bar with no pill. Replaces the number left
+-- of the self bar; the target's number joins it. The pill is tickDark, a
+-- palette colour, so the palette stays closed.
+-- ---------------------------------------------------------------------------
+
+Frames.PCT_STYLES = { pill = true, above = true }
+
+function Frames.PctStyle()
+    local s = ns.db and ns.db.pct
+    return Frames.PCT_STYLES[s] and s or "pill"
+end
+
+--- Anchor a pill to its bar in the current style. Also re-run after the pill
+-- or its bar is reparented: a new parent resets the frame level.
+function Frames.PlacePill(pill)
+    local bar, size = pill.bar, pill.size
+    pill:SetFrameLevel(bar:GetFrameLevel() + 3)
+    pill:SetSize(U(size * 2 + 8), U(size + 4))
+    pill:ClearAllPoints()
+    if Frames.PctStyle() == "above" then
+        pill:SetPoint("BOTTOM", bar, "TOP", 0, U(2))
+        pill.bg:Hide()
+    else
+        pill:SetPoint("CENTER", bar, "CENTER", 0, 0)
+        pill.bg:Show()
+    end
+end
+
+--- A pill on `bar`, child of `parent`, holding a centred number of `size` pt.
+-- Returns the pill and its string.
+function Frames.Pill(parent, bar, size)
+    local pill = CreateFrame("Frame", nil, parent)
+    pill.bar, pill.size = bar, size
+    local bg = pill:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints(pill)
+    bg:SetColorTexture(Palette.Get("tickDark"))
+    pill.bg = bg
+    local fs = Text(pill, size, "textPrimary", "CENTER")
+    fs:SetSize(U(size * 2 + 8), U(size))
+    fs:SetPoint("CENTER", pill, "CENTER", 0, 0)
+    pill.text = fs
+    Frames.pills = Frames.pills or {}
+    Frames.pills[#Frames.pills + 1] = pill
+    Frames.PlacePill(pill)
+    return pill, fs
+end
+
+function Frames.SetPctStyle(style)
+    if not Frames.PCT_STYLES[style] then return nil end
+    if ns.db then ns.db.pct = style end
+    for _, pill in ipairs(Frames.pills or {}) do Frames.PlacePill(pill) end
+    return style
+end
+
 --- Re-apply the treatment to every string already created.
 function Frames.RestyleText()
     for _, fs in ipairs(Frames.strings or {}) do
@@ -189,10 +245,9 @@ local function BuildSelfStack()
     local cast = Bar(group, 240, 4)
     cast:SetPoint("TOPLEFT", resource, "BOTTOMLEFT", 0, -U(6))
 
-    -- 40 wide, right-aligned, 8 left of the bar group, 12pt.
-    local number = Text(group, 12, "textPrimary", "RIGHT")
-    number:SetSize(U(40), U(12))
-    number:SetPoint("RIGHT", group, "LEFT", -U(8), 0)
+    -- 12pt, on the middle of the health bar (round 004; was 40 wide,
+    -- right-aligned, 8 left of the bar group).
+    local pill, number = Frames.Pill(group, health, 12)
 
     -- The compliance keystone. Static geometry, always present: the bar
     -- crossing them is the event and the player's eye does the comparison.
@@ -207,7 +262,7 @@ local function BuildSelfStack()
     tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(96), 0)
 
     group.health, group.resource, group.cast = health, resource, cast
-    group.number, group.tick20, group.tick40 = number, tick20, tick40
+    group.number, group.pill, group.tick20, group.tick40 = number, pill, tick20, tick40
     return group
 end
 
@@ -251,7 +306,11 @@ local function BuildTargetStrip()
     cast:SetSize(U(3), U(6))
     cast:SetPoint("TOP", health, "BOTTOM", 0, -U(9))
 
+    -- Round 004: the target's percentage, on the middle of its bar.
+    local pill, number = Frames.Pill(group, health, 12)
+
     group.name, group.level, group.health, group.cast = name, level, health, cast
+    group.number, group.pill = number, pill
     return group
 end
 
@@ -289,6 +348,7 @@ function Frames.Placeholders(on)
 
     if on then
         stack.number:SetText(PLACEHOLDER.number)
+        strip.number:SetText(PLACEHOLDER.number)
         strip.name:SetText(PLACEHOLDER.name)
         strip.level:SetText(PLACEHOLDER.level)
         stack.health:SetValue(Frames.DEBUG_FILL)
@@ -297,6 +357,7 @@ function Frames.Placeholders(on)
         strip.health:SetValue(Frames.DEBUG_FILL)
     else
         stack.number:SetText("")
+        strip.number:SetText("")
         strip.name:SetText("")
         strip.level:SetText("")
         stack.health:SetValue(0)

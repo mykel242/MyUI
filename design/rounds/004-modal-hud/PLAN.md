@@ -165,7 +165,7 @@ leans on it:
 | P2 | Can the Cooldown Manager be mirrored into MyUI buttons at alpha 0 (cooldowns and charges)? |
 | P3 | Does alt-click casting through secure unit buttons work in combat on 12.1.5 — and do Blizzard's own Click Casting bindings apply to MyUI's unit buttons? |
 | P4 | What do `C_EncounterTimeline` and the encounter warnings hand an addon, and are they secret? |
-| P5 | Modifier paging (`[mod:alt]`, `[mod:ctrl]`, `[mod:alt,mod:ctrl]`) on MyUI's own secure action buttons vs Blizzard's bars restyled |
+| P5 | Modifier paging (`[mod:alt]`, `[mod:ctrl]`, `[mod:alt,mod:ctrl]`) on MyUI's own secure action buttons vs Blizzard's bars restyled — **built** (`Actions.lua`, `/myui actions`, suite `myui-actions`); awaiting the in-game run |
 
 **Steps:**
 

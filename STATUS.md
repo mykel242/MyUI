@@ -26,6 +26,22 @@ Designed with Mykel over an interactive mock (claude.ai artifact `CCfBPgK475Qvee
 MVP steps reshaped (probes P1–P5, then M2 bars and wings, M3 group frames and pinnable cards).
 M1 (strip) is built on `mvp/m1-strip`.
 
+### M2, first part — the swap bar and probe P5 (`mvp/m2-swap-bars`, built, not yet in game)
+
+- `Actions.lua`: MyUI's own bar — 8 of Blizzard's `ActionBarButtonTemplate` buttons on a
+  `SecureHandlerStateTemplate` header, centred 48 up. A state driver pages it: holding ALT,
+  CTRL or ALT+CTRL swaps that page into bar 1's place, labelled in amber; form bonus bars still
+  page bar 1; vehicles hide it. Each modifier's page comes from the player's own binds
+  (ALT-1 → `MULTIACTIONBAR1BUTTON1` → slots 61+). Keybind text top-left.
+- In the registry as `ActionBar`, resting 0, back in combat. Blizzard's bar 1 stays adopted at
+  alpha 0 (shown — its keybinds fire) but leaves the registry, so peek never brings it back.
+- **P5 in game**: `/myui actions` (repeat while holding each modifier), harness suite
+  `myui-actions`, then a fight with BugSack open — any `ADDON_ACTION_BLOCKED` or taint naming
+  `MyUIAction*` is the answer "no".
+- Also: the health % moved onto the bar on a dark pill, for self and target (`/myui pct pill |
+  above`).
+- Not yet: Ghost style, the 30 px pages, the wings.
+
 ### Phase 4 — bars and low health (in progress, `phase/4-bars`, not merged)
 
 **State, end of 2026-11-14: pre-alpha** (Mykel) — "both minimal and unusably busy". At rest

@@ -50,7 +50,10 @@ Clear.ADOPT = {
     -- adopted and, like the other bars, revealed in combat (Reveal's combat
     -- scope). The minimap draws its arrow and blips through its cluster's
     -- alpha, so the map itself is adopted too.
-    { "MainBar",    "MainActionBar" },
+    -- Round 004: MyUI's action bar (Actions.lua) draws bar 1's slots, so
+    -- Blizzard's stays adopted at 0 -- shown, keybinds live -- but out of the
+    -- registry, where peek or hover would bring it back over MyUI's.
+    { "MainBar",    "MainActionBar", yieldsTo = "ActionBar" },
     { "StanceBar",  "StanceBar" },
     { "PetBar",     "PetActionBar" },
     { "MicroMenu",  "MicroMenuContainer" },
@@ -102,6 +105,10 @@ function Clear.Adopt()
                                     shown = frame:IsShown() }
             local entry = ns.Registry.Add(name, frame, 0)
             entry.hideAtZero = spec.hideAtZero
+            if spec.yieldsTo and ns.Registry.Get(spec.yieldsTo) then
+                ns.Registry.Remove(name)
+                frame:SetAlpha(0)
+            end
             n = n + 1
         end
     end

@@ -7,6 +7,8 @@
 package.path = "./?.lua;" .. package.path
 local mock = require("mockwow")
 mock.install()
+-- The player's own modifier binds (round 004's swap bar reads them).
+mock.bindings = { ["ALT-1"] = "MULTIACTIONBAR1BUTTON1", ["CTRL-1"] = "MULTIACTIONBAR2BUTTON1" }
 
 local failures, checks = 0, 0
 local function check(name, cond, detail)
@@ -64,7 +66,16 @@ end)
 
 -- Blizzard's frames that R3b adopts, and a PlayerFrame for the probe.
 for _, spec in ipairs(ns.Clear.ADOPT) do
-    _G[spec[2]] = mock.frame({ name = spec[2] })
+    _G[spec[2]] = mock.frame({ name = spec[2], shown = true })
+end
+-- The mock's one-clause SecureCmdOptionParse cannot read a state driver's
+-- many clauses; the driver evaluator can, against the same modifiers.
+do
+    local parse = _G.SecureCmdOptionParse
+    _G.SecureCmdOptionParse = function(s)
+        if s:find(";.-;") then return mock.EvalDriver(s) end
+        return parse(s)
+    end
 end
 do
     local rolesets = "unitFrames"

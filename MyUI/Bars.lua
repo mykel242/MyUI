@@ -160,10 +160,9 @@ local function BuildLowLayer(stack)
     tick40:SetSize(Scale.Hairline(), U(4))
     tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(96), 0)
 
-    -- SPEC 3: 12pt -> 14pt, the only type-size change in the addon.
-    local number = Frames.Text(inner, 14, "textPrimary", "RIGHT")
-    number:SetSize(U(40), U(14))
-    number:SetPoint("RIGHT", stack, "LEFT", -U(8), 0)
+    -- SPEC 3: 12pt -> 14pt, the only type-size change in the addon. On its
+    -- own pill, over the low bar, so it breathes with it.
+    local pill, number = Frames.Pill(inner, health, 14)
 
     local breathe = inner:CreateAnimationGroup()
     breathe:SetLooping("REPEAT")
@@ -179,7 +178,7 @@ local function BuildLowLayer(stack)
     up:SetOrder(2)
     breathe:Play()
 
-    low.health, low.number, low.inner, low.breathe = health, number, inner, breathe
+    low.health, low.number, low.pill, low.inner, low.breathe = health, number, pill, inner, breathe
     low:SetAlpha(0)
     return low
 end
@@ -191,7 +190,8 @@ local function BuildSteadyLayer(stack)
     local steady = CreateFrame("Frame", nil, stack)
     steady:SetAllPoints(stack)
     stack.health:SetParent(steady)
-    stack.number:SetParent(steady)
+    stack.pill:SetParent(steady)
+    ns.Frames.PlacePill(stack.pill)
     return steady
 end
 
@@ -326,6 +326,7 @@ function Bars.UpdateTarget()
     if not (_G.UnitExists and _G.UnitExists("target")) then
         strip.name:SetText("")
         strip.level:SetText("")
+        strip.number:SetText("")
         strip.health:SetValue(0)
         strip.cast:Hide()
         return
@@ -340,6 +341,8 @@ function Bars.UpdateTarget()
         strip.level:SetText("??")
     end
     Value(strip.health, Scalar("target", curves.frac))
+    local pct = Scalar("target", curves.pct)
+    if pct ~= nil then Guard.Send(strip.number, "SetFormattedText", "%d", pct) end
     if CastBarID("target") then strip.cast:Show() else strip.cast:Hide() end
 end
 

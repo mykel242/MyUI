@@ -104,7 +104,8 @@ local SCOPE = {
     -- Phase 4 play: the bars no longer come back in combat (the Cooldown
     -- Manager carries cooldowns; keybinds still work). Group frames come back
     -- by role or preference -- Clear.GroupInCombat().
-    combat = { SelfStack = true, Cooldowns = true,
+    -- Round 004: MyUI's own action bar (Actions.lua) comes back in combat.
+    combat = { SelfStack = true, Cooldowns = true, ActionBar = true,
                Party = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                CompactParty = function() return ns.Clear and ns.Clear.GroupInCombat() end,
                Raid = function() return ns.Clear and ns.Clear.GroupInCombat() end },

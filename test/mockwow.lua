@@ -251,6 +251,18 @@ function M.frame(spec)
             fn(...)
         end
     end
+    -- Secure attributes (Actions.lua). SetAttribute fires OnAttributeChanged
+    -- as the client does; frame refs are just a table on the header.
+    f.__attrs, f.__refs = {}, {}
+    f.SetAttribute = function(_, name, value)
+        f.__attrs[name] = value
+        log("SetAttribute", name, value)
+        local fn = f.scripts.OnAttributeChanged
+        if fn then fn(f, name, value) end
+    end
+    f.GetAttribute = function(_, name) return f.__attrs[name] end
+    f.SetFrameRef = function(_, name, ref) f.__refs[name] = ref end
+    f.GetFrameRef = function(_, name) return f.__refs[name] end
     f.Fire = function(_, event, ...)
         local fn = f.scripts.OnEvent
         if fn then return fn(f, event, ...) end
@@ -573,6 +585,77 @@ function M.install()
         end
         return hit
     end
+
+    -- Secure state drivers. The client evaluates the conditional string on
+    -- every modifier or bar change and runs the header's _onstate-<name>
+    -- snippet in the restricted environment; this evaluates it on demand
+    -- (M.UpdateStateDrivers) against M.mods and M.bonusbar, and runs the
+    -- snippet as plain Lua with only `self` and `newstate` -- if the snippet
+    -- reached for anything else it would fail here as it would there.
+    M.mods, M.bonusbar, M.drivers = { alt = false, ctrl = false, shift = false }, nil, {}
+
+    local function driverTerm(t)
+        local mod = t:match("^mod:(%a+)$")
+        if mod then return M.mods[mod] and true or false end
+        local bb = t:match("^bonusbar:(%d+)$")
+        if bb then return M.bonusbar == tonumber(bb) end
+        return M.known[t] or false
+    end
+
+    function M.EvalDriver(text)
+        for raw in text:gmatch("[^;]+") do
+            local clause = raw:match("^%s*(.-)%s*$")
+            local conds, value = clause:match("^(%[.*%])%s*(.-)$")
+            if not conds then return clause end
+            for group in conds:gmatch("%[(.-)%]") do
+                local all = true
+                for t in group:gmatch("[^,]+") do
+                    if not driverTerm(t) then all = false end
+                end
+                if all then return value end
+            end
+        end
+        return nil
+    end
+
+    local SNIPPET_ENV = { tonumber = tonumber }
+    local function RunDriver(d)
+        local value = M.EvalDriver(d.text)
+        if d.state == "visibility" then
+            if value == "hide" then d.frame:Hide() else d.frame:Show() end
+            return
+        end
+        if d.frame.__attrs["state-" .. d.state] == value then return end
+        d.frame:SetAttribute("state-" .. d.state, value)
+        local body = d.frame.__attrs["_onstate-" .. d.state]
+        if body then
+            local env = setmetatable({ self = d.frame, newstate = value }, { __index = SNIPPET_ENV })
+            local chunk = assert((loadstring or load)(body, "=_onstate-" .. d.state))
+            setfenv(chunk, env)
+            chunk()
+        end
+    end
+
+    _G.RegisterStateDriver = function(frame, state, text)
+        local d = { frame = frame, state = state, text = text }
+        M.drivers[#M.drivers + 1] = d
+        RunDriver(d)
+    end
+    function M.UpdateStateDrivers()
+        for _, d in ipairs(M.drivers) do RunDriver(d) end
+    end
+
+    -- Key bindings: M.bindings[key] = command. GetBindingKey is the reverse.
+    M.bindings = {}
+    _G.GetBindingAction = function(key) return M.bindings[key] or "" end
+    _G.GetBindingKey = function(cmd)
+        local best
+        for key, c in pairs(M.bindings) do
+            if c == cmd and (not best or key < best) then best = key end
+        end
+        return best
+    end
+    _G.GetBindingText = function(key) return key end
 
     M.created = {}
     _G.CreateFrame = function(frameType, name, parent, template)

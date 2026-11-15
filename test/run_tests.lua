@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 23, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 24, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -316,7 +316,8 @@ end)())
 section("Frames -- SPEC 2 anchors")
 -- ---------------------------------------------------------------------------
 
-check("the three SPEC 2 frames registered (the rail is cut)", Registry.Count() == 3, Registry.Count())
+check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar",
+      Registry.Count() == 4 and Registry.Get("ActionBar") ~= nil, Registry.Count())
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
@@ -360,8 +361,12 @@ local _, _, _, _, ry = stack.resource:GetPoint(1)
 check("resource sits 4 below health", near(ry, -Scale.U(4)), ry)
 local _, _, _, _, cy = stack.cast:GetPoint(1)
 check("cast sits 6 below resource", near(cy, -Scale.U(6)), cy)
-local _, _, _, nx = stack.number:GetPoint(1)
-check("health number sits 8 left of the group", near(nx, -Scale.U(8)), nx)
+check("health number sits on the middle of the health bar, on a pill (round 004)", (function()
+    local p, rel, rp = stack.pill:GetPoint(1)
+    local np, nrel = stack.number:GetPoint(1)
+    return p == "CENTER" and rel == stack.health and rp == "CENTER"
+           and np == "CENTER" and nrel == stack.pill and stack.pill.bg:IsShown() ~= false
+end)())
 
 -- The compliance keystone. The ticks are fixed marks at 20% and 40% of a
 -- 240-wide bar by construction; nothing computes them from a value, and these
@@ -2746,6 +2751,38 @@ do
     check("  with no guard violation anywhere", #Guard.violations == 0,
           Guard.violations[1] and Guard.violations[1].message)
 
+    mock.units.target = true
+    Bars.driver:Fire("UNIT_HEALTH", "target")
+    check("the target's percentage, formatted in C, on its bar (round 004)", (function()
+        local c = lastCall(strip.number, "SetFormattedText")
+        local p, rel = strip.pill:GetPoint(1)
+        return c ~= nil and c[1] == "%d" and mock.isSecret(c[2]) and p == "CENTER" and rel == strip.health
+    end)())
+    mock.units.target = nil
+    Bars.driver:Fire("PLAYER_TARGET_CHANGED")
+    check("  and cleared with no target", strip.number:GetText() == "")
+    check("  the low copy's 14pt number has its own pill on the low bar", (function()
+        local _, rel = Bars.low.pill:GetPoint(1)
+        return rel == Bars.low.health and Bars.low.pill.size == 14
+    end)())
+    check("/myui pct above puts every number just above its bar, no pill", (function()
+        run("pct above")
+        for _, pill in ipairs(ns.Frames.pills) do
+            local p, rel, rp = pill:GetPoint(1)
+            if p ~= "BOTTOM" or rel ~= pill.bar or rp ~= "TOP" or pill.bg:IsShown() then return false end
+        end
+        return ns.db.pct == "above" and #ns.Frames.pills == 3
+    end)())
+    check("  /myui pct pill puts them back on the bar", (function()
+        run("pct pill")
+        for _, pill in ipairs(ns.Frames.pills) do
+            local p, rel, rp = pill:GetPoint(1)
+            if p ~= "CENTER" or rp ~= "CENTER" or not pill.bg:IsShown() then return false end
+        end
+        return ns.db.pct == "pill"
+    end)())
+    check("  an unknown style changes nothing", ns.Frames.SetPctStyle("left") == nil and ns.db.pct == "pill")
+
     check("the low-health copy breathes forever: 1.0 <-> 0.55 over 1.6s", (function()
         local b = Bars.low.breathe
         local a1, a2 = b.__animations[1], b.__animations[2]
@@ -2865,12 +2902,14 @@ do
     local before = Registry.Count()
 
     local n = Clear.Apply()
-    check("every adopted frame is registered", n == #Clear.ADOPT
-          and Registry.Count() == before + #Clear.ADOPT, n)
+    check("every adopted frame is registered (bar 1 yields to MyUI's action bar)", n == #Clear.ADOPT
+          and Registry.Count() == before + #Clear.ADOPT - 1 and Registry.Get("MainBar") == nil, n)
     check("  at resting alpha 0", (function()
         for _, spec in ipairs(Clear.ADOPT) do
             local e = Registry.Get(spec[1])
-            if not e or e.resting ~= 0 or e.target ~= 0 then return false, spec[1] end
+            if spec.yieldsTo then
+                if e or _G[spec[2]]:GetAlpha() ~= 0 then return false, spec[1] end
+            elseif not e or e.resting ~= 0 or e.target ~= 0 then return false, spec[1] end
         end
         return true
     end)())
@@ -2897,8 +2936,9 @@ do
     check("combat does not reveal chat or the minimap",
           Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0
           and Registry.Get("SelfStack").target == 1)
-    check("  nor the bars (hidden always since Phase 4 play), nor a DPS's group frames",
-          Registry.Get("MainBar").target == 0 and Registry.Get("Party").target == 0)
+    check("  nor Blizzard's bars (hidden always since Phase 4 play), nor a DPS's group frames",
+          Registry.Get("StanceBar").target == 0 and Registry.Get("Party").target == 0)
+    check("  but MyUI's own action bar does (round 004)", Registry.Get("ActionBar").target == 1)
     Reveal.Release("combat")
     _G.UnitGroupRolesAssigned = function() return "HEALER" end
     Reveal.Claim("combat")
@@ -3071,6 +3111,127 @@ do
     run("extras on")
     check("/myui extras on persists", ns.db.extras == true)
     ns.db.extras = was
+end
+
+-- ---------------------------------------------------------------------------
+section("Actions -- round 004's swap bar, probe P5")
+-- ---------------------------------------------------------------------------
+-- MyUI's own secure buttons on Blizzard's action slots, paged by a state
+-- driver. The mock runs the page snippet with only `self` and `newstate` in
+-- scope, as the restricted environment would.
+
+do
+    local A = ns.Actions
+    mock.bindings = {
+        ["1"] = "ACTIONBUTTON1", ["2"] = "ACTIONBUTTON2",
+        ["ALT-1"] = "MULTIACTIONBAR1BUTTON1", ["ALT-2"] = "MULTIACTIONBAR1BUTTON2",
+        ["CTRL-1"] = "MULTIACTIONBAR2BUTTON1",
+    }
+    check("ALT pages to whatever ALT-1 is bound to", (function()
+        local bar, off = A.DetectPage("ALT-")
+        return bar == "MULTIACTIONBAR1" and off == 60
+    end)())
+    check("  CTRL likewise", select(2, A.DetectPage("CTRL-")) == 48)
+    check("  an unbound modifier pages nowhere", A.DetectPage("ALT-CTRL-") == nil)
+    check("  ACTIONBUTTON1 is bar 1, not some 'ACTION' bar", (function()
+        mock.bindings["SHIFT-1"] = "ACTIONBUTTON1"
+        local bar, off = A.DetectPage("SHIFT-")
+        mock.bindings["SHIFT-1"] = nil
+        return bar == "ACTIONBUTTON" and off == 0
+    end)())
+    check("  a key bound to something else is not a page", (function()
+        mock.bindings["SHIFT-1"] = "TOGGLEWORLDMAP"
+        local bar = A.DetectPage("SHIFT-")
+        mock.bindings["SHIFT-1"] = nil
+        return bar == nil
+    end)())
+    check("the driver tests the pages found, most specific first, then Blizzard's form pages",
+          A.DriverString({ a = {}, c = {}, ac = {} }) ==
+          "[mod:alt,mod:ctrl] ac; [mod:ctrl] c; [mod:alt] a; [bonusbar:5] 11; [bonusbar:4] 10; "
+          .. "[bonusbar:3] 9; [bonusbar:2] 8; [bonusbar:1] 7; 1")
+    check("  and leaves out a page nothing is bound to",
+          not A.DriverString({ a = {} }):find("ctrl", 1, true))
+
+    -- Rebuild with the bindings in place (login ran with none).
+    mock.bindings["ALT-CTRL-1"] = "MULTIACTIONBAR3BUTTON1"
+    Registry.Remove("ActionBar")
+    A.header = nil
+    check("built out of combat", A.Build() == true and A.header ~= nil)
+    A.Register()
+    for _, b in ipairs(A.buttons) do b.HotKey = mock.frame({ objectType = "FontString" }) end
+    local header, b1, b12 = A.header, A.buttons[1], A.buttons[8]
+    A.Paint()
+
+    check("eight buttons (SPEC 17) from Blizzard's ActionBarButtonTemplate on a secure state header",
+          #A.buttons == 8 and b1.__template == "ActionBarButtonTemplate"
+          and header.__template == "SecureHandlerStateTemplate")
+    check("  centred, low on the screen", (function()
+        local p, rel, rp, x, y = header:GetPoint(1)
+        return p == "BOTTOM" and rel == UIParent and rp == "BOTTOM" and x == 0 and near(y, Scale.U(48))
+    end)())
+    check("  bar 1 shows slots 1-8, unlabelled", b1:GetAttribute("action") == 1
+          and b12:GetAttribute("action") == 8 and A.label:GetText() == "")
+    check("  keybind text from the player's bindings, not ACTIONBUTTON0", b1.HotKey:GetText() == "1")
+
+    mock.mods.alt = true
+    mock.UpdateStateDrivers()
+    check("holding ALT swaps the ALT page into bar 1's place", b1:GetAttribute("action") == 61
+          and b12:GetAttribute("action") == 68, b1:GetAttribute("action"))
+    check("  labelled ALT, keybinds ALT-n", A.label:GetText() == "ALT" and b1.HotKey:GetText() == "ALT-1")
+    mock.mods.ctrl = true
+    mock.UpdateStateDrivers()
+    check("ALT+CTRL is its own page", b1:GetAttribute("action") == 25 and A.label:GetText() == "ALT+CTRL")
+    mock.mods.alt = false
+    mock.UpdateStateDrivers()
+    check("CTRL alone", b1:GetAttribute("action") == 49 and A.label:GetText() == "CTRL")
+    check("  a key with no binding draws no keybind", A.buttons[2].HotKey:IsShown() == false)
+    mock.mods.ctrl = false
+    mock.UpdateStateDrivers()
+    check("letting go puts bar 1 back", b1:GetAttribute("action") == 1 and A.label:GetText() == "")
+    mock.bonusbar = 1
+    mock.UpdateStateDrivers()
+    check("a form's bonus bar still pages bar 1 (cat form: slots 73-84)", b1:GetAttribute("action") == 73)
+    mock.bonusbar = nil
+    mock.UpdateStateDrivers()
+
+    mock.known.vehicleui = true
+    mock.UpdateStateDrivers()
+    check("a vehicle hides the bar (Blizzard's override bar takes over)", header:IsShown() == false)
+    mock.known.vehicleui = nil
+    mock.UpdateStateDrivers()
+    check("  and it comes back after", header:IsShown() == true)
+
+    check("registered resting at 0, in the combat scope; Blizzard's bar 1 left the registry",
+          Registry.Get("ActionBar") ~= nil and Registry.Get("ActionBar").resting == 0
+          and Registry.Get("MainBar") == nil
+          and assert(io.open("../MyUI/Reveal.lua")):read("*a"):find("ActionBar = true", 1, true) ~= nil)
+    check("re-clearing after /myui restore keeps Blizzard's bar 1 out of the registry, at 0", (function()
+        local main = mock.frame({ name = "MainActionBar", shown = true })
+        _G.MainActionBar = main
+        ns.Clear.Release()
+        ns.Clear.Adopt()
+        local ok = Registry.Get("MainBar") == nil and ns.Clear.IsAdopted("MainBar")
+                   and main:GetAlpha() == 0 and main:IsShown()
+        ns.Clear.Release()
+        _G.MainActionBar = nil
+        return ok
+    end)())
+    check("the page snippet only reassigns action -- no unit, no spell, no state read",
+          (function()
+              local src = assert(io.open("../MyUI/Actions.lua")):read("*a")
+              local body = src:match("PAGE_SNIPPET = %[%[(.-)%]%]")
+              return body ~= nil and not body:find("Unit") and not body:find("Spell")
+                 and not body:find("Cooldown")
+          end)())
+    check("/myui actions reports each page", (function()
+        ns.ClearOutput()
+        run("actions")
+        local out = ns.GetOutput()
+        return out:find("ALT -> MULTIACTIONBAR1 (slots 61-68)", 1, true) ~= nil
+           and out:find("ALT+CTRL -> MULTIACTIONBAR3 (slots 25-32)", 1, true) ~= nil
+           and ns.db.actionsProbe ~= nil
+    end)())
+    mock.bindings = {}
 end
 
 -- ---------------------------------------------------------------------------

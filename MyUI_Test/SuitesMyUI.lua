@@ -421,7 +421,16 @@ T.Suite("myui-clear", {
               if not Clear.Enabled() then return false, "clearing is off (/myui restore)" end
               local missing = {}
               for _, spec in ipairs(Clear.ADOPT) do
-                  if Target(api, spec[1]) ~= 0 then missing[#missing + 1] = spec[1] end
+                  -- Round 004: bar 1 yields to MyUI's action bar -- adopted at 0,
+                  -- out of the registry.
+                  local ok
+                  if spec.yieldsTo and api.ns().Registry.Get(spec.yieldsTo) then
+                      local f = _G[spec[2]]
+                      ok = Target(api, spec[1]) == nil and (not f or f:GetAlpha() == 0)
+                  else
+                      ok = Target(api, spec[1]) == 0
+                  end
+                  if not ok then missing[#missing + 1] = spec[1] end
               end
               return #missing == 0, #missing == 0 and "all at 0" or ("not at 0: " .. table.concat(missing, ", "))
           end },
@@ -442,15 +451,17 @@ T.Suite("myui-clear", {
           end,
           teardown = function(api) api.ns().Reveal.Release("whisper") end },
         { id = "combat-reveals", shot = false,
-          what = "Combat brings back SelfStack, and group frames only by role or preference; "
-              .. "never the bars, chat or the minimap.",
+          what = "Combat brings back SelfStack, MyUI's action bar, and group frames only by role or "
+              .. "preference; never Blizzard's bars, chat or the minimap.",
           setup = function(api) api.ns().Reveal.Claim("combat") end,
           check = function(api)
               local Clear = api.ns().Clear
-              local main, chat, party = Target(api, "MainBar"), Target(api, "Chat"), Target(api, "Party")
+              local main, chat, party = Target(api, "StanceBar"), Target(api, "Chat"), Target(api, "Party")
+              local ours = Target(api, "ActionBar")
               local wantParty = Clear.GroupInCombat() and 1 or 0
-              return main == 0 and chat == 0 and (party == nil or party == wantParty),
-                     ("main bar %s, chat %s, party %s (mode %s, role %s)"):format(tostring(main),
+              return (main == nil or main == 0) and chat == 0 and (ours == nil or ours == 1)
+                     and (party == nil or party == wantParty),
+                     ("stance bar %s, our bar %s, chat %s, party %s (mode %s, role %s)"):format(tostring(main), tostring(ours),
                          tostring(chat), tostring(party), Clear.GroupMode(), Clear.Role())
           end,
           teardown = function(api) api.ns().Reveal.Release("combat") end },
@@ -526,6 +537,67 @@ T.Suite("myui-clear", {
 -- Checks, not shots: live health is whatever you have when you press the key.
 -- The low-health tells need you actually hurt, so they are verified by eye
 -- (fall damage is the easy way) and by /myui audit.
+
+T.Suite("myui-actions", {
+    title = "Round 004 -- the swap bar (probe P5)",
+    requires = function(api)
+        local ok, why = NeedMyUI(api)
+        if not ok then return ok, why end
+        local A = api.ns().Actions
+        if not (A and A.header) then return false, "no action bar built (/myui actions)" end
+        return true
+    end,
+    tests = {
+        { id = "secure", shot = false,
+          what = "A secure state header holding eight of Blizzard's action buttons.",
+          check = function(api)
+              local A = api.ns().Actions
+              local prot = A.header.IsProtected and A.header:IsProtected()
+              return #A.buttons == A.BUTTONS and prot ~= false,
+                     ("%d buttons, header protected: %s"):format(#A.buttons, tostring(prot))
+          end },
+        { id = "pages", shot = false,
+          what = "ALT and CTRL page to the bars the player's own keybinds name.",
+          check = function(api)
+              local A = api.ns().Actions
+              local r = A.Probe()
+              return A.found.a ~= nil and A.found.c ~= nil, table.concat(r.pages, "; ")
+          end },
+        { id = "driver", shot = false,
+          what = "The page driver parses on this client to the page the header holds.",
+          check = function(api)
+              local A = api.ns().Actions
+              local parsed = _G.SecureCmdOptionParse and _G.SecureCmdOptionParse(A.driver)
+              local state = A.header:GetAttribute("state-page")
+              return parsed ~= nil and tostring(parsed) == tostring(state),
+                     ("parse %s, header %s"):format(tostring(parsed), tostring(state))
+          end },
+        { id = "slots", shot = false,
+          what = "Every button shows its slot on the current page.",
+          check = function(api)
+              local A = api.ns().Actions
+              local state = A.header:GetAttribute("state-page") or "1"
+              local f = A.found[state]
+              local offset = f and f.offset or ((tonumber(state) or 1) - 1) * 12
+              for i, b in ipairs(A.buttons) do
+                  if b:GetAttribute("action") ~= offset + i then
+                      return false, ("button %d -> %s, want %d"):format(i, tostring(b:GetAttribute("action")), offset + i)
+                  end
+              end
+              return true, ("page %s, slots %d-%d"):format(tostring(state), offset + 1, offset + #A.buttons)
+          end },
+        { id = "blizzard-bar-1", shot = false,
+          what = "Blizzard's bar 1 stays shown at alpha 0 (its keybinds live), out of the registry.",
+          check = function(api)
+              local main = _G.MainActionBar
+              if not main then return true, "no MainActionBar on this client" end
+              local inReg = api.ns().Registry.Get("MainBar") ~= nil
+              return main:IsShown() and main:GetAlpha() == 0 and not inReg,
+                     ("shown %s, alpha %s, registered %s"):format(tostring(main:IsShown()),
+                         tostring(main:GetAlpha()), tostring(inReg))
+          end },
+    },
+})
 
 T.Suite("myui-p4", {
     title = "Phase 4 -- bars and low health",

@@ -242,6 +242,8 @@ local COMMANDS = {
     { "clear",        "clear the screen (SPEC 11): on | probe -- tests the player-frame filter" },
     { "restore",      "put back everything clearing took" },
     { "group",        "group frames in combat: auto (healers) | combat | hover" },
+    { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
+    { "pct",          "where the health % sits: pill (on the bar) | above (over it)" },
     { "text",         "legibility over bright scenery: shadow | outline | none" },
     { "contrast",     "the dim grey: lift is SPEC 7; normal is the value it replaced" },
     { "rules",        "the 12.1 compliance contract, printed" },
@@ -265,6 +267,29 @@ end
 
 local HANDLERS = {
     help         = Help,
+    actions      = function()
+        local A = ns.Actions
+        if not A then return end
+        local r = A.Probe()
+        ns.Print(("action bar (P5): %s"):format(r.built and "built" or "not built"))
+        for _, line in ipairs(r.pages) do ns.Raw("  " .. line) end
+        ns.Raw(("  driver: %s"):format(tostring(r.driver)))
+        ns.Raw(("  page now: %s (parse: %s), button 1 -> slot %s")
+               :format(tostring(r.state), tostring(r.parsed), tostring(r.action1)))
+        ns.Raw(("  Blizzard bar 1: %s, alpha %s (must stay shown for its keybinds)")
+               :format(r.mainShown and "shown" or "HIDDEN", tostring(r.mainAlpha)))
+        ns.Raw("  saved to MyUIDB.actionsProbe; hold ALT / CTRL / both and run it again")
+    end,
+    pct          = function(arg)
+        local Frames = ns.Frames
+        if arg and Frames.SetPctStyle(arg) then
+            ns.Print(("health %% %s"):format(arg == "pill" and "on its bar, on a pill" or "just above its bar"))
+        elseif arg then
+            ns.Print(("unknown style %q -- pill or above"):format(arg))
+        else
+            ns.Print(("health %% style: %s -- pill | above"):format(Frames.PctStyle()))
+        end
+    end,
     show         = function(arg)
         local on
         if arg == "off" then
