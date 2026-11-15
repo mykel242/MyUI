@@ -3662,11 +3662,11 @@ do
           me ~= nil and me.__template == "SecureUnitButtonTemplate" and me:GetAttribute("unit") == "player"
           and me:GetAttribute("*type1") == "target" and me:GetAttribute("*type2") == "togglemenu"
           and me:GetAttribute("ctrl-type1") == "focus")
-    check("  laid over SelfStack, anchored to UIParent (SelfStack stays free to move)", (function()
+    check("  laid over SelfStack with 6 of padding all round, anchored to UIParent", (function()
         local p, rel, rp, x, y = me:GetPoint(1)
         local sp, _, srp, sx, sy = ns.Registry.Get("SelfStack").frame:GetPoint(1)
-        return rel == UIParent and p == sp and rp == srp and near(x, sx) and near(y, sy)
-           and near(me:GetWidth(), Scale.U(240)) and near(me:GetHeight(), Scale.U(33))
+        return rel == UIParent and p == sp and rp == srp and near(x, sx) and near(y, sy - Scale.U(6))
+           and near(me:GetWidth(), Scale.U(252)) and near(me:GetHeight(), Scale.U(45))
     end)())
     check("Blizzard's party and raid frames are hidden outright once these exist", (function()
         local want = { PartyFrame = true, CompactPartyFrame = true, CompactRaidFrameContainer = true }

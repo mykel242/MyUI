@@ -335,14 +335,21 @@ end
 -- itself, so SelfStack stays free to move in combat.
 
 local SELF_W, SELF_H = 240, 33   -- SelfStack's size (Frames.lua)
+-- The button (and its hover edge) reaches this far past SelfStack on every
+-- side, so the edge never touches the text (round 004 play).
+Group.SELF_PAD = 6
 
 function Group.PlaceSelf()
     local b = Group.selfButton
     if not b or InCombatLockdown() then return false end
     local point, rel, x, y = ns.Layout.Pos("SelfStack")
-    b:SetSize(U(SELF_W), U(SELF_H))
+    local pad = Group.SELF_PAD
+    b:SetSize(U(SELF_W + 2 * pad), U(SELF_H + 2 * pad))
+    -- Grow the box outward from whichever point SelfStack is anchored by.
+    local dx = point:find("LEFT") and -pad or point:find("RIGHT") and pad or 0
+    local dy = point:find("BOTTOM") and -pad or point:find("TOP") and pad or 0
     b:ClearAllPoints()
-    b:SetPoint(point, UIParent, rel, U(x), U(y))
+    b:SetPoint(point, UIParent, rel, U(x + dx), U(y + dy))
     return true
 end
 
