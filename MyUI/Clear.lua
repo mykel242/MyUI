@@ -411,7 +411,8 @@ end
 Clear.GROUP_MODES = { auto = true, combat = true, hover = true }
 
 function Clear.IsHunter()
-    local _, class = _G.UnitClass and _G.UnitClass("player")
+    if not _G.UnitClass then return false end
+    local _, class = _G.UnitClass("player")   -- not "a and f()": that keeps one value
     return class == "HUNTER"
 end
 

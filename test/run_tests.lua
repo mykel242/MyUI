@@ -3002,7 +3002,7 @@ do
     _G.UnitClass = function() return "Hunter", "HUNTER" end
     Reveal.Claim("combat")
     check("  except a hunter's pet bar (stances set once)", Registry.Get("PetBar").target == 0
-          and Registry.Get("StanceBar").target == 1)
+          and Registry.Get("StanceBar").target == 1, table.concat(Reveal.ClaimsOn("PetBar"), ","))
     Reveal.Release("combat")
     _G.UnitClass = realClass
     _G.UnitGroupRolesAssigned = function() return "HEALER" end
