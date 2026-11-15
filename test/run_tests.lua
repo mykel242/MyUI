@@ -3405,7 +3405,13 @@ do
             blz[#blz + 1] = b
         end
     end
+    local leave = mock.frame({ name = "MainMenuBarVehicleLeaveButton", shown = true })
+    _G.MainMenuBarVehicleLeaveButton = leave
+    leave.SetIgnoreParentAlpha = function(_, on) leave.__ignoreParentAlpha = on end
     ns.Clear.PinBars()
+    check("the leave-vehicle button stays visible though bar 1, its parent, is at 0",
+          leave.__ignoreParentAlpha == true)
+    _G.MainMenuBarVehicleLeaveButton = nil
     check("every Blizzard action bar and button held at 0, mouse off", (function()
         for _, b in ipairs(blz) do
             local m

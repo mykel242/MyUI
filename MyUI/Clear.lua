@@ -170,6 +170,12 @@ Clear.BLIZZARD_BARS = {
 function Clear.PinBars()
     local mouse = not InCombatLockdown()
     Clear.barsPinned = true
+    -- Round 004 play: "there is no vehicle exit button... I am stuck".
+    -- Blizzard's leave-vehicle / leave-taxi button is a child of bar 1
+    -- (VehicleLeaveButton.xml, parent="MainActionBar"), so bar 1's alpha
+    -- of 0 hid it. It draws at its own alpha, whatever its parent's.
+    local leave = _G.MainMenuBarVehicleLeaveButton
+    if leave and leave.SetIgnoreParentAlpha then leave:SetIgnoreParentAlpha(true) end
     for _, spec in ipairs(Clear.BLIZZARD_BARS) do
         local bar = _G[spec[1]]
         if bar then Clear.Pin(bar) end
