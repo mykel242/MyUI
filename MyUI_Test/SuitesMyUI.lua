@@ -610,6 +610,34 @@ T.Suite("myui-actions", {
     },
 })
 
+T.Suite("myui-group", {
+    title = "Round 004 -- group frames (SPEC 19, first part)",
+    requires = function(api)
+        local ok, why = NeedMyUI(api)
+        if not ok then return ok, why end
+        if not (api.ns().Group and api.ns().Group.frame) then return false, "no group frames built" end
+        return true
+    end,
+    tests = {
+        { id = "built", shot = false,
+          what = "Party and raid headers built, every button made and dressed out of combat.",
+          check = function(api)
+              local G = api.ns().Group
+              return #G.buttons >= G.PARTY_MAX, ("%d buttons dressed"):format(#G.buttons)
+          end },
+        { id = "blizzard-hidden", shot = false,
+          what = "Blizzard's party and raid frames are hidden (nothing invisible catching clicks).",
+          check = function(api)
+              local shown = {}
+              for _, name in ipairs(api.ns().Clear.GROUP_FRAMES) do
+                  local f = _G[name]
+                  if f and f:IsShown() then shown[#shown + 1] = name end
+              end
+              return #shown == 0, #shown == 0 and "all hidden" or ("shown: " .. table.concat(shown, ", "))
+          end },
+    },
+})
+
 T.Suite("myui-p4", {
     title = "Phase 4 -- bars and low health",
     requires = function(api)

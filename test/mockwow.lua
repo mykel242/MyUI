@@ -148,6 +148,8 @@ function M.frame(spec)
         "SetTextInsets", "SetMaxLetters", "ClearFocus",
         -- Phase 4.
         "SetFormattedText", "SetTimerDuration", "SetLooping", "SetReverseFill",
+        -- Round 004.
+        "SetAtlas", "RegisterForClicks", "SetScale",
     }) do
         f[method] = setter(method)
     end

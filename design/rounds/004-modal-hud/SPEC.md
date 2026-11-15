@@ -579,6 +579,11 @@ then group order — **never by health** (RULES). Built on Blizzard's protected 
 group header, so roster changes are handled securely in combat. Health through curves, like
 TargetStrip. A small dispel-type dot shows on a name or cell that carries one.
 
+**Built (M3, first part):** `Group.lua` — party list (role icon, name, thin health; larger for a
+healer, resized on a spec change out of combat) and the raid grid, on `SecureGroupHeaderTemplate`
+with every button made out of combat; click / ctrl-click / right-click as below. Blizzard's party
+and raid frames are hidden outright. Not yet: shift-click pinning, cards, alt-click, dispel dot.
+
 **Click map** — on every frame and every card, shown as a legend on a card:
 
 | Click | Does |

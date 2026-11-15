@@ -111,9 +111,8 @@ local SCOPE = {
     combat = { SelfStack = true, Cooldowns = true, ActionBar = true,
                WingCooldowns = true, WingUtility = true, WingBuffs = true,
                StanceBar = true, PetBar = true, Debuffs = true,
-               Party = function() return ns.Clear and ns.Clear.GroupInCombat() end,
-               CompactParty = function() return ns.Clear and ns.Clear.GroupInCombat() end,
-               Raid = function() return ns.Clear and ns.Clear.GroupInCombat() end },
+               -- MyUI's group frames (SPEC 19), by role or preference.
+               Group = function() return ns.Clear and ns.Clear.GroupInCombat() end },
     -- Round 004 play (Mykel): target something, hold ALT, tap a taunt to pull --
     -- the bar comes up with a target.
     -- The stance and pet bars sit where the stacked pages go while arranging

@@ -249,6 +249,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             { "clearing",     ns.Clear    },
             -- After clearing: MyUI's bar takes bar 1's place in the registry.
             { "action bar",   ns.Actions  },
+            -- After clearing: it hides Blizzard's party and raid frames.
+            { "group frames", ns.Group    },
         }) do
             local label, module = step[1], step[2]
             if module and module.OnLogin then

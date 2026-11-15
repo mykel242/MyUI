@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 24, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 25, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -316,8 +316,8 @@ end)())
 section("Frames -- SPEC 2 anchors")
 -- ---------------------------------------------------------------------------
 
-check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar",
-      Registry.Count() == 4 and Registry.Get("ActionBar") ~= nil, Registry.Count())
+check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar and group frames",
+      Registry.Count() == 5 and Registry.Get("ActionBar") ~= nil and Registry.Get("Group") ~= nil, Registry.Count())
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
@@ -2958,7 +2958,7 @@ do
           Registry.Get("Chat").target == 0 and Registry.Get("Minimap").target == 0
           and Registry.Get("SelfStack").target == 1)
     check("  nor the bags or micro menu, nor a DPS's group frames",
-          Registry.Get("Bags").target == 0 and Registry.Get("MicroMenu").target == 0 and Registry.Get("Party").target == 0)
+          Registry.Get("Bags").target == 0 and Registry.Get("MicroMenu").target == 0 and Registry.Get("Group").target == 0)
     check("  but MyUI's own action bar does (round 004)", Registry.Get("ActionBar").target == 1)
     check("  and the wings, debuffs, stance and pet bars with it", Registry.Get("StanceBar").target == 1
           and Registry.Get("Debuffs").target == 1
@@ -2968,16 +2968,16 @@ do
     _G.UnitGroupRolesAssigned = function() return "HEALER" end
     Reveal.Claim("combat")
     check("  but a healer's group frames do come back (auto)",
-          Registry.Get("Party").target == 1 and Registry.Get("Raid").target == 1)
+          Registry.Get("Group").target == 1)
     Reveal.Release("combat")
     run("group hover")
     Reveal.Claim("combat")
-    check("  unless pinned to hover", Registry.Get("Party").target == 0)
+    check("  unless pinned to hover", Registry.Get("Group").target == 0)
     Reveal.Release("combat")
     run("group combat")
     _G.UnitGroupRolesAssigned = function() return "DAMAGER" end
     Reveal.Claim("combat")
-    check("  or pinned to combat, whatever the role", Registry.Get("Party").target == 1)
+    check("  or pinned to combat, whatever the role", Registry.Get("Group").target == 1)
     run("group auto")
     _G.UnitGroupRolesAssigned = nil
     Reveal.Release("combat")
@@ -3453,6 +3453,82 @@ do
         return ns.GetOutput():find("held   ALT", 1, true) ~= nil
     end)())
     mock.bindings = {}
+end
+
+-- ---------------------------------------------------------------------------
+section("Group -- SPEC 19's party and raid frames (M3, first part)")
+-- ---------------------------------------------------------------------------
+
+do
+    local G = ns.Group
+    local party, raid = G.party, G.raid
+    check("built on Blizzard's secure group header and unit buttons",
+          party.__template == "SecureGroupHeaderTemplate" and raid.__template == "SecureGroupHeaderTemplate"
+          and party:GetAttribute("template") == "SecureUnitButtonTemplate")
+    check("party: role then group order, never health; the player included",
+          party:GetAttribute("groupBy") == "ASSIGNEDROLE"
+          and party:GetAttribute("groupingOrder") == "TANK,HEALER,DAMAGER,NONE"
+          and party:GetAttribute("showPlayer") == true and party:GetAttribute("sortMethod") == nil)
+    check("raid: a 5-wide grid by group", raid:GetAttribute("groupBy") == "GROUP"
+          and raid:GetAttribute("unitsPerColumn") == 5 and raid:GetAttribute("point") == "LEFT"
+          and raid:GetAttribute("columnAnchorPoint") == "TOP")
+    check("every button made out of combat (no dressing in a fight)", (function()
+        local ok = false
+        for _, c in ipairs(party.__calls) do
+            if c.method == "SetAttribute" and c[1] == "startingIndex" and c[2] == -(G.PARTY_MAX - 1) then ok = true end
+        end
+        return ok
+    end)())
+    check("one area right of the character, in the registry, back in combat by role",
+          G.frame:GetPoint(1) == "TOPLEFT" and Registry.Get("Group") ~= nil)
+
+    -- The engine making a unit button: CONFIG in the restricted environment,
+    -- then the child attribute the header sets.
+    local b = mock.frame({ name = "MyUIPartyHeaderUnitButton1", objectType = "Button" })
+    b.SetWidth = function(_, w) b.__w = w end
+    b.SetHeight = function(_, h) b.__h = h end
+    b.__parent = party
+    local cfg = assert(loadstring(party:GetAttribute("initialConfigFunction")))
+    setfenv(cfg, { self = b })
+    cfg()
+    party:SetAttribute("child1", b)
+    check("the click map: click targets, ctrl-click focuses, right-click opens the unit menu",
+          b:GetAttribute("*type1") == "target" and b:GetAttribute("ctrl-type1") == "focus"
+          and b:GetAttribute("*type2") == "togglemenu")
+    check("  sized by the header, dressed as it is made", near(b.__w, party:GetAttribute("unitWidth"))
+          and b.__myuiStyled and b.__health ~= nil and b.__name ~= nil)
+
+    Guard.Reset()
+    mock.units.party1 = true
+    _G.UnitGroupRolesAssigned = function(u) return u == "party1" and "TANK" or "NONE" end
+    b:SetAttribute("unit", "party1")
+    check("a unit arriving fills its name and health -- forwarded through the curve", (function()
+        local hv
+        for i = #b.__health.__calls, 1, -1 do
+            if b.__health.__calls[i].method == "SetValue" then hv = b.__health.__calls[i][1] break end
+        end
+        return mock.isSecret(hv) and b.__name:GetText() ~= nil and #Guard.violations == 0
+    end)())
+    check("  with its role", (function()
+        for i = #b.__role.__calls, 1, -1 do
+            if b.__role.__calls[i].method == "SetAtlas" then return b.__role.__calls[i][1] == "roleicon-tiny-tank" end
+        end
+    end)())
+    local before = #b.__health.__calls
+    G.events:Fire("UNIT_HEALTH", "party1")
+    check("  and its health follows UNIT_HEALTH", #b.__health.__calls > before)
+    _G.UnitGroupRolesAssigned = function() return "HEALER" end
+    G.events:Fire("PLAYER_SPECIALIZATION_CHANGED")
+    check("a healer's list grows", near(party:GetAttribute("unitHeight"), Scale.U(G.SIZES.healer.h))
+          and near(b.__h, Scale.U(G.SIZES.healer.h)))
+    _G.UnitGroupRolesAssigned = nil
+    G.events:Fire("PLAYER_SPECIALIZATION_CHANGED")
+    mock.units.party1 = nil
+    check("Blizzard's party and raid frames are hidden outright once these exist", (function()
+        local want = { PartyFrame = true, CompactPartyFrame = true, CompactRaidFrameContainer = true }
+        for _, u in ipairs(ns.Clear.UNITS) do want[u] = nil end
+        return next(want) == nil
+    end)())
 end
 
 -- ---------------------------------------------------------------------------

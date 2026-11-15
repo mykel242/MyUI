@@ -75,10 +75,9 @@ Clear.ADOPT = {
     { "WingCooldowns", "EssentialCooldownViewer" },
     { "WingUtility",   "UtilityCooldownViewer" },
     { "WingBuffs",     "BuffIconCooldownViewer" },
-    -- Party and raid frames: adopted, revealed in combat.
-    { "Party",      "PartyFrame" },
-    { "CompactParty", "CompactPartyFrame" },
-    { "Raid",       "CompactRaidFrameContainer" },
+    -- Party and raid frames: no longer adopted. Round 004 (SPEC 19): MyUI's
+    -- own group frames replace them, and Blizzard's are hidden outright
+    -- (Clear.HideGroupFrames) -- at alpha 0 they would still catch clicks.
 }
 
 Clear.WHISPER_HOLD = 8.0   -- SPEC 11: "holds for 8s"
@@ -301,6 +300,19 @@ end
 
 Clear.UNITS = { "PlayerFrame", "TargetFrame", "FocusFrame" }
 Clear.hiddenUnits = {}
+
+-- Blizzard's party and raid frames, once MyUI's group frames exist (Group.lua).
+Clear.GROUP_FRAMES = { "PartyFrame", "CompactPartyFrame", "CompactRaidFrameContainer" }
+
+function Clear.HideGroupFrames()
+    for _, name in ipairs(Clear.GROUP_FRAMES) do
+        local present = false
+        for _, u in ipairs(Clear.UNITS) do if u == name then present = true end end
+        if not present then Clear.UNITS[#Clear.UNITS + 1] = name end
+    end
+    if Clear.Enabled and not Clear.Enabled() then return end
+    Clear.Defer("units", Clear.HideUnits)
+end
 
 function Clear.HideUnits()
     local n = 0

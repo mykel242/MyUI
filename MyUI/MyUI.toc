@@ -28,6 +28,7 @@ Sources.lua
 Chat.lua
 Clear.lua
 Actions.lua
+Group.lua
 Outline.lua
 Testing.lua
 Rules.lua
