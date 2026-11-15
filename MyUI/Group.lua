@@ -129,6 +129,24 @@ function Group.Style(b, kind)
     health:SetValue(1)
     b.__health = health
 
+    -- Round 004 play (Mykel): a 1 px border while the pointer is over a
+    -- member. Display only, hooked -- the button's secure click is untouched.
+    local px = Scale.Hairline()
+    b.__hover = {}
+    for _, side in ipairs({ "TOP", "BOTTOM", "LEFT", "RIGHT" }) do
+        local t = b:CreateTexture(nil, "OVERLAY")
+        t:SetColorTexture(Palette.Get("fill"))
+        if side == "TOP" or side == "BOTTOM" then
+            t:SetHeight(px); t:SetPoint(side .. "LEFT"); t:SetPoint(side .. "RIGHT")
+        else
+            t:SetWidth(px); t:SetPoint("TOP" .. side); t:SetPoint("BOTTOM" .. side)
+        end
+        t:Hide()
+        b.__hover[#b.__hover + 1] = t
+    end
+    b:HookScript("OnEnter", function(self) for _, t in ipairs(self.__hover) do t:Show() end end)
+    b:HookScript("OnLeave", function(self) for _, t in ipairs(self.__hover) do t:Hide() end end)
+
     b.__role = b:CreateTexture(nil, "ARTWORK")
     b.__name = ns.Frames.Text(b, 11, "textPrimary", "LEFT")
     if b.__name.SetWordWrap then b.__name:SetWordWrap(false) end

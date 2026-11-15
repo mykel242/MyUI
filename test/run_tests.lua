@@ -3537,6 +3537,13 @@ do
           and b:GetAttribute("*type2") == "togglemenu")
     check("  sized by the header, dressed as it is made", near(b.__w, party:GetAttribute("unitWidth"))
           and b.__myuiStyled and b.__health ~= nil and b.__name ~= nil)
+    check("  a 1 px border while the pointer is over it", (function()
+        local before = b.__hover[1]:IsShown()
+        b.scripts.OnEnter(b)
+        local during = b.__hover[1]:IsShown() and b.__hover[4]:IsShown()
+        b.scripts.OnLeave(b)
+        return not before and during and not b.__hover[1]:IsShown()
+    end)())
 
     Guard.Reset()
     mock.units.party1 = true
