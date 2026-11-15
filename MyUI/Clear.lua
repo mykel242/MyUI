@@ -443,10 +443,19 @@ end
 Clear.WINGS = {
     -- Round 004 play: at bar-1 size and 12 away they read as more bar. Bigger
     -- (SPEC's button grammar: cooldown > bar 1 > a page) and further off.
-    Essential = { side = -1, row = 0, size = 6, limit = 8 },   -- major cooldowns, 55 px
-    Utility   = { side = -1, row = 1, size = 5, limit = 8 },   -- utility, small, above
-    BuffIcon  = { side =  1, row = 1, size = 3, limit = 8 },   -- the chosen buffs, small, above
+    Essential = { side = -1, row = 0, size = 6, limit = 8, base = 50 },   -- major cooldowns, 55 px
+    -- Above the major cooldowns, not above bar 1's row: they are taller than
+    -- the bar, and at bar height the two overlapped (round 004 play).
+    Utility   = { side = -1, row = 1, size = 5, limit = 8, base = 30, over = "Essential" },
+    BuffIcon  = { side =  1, row = 1, size = 3, limit = 8, base = 40 },   -- the chosen buffs, small, above
 }
+
+--- A viewer's icon height in UI units: its template's size times the Edit
+-- Mode step's percentage. Blizzard's own units, not SPEC's (no U()).
+function Clear.WingIconHeight(key)
+    local w = Clear.WINGS[key]
+    return w.base * (50 + 10 * w.size) / 100
+end
 Clear.WING_GAP = 32
 
 -- Round 004 play: the stance (forms) and pet bars were adopted and never came
@@ -502,7 +511,8 @@ function Clear.PlaceWings(layout)
                         relativeTo = "UIParent",
                         relativePoint = "BOTTOM",
                         offsetX = w.side * (half + gap),
-                        offsetY = bottom + w.row * (row + rowGap),
+                        offsetY = w.over and (bottom + Clear.WingIconHeight(w.over) + rowGap)
+                                  or (bottom + w.row * (row + rowGap)),
                     }
                     sys.settings = sys.settings or {}
                     SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Horizontal)

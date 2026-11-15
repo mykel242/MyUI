@@ -3079,10 +3079,10 @@ do
            and near(a.offsetX, -(half + Scale.U(32))) and near(a.offsetY, bottom)
            and setting(sys(5), 2) == 0 and setting(sys(5), 3) == 6 and sys(5).isInDefaultPosition == false
     end)())
-    check("  utility above them; the chosen buffs on the right, the row above", (function()
+    check("  utility clear of the major cooldowns' 55 px; the chosen buffs on the right, the row above", (function()
         local u, b = sys(6).anchorInfo, sys(7).anchorInfo
         local half, bottom, row, gap = ns.Actions.Extent()
-        return u.point == "BOTTOMRIGHT" and near(u.offsetY, bottom + row + gap)
+        return u.point == "BOTTOMRIGHT" and near(u.offsetY, bottom + 55 + gap)
            and b.point == "BOTTOMLEFT" and near(b.offsetX, half + Scale.U(32)) and near(b.offsetY, bottom + row + gap)
            and setting(sys(7), 2) == 1
     end)())
