@@ -144,8 +144,8 @@ function Group.Style(b, kind)
         t:Hide()
         b.__hover[#b.__hover + 1] = t
     end
-    b:HookScript("OnEnter", function(self) for _, t in ipairs(self.__hover) do t:Show() end end)
-    b:HookScript("OnLeave", function(self) for _, t in ipairs(self.__hover) do t:Hide() end end)
+    b:HookScript("OnEnter", function(self) self.__hovered = true; Group.PaintBorder(self) end)
+    b:HookScript("OnLeave", function(self) self.__hovered = false; Group.PaintBorder(self) end)
 
     b.__role = b:CreateTexture(nil, "ARTWORK")
     b.__name = ns.Frames.Text(b, 11, "textPrimary", "LEFT")
@@ -159,6 +159,38 @@ function Group.Style(b, kind)
         end
     end)
     Group.buttons[#Group.buttons + 1] = b
+end
+
+--- The border: amber while this member is your target (round 004's "gold
+-- for selected", in the palette's amber), light while the pointer is over
+-- it, hidden otherwise. Hover wins while it lasts.
+function Group.PaintBorder(b)
+    local colour = b.__hovered and "fill" or (b.__targeted and "notifAmber") or nil
+    for _, t in ipairs(b.__hover or {}) do
+        if colour then
+            t:SetColorTexture(Palette.Get(colour))
+            t:Show()
+        else
+            t:Hide()
+        end
+    end
+end
+
+--- Is this button's unit the target? UnitIsUnit is a plain answer about
+-- identity; if a client ever hands it back secret, no border rather than a
+-- guess.
+local function IsTarget(unit)
+    if not unit or not _G.UnitIsUnit then return false end
+    local ok, same = pcall(_G.UnitIsUnit, unit, "target")
+    if not ok or ns.Compat.IsSecret(same) then return false end
+    return same == true
+end
+
+function Group.PaintTargets()
+    for _, b in ipairs(Group.buttons) do
+        b.__targeted = IsTarget(b:GetAttribute("unit"))
+        Group.PaintBorder(b)
+    end
 end
 
 -- ---------------------------------------------------------------------------
@@ -191,6 +223,7 @@ end
 function Group.Refresh()
     Remap()
     for _, b in ipairs(Group.buttons) do Group.UpdateButton(b) end
+    Group.PaintTargets()
 end
 
 -- ---------------------------------------------------------------------------
@@ -307,7 +340,12 @@ function Group.Start()
     ev:RegisterEvent("PLAYER_ROLES_ASSIGNED")
     ev:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
     ev:RegisterEvent("PLAYER_REGEN_ENABLED")
+    ev:RegisterEvent("PLAYER_TARGET_CHANGED")
     ev:SetScript("OnEvent", function(_, event, unit)
+        if event == "PLAYER_TARGET_CHANGED" then
+            Group.PaintTargets()
+            return
+        end
         if event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_NAME_UPDATE"
            or event == "UNIT_CONNECTION" then
             Group.UpdateUnit(unit)

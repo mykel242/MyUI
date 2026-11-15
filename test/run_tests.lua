@@ -3561,6 +3561,21 @@ do
             if b.__role.__calls[i].method == "SetAtlas" then return b.__role.__calls[i][1] == "roleicon-tiny-tank" end
         end
     end)())
+    _G.UnitIsUnit = function(a, b2) return a == "party1" and b2 == "target" end
+    G.events:Fire("PLAYER_TARGET_CHANGED")
+    check("targeting a member edges its row in amber", b.__hover[1]:IsShown() and (function()
+        for i = #b.__hover[1].__calls, 1, -1 do
+            local c = b.__hover[1].__calls[i]
+            if c.method == "SetColorTexture" then
+                local r, g, bb = ns.Palette.Get("notifAmber")
+                return near(c[1], r) and near(c[2], g) and near(c[3], bb)
+            end
+        end
+    end)())
+    _G.UnitIsUnit = function() return false end
+    G.events:Fire("PLAYER_TARGET_CHANGED")
+    check("  and the edge goes when the target does", not b.__hover[1]:IsShown())
+    _G.UnitIsUnit = nil
     local before = #b.__health.__calls
     G.events:Fire("UNIT_HEALTH", "party1")
     check("  and its health follows UNIT_HEALTH", #b.__health.__calls > before)
