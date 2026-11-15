@@ -62,6 +62,15 @@ MyUI's. Second pass:
   mouse buttons report nothing held (at most a 30 ms LALT blip). The mouse software puts ALT on
   the key event only, so no state driver can see it. Fix is on the mouse side (a held modifier,
   e.g. Karabiner-Elements); the binds still fire the right slot either way.
+- **Pick up here (2026-11-15, afternoon; `mvp/m2-swap-bars` pushed):** built and in play since
+  the morning -- swap bar with mini pages, wings (Cooldown Manager viewers + debuffs placed by
+  the MyUI Edit Mode layout), stance under the cooldowns, zone button on the bar row, layout
+  profiles (`focus` default, `/myui move|profile|spacing|layout`), group frames (party list,
+  raid grid, hover/target edges), clickable self / pet / target / focus strips, pet split and
+  MyUI's own pet bar, focus strip with three slots and an x, danger gradient, one hover edge.
+  Open: the BuffFrame taint ("tainted by MyUI", needs `/console taintLog 2` + the log); M3
+  cards and shift-click pinning; alt-click casting (P3); offer pending: limit the near-pointer
+  fade to the HUD.
 - 2026-11-15: mouse modifiers fixed outside the addon (Karabiner; Options+ held the side
   buttons). Mykel: "works pretty well". Then: arranging held still (spellbook / macros open,
   `/myui bars` or a key), and the bar comes up with a target.
