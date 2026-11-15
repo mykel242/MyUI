@@ -39,11 +39,8 @@ Group.RAID_GAP = 4
 Group.PARTY_MAX = 5
 Group.RAID_MAX = 40
 
--- Right of the character, close to the HUD (round 004 play: the mock's spot,
--- far right, was "too far away"): just right of SelfStack's edge, the
--- list's bottom clear of the right wing (debuffs, then the chosen buffs) and
--- growing up. SPEC units from UIParent's bottom centre.
-Group.ANCHOR = { x = 140, y = 150 }
+-- Where the list sits comes from the layout profile (Layout.lua): right of
+-- the HUD's middle, clear of the right wing, growing up.
 
 local ROLE_ATLAS = {
     TANK = "roleicon-tiny-tank",
@@ -217,8 +214,8 @@ function Group.Build()
     local frame = CreateFrame("Frame", "MyUIGroup", UIParent)
     frame:SetFrameStrata(ns.Frames.STRATA or "MEDIUM")
     frame:SetSize(U(Group.SIZES.healer.w), U(Group.SIZES.healer.h * 5 + Group.GAP * 4))
-    frame:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", U(Group.ANCHOR.x), U(Group.ANCHOR.y))
     Group.frame = frame
+    Group.Place()
 
     local pw, ph = SizeAttrs(Group.SIZES[Group.Kind()])
     local party = Header("MyUIPartyHeader", frame, "party", {
@@ -248,6 +245,16 @@ function Group.Build()
     RegisterStateDriver(raid, "visibility", "[group:raid] show; hide")
 
     Group.Refresh()
+    return true
+end
+
+--- Anchor the group area where the profile says. Its children are protected
+-- headers, so it moves out of combat only.
+function Group.Place()
+    if not Group.frame or InCombatLockdown() then return false end
+    local point, rel, x, y = ns.Layout.Pos("Group")
+    Group.frame:ClearAllPoints()
+    Group.frame:SetPoint(point, UIParent, rel, U(x), U(y))
     return true
 end
 

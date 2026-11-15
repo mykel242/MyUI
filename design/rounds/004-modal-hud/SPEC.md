@@ -510,6 +510,21 @@ force one. In a fight the mode is obvious and the target or boss bar owns that s
 Mode changes that touch protected frames (bars, unit frames) happen out of combat; inside combat
 only alpha moves (RULES).
 
+## 16a. Layout profiles (round 004 play)
+
+Positions are personal preference (Mykel), so they live in **layout profiles** (`Layout.lua`):
+where SelfStack, the target strip, the action bar (and with it the wings, stance and pet bars) and
+the group frames sit, plus the wing gap and icon padding, in SPEC units. Built in:
+
+- **focus** (default) — bottom up: SelfStack (24), the bar (76), the row above it, then the
+  target strip where SelfStack used to be (196); the group list right of the target strip (224,
+  184), clear of the right wing; icons 6 apart.
+- **spec** — SPEC 2's positions (SelfStack 214 up, target strip 20 from the top, bar at 48).
+
+`/myui profile` lists and switches; `/myui move self|target|bar|group dx dy` nudges (a built-in
+profile is copied to "mine" first); `/myui spacing gap|padding n`; `/myui profile save|delete`.
+The bar, group frames and Edit Mode placements move out of combat.
+
 ## 17. Action bars — bar 1 and three modifier pages
 
 The player's own action bars, as they play them: **bar 1** plus three pages reached by holding

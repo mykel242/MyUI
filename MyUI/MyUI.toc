@@ -15,6 +15,7 @@ Log.lua
 Stow.lua
 Scale.lua
 Palette.lua
+Layout.lua
 Guard.lua
 Registry.lua
 Frames.lua

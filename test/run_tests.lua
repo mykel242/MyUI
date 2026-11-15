@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 25, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 26, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -321,9 +321,10 @@ check("the three SPEC 2 frames registered (the rail is cut), plus round 004's ac
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
-    { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,  214 },   -- round 004: grew a text row
+    -- Round 004: positions from the default layout profile ("focus").
+    { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,   24 },   -- grew a text row; under the bar
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
-    { "TargetStrip", 0,    400, 49, "TOP",      0,  -20 },
+    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  196 },   -- where your health used to be
 }
 
 for _, e in ipairs(EXPECTED) do
@@ -345,7 +346,7 @@ end
 -- Regression: GetPoint returns five values and Compat.Call used to forward
 -- four, so every anchor read back with y = nil and the audit printed +0.0.
 local ok5, _, _, _, _, y5 = Compat.Call(Registry.Get("SelfStack").frame, "GetPoint", 1)
-check("Compat.Call forwards GetPoint's fifth value", ok5 and near(y5, Scale.U(214)), y5)
+check("Compat.Call forwards GetPoint's fifth value", ok5 and near(y5, Scale.U(24)), y5)
 
 -- ---------------------------------------------------------------------------
 section("Frames -- SelfStack internals")
@@ -3237,7 +3238,7 @@ do
     check("  centred, low on the screen", (function()
         local p, rel, rp, x, y = header:GetPoint(1)
         return p == "BOTTOM" and rel == UIParent and rp == "BOTTOM" and x == 0
-           and near(y * A.Scale(), Scale.U(48))
+           and near(y * A.Scale(), Scale.U(76))
     end)())
     check("  buttons kept at Blizzard's 45, the bar scaled to SPEC's 44 (glows stay centred)", (function()
         local w, h = b1:GetSize()
@@ -3485,11 +3486,11 @@ do
         end
         return ok
     end)())
-    check("right of SelfStack, clear of the right wing, growing up; in the registry", (function()
+    check("right of the target strip, clear of the right wing, growing up; in the registry", (function()
         local p, rel, rp, x, y = G.frame:GetPoint(1)
         local pp = party:GetPoint(1)
-        return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(140))
-           and near(y, Scale.U(150)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
+        return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(224))
+           and near(y, Scale.U(184)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
     end)())
     check("rows 8 apart", near(party:GetAttribute("yOffset"), -Scale.U(8)))
 
@@ -3540,6 +3541,64 @@ do
         for _, u in ipairs(ns.Clear.UNITS) do want[u] = nil end
         return next(want) == nil
     end)())
+end
+
+-- ---------------------------------------------------------------------------
+section("Layout profiles (round 004 play)")
+-- ---------------------------------------------------------------------------
+
+do
+    local L = ns.Layout
+    local stack = Registry.Get("SelfStack").frame
+    local strip = Registry.Get("TargetStrip").frame
+    local function y(f) local _, _, _, _, v = f:GetPoint(1) return v end
+    check("the default profile: you under the bar, the target where your health was",
+          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(196))
+          and strip:GetPoint(1) == "BOTTOM")
+    check("  the order bottom-up: you, the bar, the target strip, with room between", (function()
+        local _, _, _, sy = L.Pos("SelfStack")
+        local _, _, _, by = L.Pos("ActionBar")
+        local _, _, _, ty = L.Pos("TargetStrip")
+        return sy + 33 < by and by + 44 < ty
+    end)())
+    run("profile spec")
+    check("/myui profile spec puts SPEC 2's positions back, bar included", L.Active() == "spec"
+          and near(y(stack), Scale.U(214)) and strip:GetPoint(1) == "TOP"
+          and near(y(ns.Actions.header) * ns.Actions.Scale(), Scale.U(48)))
+    run("profile focus")
+    run("move target 0 20")
+    check("/myui move on a built-in profile copies it to \"mine\" first", L.Active() == "mine"
+          and near(y(strip), Scale.U(216)) and L.PRESETS.focus.TargetStrip[4] == 196)
+    run("move group -10 5")
+    check("  and moves the group frames too", (function()
+        local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
+        return near(x, Scale.U(214)) and near(yy, Scale.U(189))
+    end)())
+    run("spacing padding 8")
+    check("/myui spacing padding sets the gap between wing icons", L.Value("iconPadding") == 8)
+    check("  and the wings use it", (function()
+        mock.layouts.activeLayout = 3
+        ns.Clear.ApplyLayout()
+        for _, l in ipairs(mock.editMode.saved.layouts) do
+            if l.layoutName == "MyUI" then
+                for _, sys in ipairs(l.systems) do
+                    if sys.system == 20 and sys.systemIndex == 1 then
+                        for _, st in ipairs(sys.settings) do
+                            if st.setting == 4 then return st.value == 8 end
+                        end
+                    end
+                end
+            end
+        end
+        return false
+    end)())
+    run("profile save raid")
+    check("/myui profile save copies the active profile", L.Active() == "raid" and L.Value("iconPadding") == 8)
+    run("profile delete raid")
+    run("profile delete mine")
+    check("deleting the active one falls back to the default", L.Active() == "focus"
+          and near(y(strip), Scale.U(196)))
+    check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
 end
 
 -- ---------------------------------------------------------------------------

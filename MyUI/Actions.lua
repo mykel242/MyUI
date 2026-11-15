@@ -44,7 +44,7 @@ Actions.BUTTONS = 8       -- SPEC 17: 8 shown
 Actions.SIZE = 44         -- SPEC 17: bar 1 at 44
 Actions.GAP = 6
 Actions.ROW_GAP = 10      -- between stacked rows while assigning
-Actions.BOTTOM = 48       -- SPEC 17: low on the screen
+-- Where the bar sits comes from the layout profile (Layout.lua).
 
 -- Blizzard's action button is built at 45 x 45, and some of its art -- the
 -- drop and new-action highlights -- is pinned TOPLEFT at its atlas size, so
@@ -224,7 +224,19 @@ end
 -- bottom, and one row's height -- what the wings line up against (SPEC 18).
 function Actions.Extent()
     local width = Actions.BUTTONS * U(Actions.SIZE) + (Actions.BUTTONS - 1) * U(Actions.GAP)
-    return width / 2, U(Actions.BOTTOM), U(Actions.SIZE), U(Actions.ROW_GAP)
+    local _, _, x, y = ns.Layout.Pos("ActionBar")
+    return width / 2, U(y), U(Actions.SIZE), U(Actions.ROW_GAP), U(x)
+end
+
+--- Anchor the bar where the profile says (secure: out of combat only).
+function Actions.Place()
+    if not Actions.header or InCombatLockdown() then return false end
+    local sc = Actions.Scale()
+    local point, rel, x, y = ns.Layout.Pos("ActionBar")
+    Actions.header:ClearAllPoints()
+    -- A scaled frame's offsets are in its own units.
+    Actions.header:SetPoint(point, UIParent, rel, U(x) / sc, U(y) / sc)
+    return true
 end
 
 --- Re-run the page snippet now, against the current state (out of combat).
@@ -400,9 +412,8 @@ function Actions.Build()
     local n, size, gap = Actions.BUTTONS, Actions.NATIVE, U(Actions.GAP) / sc
     header:SetScale(sc)   -- lint:allow R3 a constant from SPEC sizes, never a unit value
     header:SetSize(n * size + (n - 1) * gap, size)
-    -- A scaled frame's offsets are in its own units.
-    header:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(Actions.BOTTOM) / sc)
     Actions.header = header
+    Actions.Place()
 
     Actions.rows, Actions.labels, Actions.stackOf = {}, {}, { ["1"] = 0 }
     local order = { "1" }

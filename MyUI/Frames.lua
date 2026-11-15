@@ -130,6 +130,20 @@ end
 
 local Text = Frames.Text
 
+--- Anchor one of MyUI's own frames where the layout profile says.
+function Frames.PlaceOne(frame, key)
+    local point, rel, x, y = ns.Layout.Pos(key)
+    frame:ClearAllPoints()
+    frame:SetPoint(point, UIParent, rel, U(x), U(y))
+end
+
+--- Re-anchor SelfStack and the target strip (plain frames: any time).
+function Frames.Place()
+    if not Frames.built then return end
+    Frames.PlaceOne(Registry.Get("SelfStack").frame, "SelfStack")
+    Frames.PlaceOne(Registry.Get("TargetStrip").frame, "TargetStrip")
+end
+
 -- ---------------------------------------------------------------------------
 -- The health percentage (round 004, Mykel): on the middle of its own bar, on
 -- a dark pill -- or just above the bar with no pill. Replaces the number left
@@ -247,7 +261,8 @@ local function BuildSelfStack()
     local group = CreateFrame("Frame", "MyUISelfStack", UIParent)
     group:SetFrameStrata(Frames.STRATA)
     group:SetSize(U(240), U(33))
-    group:SetPoint("BOTTOM", UIParent, "BOTTOM", 0, U(214))
+    -- Where: the layout profile (Layout.lua; SPEC 2 said BOTTOM, 214 up).
+    Frames.PlaceOne(group, "SelfStack")
 
     local health = Bar(group, 240, 4)
     health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(13))
@@ -310,7 +325,7 @@ local function BuildTargetStrip()
     local group = CreateFrame("Frame", "MyUITargetStrip", UIParent)
     group:SetFrameStrata(Frames.STRATA)
     group:SetSize(U(400), U(49))
-    group:SetPoint("TOP", UIParent, "TOP", 0, -U(20))
+    Frames.PlaceOne(group, "TargetStrip")   -- SPEC 2: TOP, 20 down; now the profile
 
     local health = Bar(group, 400, 3)
     health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(31))

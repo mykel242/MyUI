@@ -479,7 +479,8 @@ function Clear.WingIconHeight(key)
     local w = Clear.WINGS[key]
     return w.base * (50 + 10 * w.size) / 100
 end
-Clear.WING_GAP = 32
+-- The gap between the bar and each wing, and between icons, come from the
+-- layout profile (Layout.lua: wingGap, iconPadding).
 
 -- Round 004 play: the stance (forms) and pet bars were adopted and never came
 -- back. They sit on the row above bar 1, inside its edges -- stance from the
@@ -504,8 +505,9 @@ function Clear.PlaceWings(layout)
     local A = ns.Actions
     local idx, cdm = E.EditModeCooldownViewerSystemIndices, E.EditModeCooldownViewerSetting
     if not (A and A.Extent and idx and cdm and E.EditModeSystem.CooldownViewer) then return 0 end
-    local half, bottom, row, rowGap = A.Extent()
-    local gap = ns.Scale.U(Clear.WING_GAP)
+    local half, bottom, row, rowGap, barX = A.Extent()
+    local gap = ns.Scale.U(ns.Layout.Value("wingGap"))
+    local pad = ns.Layout.Value("iconPadding")
     local n = 0
     local bars = E.EditModeActionBarSystemIndices
     for _, sys in ipairs(layout.systems or {}) do
@@ -518,7 +520,7 @@ function Clear.PlaceWings(layout)
                         point = left and "BOTTOMLEFT" or "BOTTOMRIGHT",
                         relativeTo = "UIParent",
                         relativePoint = "BOTTOM",
-                        offsetX = o.side * half,
+                        offsetX = barX + o.side * half,
                         offsetY = bottom + row + rowGap,
                     }
                     n = n + 1
@@ -533,7 +535,7 @@ function Clear.PlaceWings(layout)
                         point = "BOTTOMLEFT",
                         relativeTo = "UIParent",
                         relativePoint = "BOTTOM",
-                        offsetX = w.side * (half + gap),
+                        offsetX = barX + w.side * (half + gap),
                         offsetY = bottom + w.row * (row + rowGap),
                     }
                     sys.settings = sys.settings or {}
@@ -543,6 +545,7 @@ function Clear.PlaceWings(layout)
                     SetSetting(sys, aset.IconLimitDebuffFrame, w.limit)
                     SetSetting(sys, aset.IconSize, w.size)
                     if aset.ShowDispelType then SetSetting(sys, aset.ShowDispelType, 1) end
+                    if aset.IconPadding then SetSetting(sys, aset.IconPadding, pad) end
                     n = n + 1
                 end
             end
@@ -555,7 +558,7 @@ function Clear.PlaceWings(layout)
                         point = left and "BOTTOMRIGHT" or "BOTTOMLEFT",
                         relativeTo = "UIParent",
                         relativePoint = "BOTTOM",
-                        offsetX = w.side * (half + gap),
+                        offsetX = barX + w.side * (half + gap),
                         offsetY = w.over and (bottom + Clear.WingIconHeight(w.over) + rowGap)
                                   or (bottom + w.row * (row + rowGap)),
                     }
@@ -565,6 +568,9 @@ function Clear.PlaceWings(layout)
                                left and E.CooldownViewerIconDirection.Left or E.CooldownViewerIconDirection.Right)
                     SetSetting(sys, cdm.IconSize, w.size)
                     SetSetting(sys, cdm.IconLimit, w.limit)
+                    -- Round 004 play: "at the least the icons should have
+                    -- some margin between them".
+                    SetSetting(sys, cdm.IconPadding, pad)
                     n = n + 1
                 end
             end

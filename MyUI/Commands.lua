@@ -243,6 +243,9 @@ local COMMANDS = {
     { "restore",      "put back everything clearing took" },
     { "group",        "group frames in combat: combat (default) | auto (healers only) | hover" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
+    { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
+    { "move",         "nudge a part of the HUD: self | target | bar | group <dx> <dy> (SPEC units)" },
+    { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons)" },
     { "bars",         "arrange the action bars: every page on screen, held, until you run it again" },
     { "mods",         "for 10s, what the client sees of ALT / CTRL / SHIFT (mouse-mapped modifiers)" },
     { "pct",          "where the health % sits: above (over the bar) | pill (on it)" },
@@ -285,6 +288,51 @@ local HANDLERS = {
         ns.Raw("  saved to MyUIDB.actionsProbe. /myui mods checks the modifier keys.")
     end,
     bars         = function() _G.MyUI_ArrangeBars() end,
+    profile      = function(arg)
+        local L = ns.Layout
+        local verb, name = (arg or ""):match("^(%S*)%s*(.-)$")
+        if verb == "" then
+            ns.Print(("layout profile: %s"):format(L.Active()))
+            for _, n in ipairs(L.Names()) do
+                ns.Raw(("  %s%s%s"):format(n == L.Active() and "> " or "  ", n,
+                       L.PRESETS[n] and " (built in)" or ""))
+            end
+            ns.Raw("  |cffadb1b8/myui profile <name>|r switches; /myui move nudges (makes \"mine\")")
+        elseif verb == "save" and name ~= "" then
+            L.Save(name)
+            ns.Print(("saved the layout as %q and switched to it"):format(name))
+        elseif verb == "delete" and name ~= "" then
+            ns.Print(L.Delete(name) and ("deleted %q"):format(name) or ("no saved profile %q"):format(name))
+        elseif L.Use(verb) then
+            ns.Print(("layout profile: %s%s"):format(verb, InCombatLockdown() and " (the bar and group frames move after combat)" or ""))
+        else
+            ns.Print(("no profile %q -- /myui profile lists them"):format(verb))
+        end
+    end,
+    move         = function(arg)
+        local key, dx, dy = (arg or ""):match("^(%S+)%s+(%-?%d+)%s+(%-?%d+)$")
+        if not key then
+            ns.Print("/myui move <self | target | bar | group> <dx> <dy> -- e.g. /myui move target 0 20")
+            return
+        end
+        local which, x, y = ns.Layout.Move(key, tonumber(dx), tonumber(dy))
+        if not which then
+            ns.Print(("can't move %q -- self, target, bar or group"):format(key))
+        else
+            ns.Print(("%s now at %d, %d (profile %s)"):format(which, x, y, ns.Layout.Active()))
+        end
+    end,
+    spacing      = function(arg)
+        local what, n = (arg or ""):match("^(%a+)%s+(%d+)$")
+        local key = what == "gap" and "wingGap" or what == "padding" and "iconPadding" or nil
+        if not key then
+            ns.Print(("wing gap %d, icon padding %d -- /myui spacing gap <n> | padding <n>")
+                     :format(ns.Layout.Value("wingGap"), ns.Layout.Value("iconPadding")))
+            return
+        end
+        ns.Layout.Set(key, tonumber(n))
+        ns.Print(("%s %s (profile %s)"):format(what, n, ns.Layout.Active()))
+    end,
     mods         = function()
         if not ns.Actions then return end
         ns.Print("watching the modifier keys for 10s -- hold each key, then each mouse button")
