@@ -237,7 +237,8 @@ local COMMANDS = {
     { "center",       "the notification centre: <hue> to open filtered | close" },
     { "what",         "name whatever is under the cursor; bind MyUI -> Name what" },
     { "stow",         "take Blizzard furniture off the screen: raid | show raid" },
-    { "panel",        "the dev panel: the toggles as switches" },
+    { "extras",       "the non-MVP features: on | off (history, other toasts, our chat box, panel)" },
+    { "panel",        "the dev panel: the toggles as switches (an extra)" },
     { "clear",        "clear the screen (SPEC 11): on | probe -- tests the player-frame filter" },
     { "restore",      "put back everything clearing took" },
     { "group",        "group frames in combat: auto (healers) | combat | hover" },
@@ -479,6 +480,10 @@ local HANDLERS = {
             ns.Print("no centre module")
             return
         end
+        if not ns.Extras() then
+            ns.Print("the history window is an extra -- /myui extras on, then /reload")
+            return
+        end
         arg = (arg or ""):lower():gsub("%s+$", "")
         if arg == "close" then
             Center.Close()
@@ -532,8 +537,22 @@ local HANDLERS = {
         end
         ns.Raw("  |cffadb1b8/myui clear|r clears again.")
     end,
+    extras       = function(arg)
+        arg = (arg or ""):lower():gsub("%s+$", "")
+        if arg == "on" or arg == "off" then
+            if ns.db then ns.db.extras = (arg == "on") end
+            ns.Print(("extras %s -- |cffffd159/reload|r to apply."):format(arg))
+            return
+        end
+        ns.Print(("extras: %s. MVP leaves them off: the history window, toast sources "
+                  .. "other than whispers, MyUI's chat box, the dev panel."):format(
+                  ns.Extras() and "on" or "off"))
+    end,
     panel        = function()
-        if not ns.Panel then return end
+        if not ns.Panel or not ns.Panel.panel then
+            ns.Print("the dev panel is an extra -- /myui extras on, then /reload")
+            return
+        end
         ns.Panel.Toggle()
         ns.Print(ns.Panel.IsOpen() and "panel open." or "panel closed.")
     end,

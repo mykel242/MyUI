@@ -332,18 +332,6 @@ T.Suite("myui-toasts", {
           end,
           wait = 0.8, frames = ToastFrames, beforeShot = FreshAges },
 
-        { id = "history",
-          what = "The history at the toast anchor: five hue chips, six rows, newest first.",
-          setup = function(api) Baseline(api); FixedLog(api); api.ns().Center.Open() end,
-          frames = function(api)
-              local f = ToastFrames(api)
-              f.Center = _G.MyUICenter
-              return f
-          end,
-          check = function(api)
-              return api.ns().Center.IsOpen(), "open"
-          end,
-          teardown = function(api) api.ns().Center.Close() end },
 
         { id = "stack-normal-contrast", world = true,
           what = "Three toasts with SPEC 6's original grey (contrast normal), over the "
@@ -356,6 +344,46 @@ T.Suite("myui-toasts", {
               local ns = api.ns()
               if saved and ns.db then ns.db.contrast = saved.contrast; ns.Frames.RestyleText() end
           end },
+    },
+})
+
+-- The history window is an extra (MVP M1): its suite runs only with extras on.
+T.Suite("myui-history", {
+    title = "Extra -- the history window",
+    requires = function(api)
+        local ok, why = NeedMyUI(api)
+        if not ok then return ok, why end
+        if not api.ns().Extras() then return false, "extras are off (MVP)" end
+        return true
+    end,
+    before = function(api)
+        Save(api.ns())
+        local Log = api.ns().Log
+        savedLog = Log.db and Log.db.entries
+        if Log.db then
+            local copy = {}
+            for i, e in ipairs(savedLog or {}) do copy[i] = e end
+            Log.db.entries = copy
+        end
+    end,
+    after = function(api)
+        Restore(api)
+        local Log = api.ns().Log
+        if Log.db and savedLog then Log.db.entries = savedLog end
+    end,
+    tests = {
+        { id = "open",
+          what = "The history at the toast anchor: five hue chips, six rows, newest first.",
+          setup = function(api) Baseline(api); FixedLog(api); api.ns().Center.Open() end,
+          frames = function(api)
+              local f = ToastFrames(api)
+              f.Center = _G.MyUICenter
+              return f
+          end,
+          check = function(api)
+              return api.ns().Center.IsOpen(), "open"
+          end,
+          teardown = function(api) api.ns().Center.Close() end },
     },
 })
 

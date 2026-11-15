@@ -114,9 +114,11 @@ check("a run was recorded", run ~= nil)
 check("it finished", run and run.finished)
 check("no harness errors", run and #run.errors == 0, run and table.concat(run.errors, " | "))
 
+local skippedNames = {}
+for _, sk in ipairs(run and run.skipped or {}) do skippedNames[sk.suite] = true end
 local expected = 0
 for _, s in ipairs(T.suites) do
-    if s.name ~= "rebar" then
+    if not skippedNames[s.name] then
         for _, t in ipairs(s.tests) do
             if t.shot ~= false then expected = expected + 1 end
         end
@@ -143,9 +145,13 @@ local n = 0
 for _ in pairs(distinct) do n = n + 1 end
 check("every shot has its own timestamp window", run and n == #run.shots, n)
 
-check("Rebar suite skipped when Rebar is not loaded",
-      run and #run.skipped == 1 and run.skipped[1].suite == "rebar",
-      run and #run.skipped)
+check("Rebar suite skipped when Rebar is not loaded", skippedNames.rebar == true)
+check("the history suite skipped with extras off (MVP)", skippedNames["myui-history"] == true)
+check("  and nothing else skipped", (function()
+    local n = 0
+    for _ in pairs(skippedNames) do n = n + 1 end
+    return n == 2, n
+end)())
 
 -- Geometry: SelfStack placed at x=100..180, y=100..140 units on a 1706.67 x 960
 -- unit screen (in mock terms the scale cancels out).

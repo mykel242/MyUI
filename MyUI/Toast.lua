@@ -312,11 +312,11 @@ function Toast.Activate(item)
         ns.Chat.Open(item.sub and ("/w %s "):format(item.sub) or "/r ")
         return "chat"
     end
-    if ns.Center and ns.Center.Open then
+    if ns.Extras() and ns.Center and ns.Center.Open then
         ns.Center.Open(item.kind)
         return "history"
     end
-    return nil
+    return nil   -- MVP: the history window is an extra; the click just dismisses
 end
 
 -- ---------------------------------------------------------------------------

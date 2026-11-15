@@ -253,6 +253,7 @@ end
 -- switches, kept for development until SPEC 14's minimap menu exists and the
 -- panel becomes MyUI's entry in it. BuildButton stays for that day.
 function Panel.OnLogin()
+    if not ns.Extras() then return end
     Panel.Build()
 end
 

@@ -133,6 +133,15 @@ function ns.GetOutput()
     return table.concat(ns.output, "\n")
 end
 
+--- MVP M1: everything that is not MVP sits behind one switch, off by
+-- default (PLAN "MVP first"). Not deleted -- each extra comes back as a
+-- deliberate step. /myui extras on|off, takes effect on /reload.
+--   the history window (Center), toast sources other than whispers,
+--   MyUI's own chat box (the Enter override), the dev panel.
+function ns.Extras()
+    return ns.db ~= nil and ns.db.extras == true
+end
+
 function ns.Print(...)
     local parts = {}
     for i = 1, select("#", ...) do

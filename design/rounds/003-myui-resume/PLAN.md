@@ -175,7 +175,9 @@ everything; a whisper still toasts and opens chat.
 
 1. **M1 — Strip.** Non-MVP features off behind one setting (default off), not deleted: the
    history window, toast sources other than whispers, MyUI's own chat box, the dev panel. Code
-   and tests stay; each comes back as a deliberate step.
+   and tests stay; each comes back as a deliberate step. **Built 2026-11-14:** `ns.Extras()` /
+   `/myui extras on|off` (applies on `/reload`); the offline suite runs with extras on and has
+   an extras-off section; the history window's harness suite skips itself with extras off.
 2. **M2 — Combat set.** Bar 1 in combat; Cooldown Manager main row only; TargetStrip cast bar;
    nameplates confirmed on (reported by `/myui audit`, never forced).
 3. **M3 — Minimal group frames.** As above. Curves only, like TargetStrip.

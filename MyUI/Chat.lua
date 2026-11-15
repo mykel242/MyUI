@@ -353,6 +353,17 @@ end
 
 --- Focus our box, optionally holding something already.
 function Chat.Open(prefill)
+    -- MVP: without our box, open Blizzard's, already holding the text.
+    if not Chat.IsOverriding() then
+        local util = _G.ChatFrameUtil
+        if util and type(util.OpenChat) == "function" then
+            util.OpenChat(prefill or "")
+            return nil
+        elseif type(_G.ChatFrame_OpenChat) == "function" then
+            _G.ChatFrame_OpenChat(prefill or "")
+            return nil
+        end
+    end
     local box = Chat.Build()
     prefill = type(prefill) == "string" and prefill or ""
     box:SetText(prefill)
@@ -451,6 +462,11 @@ function Chat.StowedCount()
 end
 
 function Chat.OnLogin()
+    if ns.db and ns.db.stow and ns.db.stow.raid then
+        ns.Stow.Group("raid")
+    end
+    -- MyUI's own chat box is an extra (MVP M1): Blizzard's box stays in charge.
+    if not ns.Extras() then return end
     Chat.Build()
     Chat.Watch()
     if ns.db and ns.db.chat and ns.db.chat.override == false then
@@ -465,10 +481,6 @@ function Chat.OnLogin()
     -- type is how you lock yourself out of your own chat.
     if ok and ns.db and ns.db.chat and ns.db.chat.hideLog then
         Chat.HideLog()
-    end
-
-    if ns.db and ns.db.stow and ns.db.stow.raid then
-        ns.Stow.Group("raid")
     end
 end
 

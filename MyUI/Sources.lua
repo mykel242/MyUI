@@ -524,17 +524,29 @@ function Sources.Handle(event, ...)
     end
 end
 
+--- MVP: whispers only. The rest of SPEC 6's table is an extra.
+Sources.MVP = { CHAT_MSG_WHISPER = true, CHAT_MSG_BN_WHISPER = true }
+
+function Sources.Wanted(event)
+    return ns.Extras() or Sources.MVP[event] == true
+end
+
 function Sources.OnLogin()
     local driver = CreateFrame("Frame", "MyUISourcesDriver", UIParent)
     Sources.driver = driver
 
     for event in pairs(Sources.EVENTS) do
-        driver:RegisterEvent(event)
+        if Sources.Wanted(event) then
+            driver:RegisterEvent(event)
+        end
     end
 
     driver:SetScript("OnEvent", function(_, event, ...)
         Sources.Handle(event, ...)
     end)
+    if not ns.Extras() then
+        return
+    end
 
     -- The three latches are conditions rather than events, and a condition can
     -- already be true at login. Evaluating them here means a bag that was

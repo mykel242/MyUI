@@ -27,6 +27,10 @@ local ns = mock.loadAddon("../MyUI")
 local Compat, Guard, Registry, Rules = ns.Compat, ns.Guard, ns.Registry, ns.Rules
 
 -- Bring the addon up the way the client does.
+-- The offline suite exercises every module, extras included; the MVP's
+-- extras-off behaviour has its own section near the end.
+_G.MyUIDB = { schema = ns.SCHEMA_VERSION, extras = true }
+
 local loader = mock.created[#mock.created]
 loader:Fire("ADDON_LOADED", "MyUI")
 loader:Fire("PLAYER_LOGIN")
@@ -3019,6 +3023,54 @@ do
 
     for name in pairs(units) do _G[name] = nil end
     for _, spec in ipairs(Clear.ADOPT) do _G[spec[2]] = nil end
+end
+
+-- ---------------------------------------------------------------------------
+section("MVP -- extras off (M1)")
+-- ---------------------------------------------------------------------------
+-- The MVP default: the history window, toast sources other than whispers,
+-- MyUI's chat box and the dev panel are off. Dynamic checks only here; the
+-- login-time gates are read straight from the source.
+
+do
+    local was = ns.db.extras
+    ns.db.extras = nil
+    check("extras are off by default (a fresh db has none)", ns.Extras() == false)
+    check("  whispers still feed toasts", ns.Sources.Wanted("CHAT_MSG_WHISPER")
+          and ns.Sources.Wanted("CHAT_MSG_BN_WHISPER"))
+    check("  loot, quests, currency, mail and the rest do not",
+          not ns.Sources.Wanted("CHAT_MSG_LOOT") and not ns.Sources.Wanted("QUEST_TURNED_IN")
+          and not ns.Sources.Wanted("UPDATE_PENDING_MAIL"))
+    check("  the history window will not open", ns.Center.Open() == false)
+    check("  /myui center says it is an extra", (function()
+        ns.ClearOutput()
+        run("center")
+        return ns.GetOutput():find("extra", 1, true) ~= nil
+    end)())
+    check("  clicking a non-whisper toast just dismisses it", (function()
+        local it = ns.Toast.Add("blue", "Loot")
+        return ns.Toast.Activate(it) == nil and not ns.Toast.IsSpeaking()
+    end)())
+    check("  a whisper toast opens Blizzard's chat box at /w", (function()
+        mock.chatOpened = {}
+        local real = ns.Chat.IsOverriding
+        ns.Chat.IsOverriding = function() return false end
+        local it = ns.Toast.Add("violet", "Friend-Realm", 1, "Friend-Realm")
+        ns.Toast.Activate(it)
+        ns.Chat.IsOverriding = real
+        return mock.chatOpened[#mock.chatOpened] == "/w Friend-Realm "
+    end)())
+    check("  the panel and our chat box are gated at login", (function()
+        for _, f in ipairs({ "Panel", "Chat", "Center" }) do
+            local src = assert(io.open("../MyUI/" .. f .. ".lua")):read("*a")
+            local body = src:match("function " .. f .. "%.OnLogin%(%)(.-)\nend")
+            if not body or not body:find("ns.Extras()", 1, true) then return false, f end
+        end
+        return true
+    end)())
+    run("extras on")
+    check("/myui extras on persists", ns.db.extras == true)
+    ns.db.extras = was
 end
 
 -- ---------------------------------------------------------------------------

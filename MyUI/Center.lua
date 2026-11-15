@@ -247,6 +247,9 @@ end
 -- ---------------------------------------------------------------------------
 
 function Center.Open(hue)
+    if not ns.Extras() then
+        return false, "the history window is an extra -- /myui extras on, then /reload"
+    end
     local p = Center.Build()
     if not p then
         return false
@@ -274,12 +277,17 @@ function Center.Toggle(hue)
 end
 
 function MyUI_Center()
+    if not ns.Extras() then
+        ns.Print("the history window is an extra -- /myui extras on, then /reload")
+        return
+    end
     Center.Toggle()
 end
 
 _G.BINDING_NAME_MYUI_CENTER = "Open the notification centre"
 
 function Center.OnLogin()
+    if not ns.Extras() then return end
     Center.Build()
 end
 
