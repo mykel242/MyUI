@@ -517,7 +517,38 @@ Clear.AURA_WINGS = {
 -- Mode step's percentage. Blizzard's own units, not SPEC's (no U()).
 function Clear.WingIconHeight(key)
     local w = Clear.WINGS[key]
-    return w.base * (50 + 10 * w.size) / 100
+    local size = Clear.WingFit(key)
+    return w.base * (50 + 10 * size) / 100
+end
+
+-- Round 004 play (laptop screen): a narrower screen left too little room
+-- beside the bar for eight 55 px cooldowns; the viewer, clamped to the
+-- screen, slid right over MyUI's bar. Each wing now fits the room it has:
+-- smaller icons first (down to WING_MIN_SIZE), then fewer per row.
+Clear.WING_MIN_SIZE = 3      -- Edit Mode step 3 = 80%
+Clear.WING_MARGIN = 4        -- units kept clear of the screen edge
+
+--- The Edit Mode icon size step and per-row limit a wing gets on this
+-- screen. Unknown screen width (0): the wing's own numbers.
+function Clear.WingFit(key)
+    local w = Clear.WINGS[key]
+    local screen = _G.UIParent and _G.UIParent.GetWidth and _G.UIParent:GetWidth() or 0
+    if not (ns.Actions and ns.Actions.Extent) or type(screen) ~= "number" or screen <= 0 then
+        return w.size, w.limit
+    end
+    local half, _, _, _, barX = ns.Actions.Extent()
+    local gap = ns.Scale.U(ns.Layout.Value("wingGap"))
+    local pad = ns.Layout.Value("iconPadding") or 0
+    local avail = screen / 2 + w.side * -(barX + w.side * (half + gap)) - Clear.WING_MARGIN
+    local function width(size, n)
+        return n * w.base * (50 + 10 * size) / 100 + (n - 1) * pad
+    end
+    for size = w.size, math.min(w.size, Clear.WING_MIN_SIZE), -1 do
+        if width(size, w.limit) <= avail then return size, w.limit end
+    end
+    local size = math.min(w.size, Clear.WING_MIN_SIZE)
+    local icon = w.base * (50 + 10 * size) / 100
+    return size, math.max(1, math.min(w.limit, math.floor((avail + pad) / (icon + pad))))
 end
 -- The gap between the bar and each wing, and between icons, come from the
 -- layout profile (Layout.lua: wingGap, iconPadding).
@@ -699,8 +730,9 @@ function Clear.PlaceWings(layout)
                     SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Horizontal)
                     SetSetting(sys, cdm.IconDirection,
                                w.side < 0 and E.CooldownViewerIconDirection.Left or E.CooldownViewerIconDirection.Right)
-                    SetSetting(sys, cdm.IconSize, w.size)
-                    SetSetting(sys, cdm.IconLimit, w.limit)
+                    local size, limit = Clear.WingFit(key)
+                    SetSetting(sys, cdm.IconSize, size)
+                    SetSetting(sys, cdm.IconLimit, limit)
                     -- Round 004 play: "at the least the icons should have
                     -- some margin between them".
                     SetSetting(sys, cdm.IconPadding, pad)
@@ -856,9 +888,22 @@ function Clear.OnLogin()
     driver:RegisterEvent("PLAYER_ENTERING_WORLD")
     driver:RegisterEvent("CHAT_MSG_WHISPER")
     driver:RegisterEvent("CHAT_MSG_BN_WHISPER")
+    -- Round 004 play: moving the game to the laptop screen left the wings
+    -- sized for the wider one. A new screen size re-fits everything (once,
+    -- after the resize settles).
+    driver:RegisterEvent("DISPLAY_SIZE_CHANGED")
+    driver:RegisterEvent("UI_SCALE_CHANGED")
     driver:SetScript("OnEvent", function(self, event)
         if event == "PLAYER_ENTERING_WORLD" then
             if Clear.Enabled() then Clear.Apply() end
+        elseif event == "DISPLAY_SIZE_CHANGED" or event == "UI_SCALE_CHANGED" then
+            if not Clear.refitPending then
+                Clear.refitPending = true
+                C_Timer.After(0.5, function()
+                    Clear.refitPending = nil
+                    if ns.Layout and ns.Layout.Apply then ns.Layout.Apply() end
+                end)
+            end
         elseif event == "PLAYER_REGEN_ENABLED" then
             self:UnregisterEvent("PLAYER_REGEN_ENABLED")
             Clear.Flush()

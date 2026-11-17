@@ -3153,6 +3153,22 @@ do
         return a and a.relativeTo == "MyUIDebuffAnchor" and a.point == "BOTTOMLEFT"
            and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
     end)())
+    check("  a narrow screen shrinks a wing to fit beside the bar, never under it", (function()
+        local was = _G.UIParent.__w
+        local half, _, _, _, barX = ns.Actions.Extent()
+        local gap = Scale.U(32)
+        _G.UIParent.__w = 3000
+        local s1, l1 = Clear.WingFit("Essential")
+        _G.UIParent.__w = 1229            -- a 16:10 laptop screen, 768 tall
+        local s2, l2 = Clear.WingFit("Essential")
+        local w = Clear.WINGS.Essential
+        local width = l2 * w.base * (50 + 10 * s2) / 100 + (l2 - 1) * ns.Layout.Value("iconPadding")
+        local fits = width <= 1229 / 2 + barX - half - gap
+        local h = Clear.WingIconHeight("Essential")
+        _G.UIParent.__w = was
+        return s1 == 6 and l1 == 8 and (s2 < 6 or l2 < 8) and fits and h == w.base * (50 + 10 * s2) / 100,
+               ("%s/%s %s/%s"):format(s1, l1, s2, l2)
+    end)())
     check("  with no zone button up, the debuffs take its place by the bar", (function()
         local half, bottom = ns.Actions.Extent()
         local p, _, rp, x, y = Clear.debuffAnchor:GetPoint(1)
