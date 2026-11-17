@@ -519,7 +519,7 @@ T.Suite("myui-clear", {
               local Clear = api.ns().Clear
               local name = Clear.ActiveLayoutName()
               local db = api.ns().db.clear or {}
-              return name == Clear.LAYOUT, ("active %s; previous %s; %s"):format(
+              return Clear.IsMyLayout(name), ("active %s; previous %s; %s"):format(
                   tostring(name), tostring(db.prevLayout), tostring(db.layoutResult))
           end },
         { id = "player-frame-probe", shot = false,

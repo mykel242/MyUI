@@ -369,6 +369,21 @@ end
 
 Clear.LAYOUT = "MyUI"
 
+-- Round 004 play (Mykel, moving between a desktop monitor and a laptop):
+-- one MyUI layout per screen width, so going back to a screen picks up the
+-- layout already fitted to it instead of rewriting one layout each time.
+-- Named "MyUI 1229" (UIParent's width in UI units); "MyUI" when unknown.
+function Clear.LayoutName()
+    local w = _G.UIParent and _G.UIParent.GetWidth and _G.UIParent:GetWidth() or 0
+    if type(w) ~= "number" or w <= 0 then return Clear.LAYOUT end
+    return ("%s %d"):format(Clear.LAYOUT, math.floor(w + 0.5))
+end
+
+--- Is this one of MyUI's layouts (any screen)?
+function Clear.IsMyLayout(name)
+    return name == Clear.LAYOUT or (type(name) == "string" and name:match("^MyUI %d+$") ~= nil)
+end
+
 local function DeepCopy(t)
     if type(t) ~= "table" then return t end
     local out = {}
@@ -785,14 +800,45 @@ function Clear.ApplyLayout()
     local info = C_EditMode.GetLayouts()
     local presets = Presets()
     local current, activeIdx = Clear.ActiveLayoutName()
-    if current ~= Clear.LAYOUT then
+    if not Clear.IsMyLayout(current) then
         DB().prevLayout = current
     end
 
-    -- Find or make the layout.
-    local mine
+    -- Find this screen's layout; else take over the old single "MyUI" one;
+    -- else start from another screen's (already MyUI's shape); else from
+    -- whatever is active.
+    local want = Clear.LayoutName()
+    local mine, plain, other
+    local dirty = false   -- renamed or added: the list itself must be saved
     for i, l in ipairs(info.layouts) do
-        if l.layoutName == Clear.LAYOUT then mine = i end
+        if l.layoutName == want then mine = i
+        elseif l.layoutName == Clear.LAYOUT then plain = i
+        elseif Clear.IsMyLayout(l.layoutName) then other = other or i end
+    end
+    if not mine and plain then
+        mine = plain
+        info.layouts[mine].layoutName = want
+        dirty = true
+    end
+    local accounts = 0
+    for _, l in ipairs(info.layouts) do
+        if l.layoutType == E.EditModeLayoutType.Account then accounts = accounts + 1 end
+    end
+    if not mine and other and accounts >= 5 then
+        -- No room for another: the other screen's layout becomes this one's.
+        mine = other
+        info.layouts[mine].layoutName = want
+        dirty = true
+    end
+    if not mine and other then
+        local new = DeepCopy(info.layouts[other])
+        new.layoutName = want
+        table.insert(info.layouts, accounts + 1, new)
+        if info.activeLayout > presets + accounts then
+            info.activeLayout = info.activeLayout + 1
+        end
+        mine = accounts + 1
+        dirty = true
     end
     if not mine then
         local source
@@ -804,13 +850,9 @@ function Clear.ApplyLayout()
             source = copies and copies[activeIdx]
         end
         if not source then return nil, "could not read the active layout" end
-        local accounts = 0
-        for _, l in ipairs(info.layouts) do
-            if l.layoutType == E.EditModeLayoutType.Account then accounts = accounts + 1 end
-        end
         if accounts >= 5 then return nil, "five account layouts already -- delete one in Edit Mode" end
         local new = DeepCopy(source)
-        new.layoutName = Clear.LAYOUT
+        new.layoutName = want
         new.layoutType = E.EditModeLayoutType.Account
         -- Account layouts sort before character ones.
         mine = accounts + 1
@@ -818,6 +860,7 @@ function Clear.ApplyLayout()
         if info.activeLayout > presets + accounts then
             info.activeLayout = info.activeLayout + 1
         end
+        dirty = true
     end
 
     local before = DeepCopy(info.layouts[mine])
@@ -830,13 +873,15 @@ function Clear.ApplyLayout()
     -- When the MyUI layout is already active and already right, touch
     -- nothing: then a normal login never calls C_EditMode at all.
     local isActive = info.activeLayout == presets + mine
-    if isActive and DeepEqual(before, info.layouts[mine]) then
+    local same = not dirty and DeepEqual(before, info.layouts[mine])
+    if isActive and same then
         Clear.layoutUntouched = true
         return 0
     end
     Clear.layoutUntouched = false
     info.activeLayout = presets + mine
-    C_EditMode.SaveLayouts(info)
+    -- Back on a screen whose layout is already right: only switch to it.
+    if not same then C_EditMode.SaveLayouts(info) end
     C_EditMode.SetActiveLayout(presets + mine)
     return changed
 end

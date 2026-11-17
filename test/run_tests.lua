@@ -3222,6 +3222,32 @@ do
         Clear.ApplyLayout()
         return saved
     end)())
+    check("one MyUI layout per screen: the old one is taken over, a new screen gets its own", (function()
+        local was = _G.UIParent.__w
+        local function find(name)
+            for i, l in ipairs(mock.layouts.layouts) do if l.layoutName == name then return i end end
+        end
+        _G.UIParent.__w = 1229
+        Clear.ApplyLayout()
+        local tookOver = find("MyUI 1229") ~= nil and find("MyUI") == nil
+        _G.UIParent.__w = 1536.2
+        Clear.ApplyLayout()
+        local both = find("MyUI 1229") ~= nil and find("MyUI 1536") ~= nil
+        local onNew = mock.editMode.active == 2 + find("MyUI 1536")
+        -- Back to the laptop: its layout is already fitted, so only switched.
+        _G.UIParent.__w = 1229
+        mock.editMode.saved = nil
+        Clear.ApplyLayout()
+        local back = mock.editMode.active == 2 + find("MyUI 1229") and mock.editMode.saved == nil
+        local prevKept = ns.db.clear.prevLayout == "XYZ - Ultra"
+        -- Put the single layout back for the checks after this one.
+        table.remove(mock.layouts.layouts, find("MyUI 1536"))
+        mock.layouts.layouts[find("MyUI 1229")].layoutName = "MyUI"
+        _G.UIParent.__w = was
+        Clear.ApplyLayout()
+        return tookOver and both and onNew and back and prevKept,
+               ("%s %s %s %s %s"):format(tostring(tookOver), tostring(both), tostring(onNew), tostring(back), tostring(prevKept))
+    end)())
     check("restore reselects the previous layout", (function()
         Clear.RestoreLayout()
         return mock.editMode.active == 3, mock.editMode.active
