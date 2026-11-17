@@ -3134,17 +3134,19 @@ do
            and near(a.offsetX, -(half + Scale.U(32))) and near(a.offsetY, bottom)
            and setting(sys(5), 2) == 0 and setting(sys(5), 3) == 6 and sys(5).isInDefaultPosition == false
     end)())
-    check("  utility clear of the major cooldowns' 55 px; the chosen buffs on the left too, over utility", (function()
+    check("  utility sits on the major cooldowns' viewer, the chosen buffs on utility's, whatever rows they wrap to", (function()
         local u, b = sys(6).anchorInfo, sys(7).anchorInfo
-        local half, bottom, row, gap = ns.Actions.Extent()
-        return u.point == "BOTTOMRIGHT" and near(u.offsetY, bottom + 55 + gap)
-           and b.point == "BOTTOMRIGHT" and near(b.offsetX, -(half + Scale.U(32)))
-           and near(b.offsetY, bottom + 55 + gap + 30 + gap) and setting(sys(7), 2) == 0
+        local _, _, _, gap = ns.Actions.Extent()
+        return u.point == "BOTTOMRIGHT" and u.relativeTo == "EssentialCooldownViewer" and u.relativePoint == "TOPRIGHT"
+           and near(u.offsetX, 0) and near(u.offsetY, gap)
+           and b.point == "BOTTOMRIGHT" and b.relativeTo == "UtilityCooldownViewer" and b.relativePoint == "TOPRIGHT"
+           and near(b.offsetY, gap) and setting(sys(7), 2) == 0
     end)())
     check("  the tracked buff bars just over the chosen buffs' row, growing up (vertical, direction Right)", (function()
-        local a, b = sys(8).anchorInfo, sys(7).anchorInfo
+        local a = sys(8).anchorInfo
+        local _, _, under = Clear.Anchor("BuffIcon")
         local _, _, _, gap = ns.Actions.Extent()
-        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, b.offsetY + 32 + gap)
+        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, under + 32 + gap)
            and setting(sys(8), 0) == 1 and setting(sys(8), 2) == 1
     end)())
     check("  debuffs on you: anchored to MyUI's debuff anchor, ~bar-1 size, dispel types shown", (function()

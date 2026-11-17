@@ -509,6 +509,13 @@ Clear.WINGS = {
 -- type (ShowDispelType) and draws whatever arrives secret itself -- so probe
 -- P1 does not gate it. One row, growing away from the bar. Round 004 play:
 -- 150% drew ~59 units, bigger than bar 1; 110% is ~43, bar-1 size.
+-- Blizzard's frame for each wing's viewer.
+Clear.VIEWERS = {
+    Essential = "EssentialCooldownViewer",
+    Utility   = "UtilityCooldownViewer",
+    BuffIcon  = "BuffIconCooldownViewer",
+}
+
 Clear.AURA_WINGS = {
     DebuffFrame = { side = 1, row = 0, size = 6, limit = 8 },
 }
@@ -725,7 +732,20 @@ function Clear.PlaceWings(layout)
         elseif sys.system == E.EditModeSystem.CooldownViewer then
             for key, w in pairs(Clear.WINGS) do
                 if idx[key] == sys.systemIndex then
-                    At(sys, key)
+                    if w.over then
+                        -- Round 004 play: utility wrapped to a second row,
+                        -- grew up from its anchor, and the chosen buffs (placed
+                        -- for one row) overlapped it. A stacked row sits on
+                        -- the viewer under it, whatever that one's height.
+                        local _, _, _, rowGap = ns.Actions.Extent()
+                        local edge = w.side < 0 and "RIGHT" or "LEFT"
+                        sys.isInDefaultPosition = false
+                        sys.anchorInfo = { point = "BOTTOM" .. edge, relativeTo = Clear.VIEWERS[w.over],
+                                           relativePoint = "TOP" .. edge, offsetX = 0, offsetY = rowGap }
+                        n = n + 1
+                    else
+                        At(sys, key)
+                    end
                     sys.settings = sys.settings or {}
                     SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Horizontal)
                     SetSetting(sys, cdm.IconDirection,
