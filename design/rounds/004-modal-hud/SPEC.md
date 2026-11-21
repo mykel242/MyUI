@@ -559,8 +559,9 @@ the group frames sit, plus the wing gap and icon padding, in SPEC units. Built i
   timeline (§ 21) are the natural tenants.
 - **spec** — SPEC 2's positions (SelfStack 214 up, target strip 20 from the top, bar at 48).
 
-The debuffs follow the zone button: anchored in the Edit Mode layout to a MyUI anchor frame
-(`MyUIDebuffAnchor`) that sits past the button while it is up and in its place when it is not.
+The debuffs sit past the zone button's place whether it is up or not. (They used to slide into
+its place through a MyUI anchor frame, but Edit Mode resolves a named anchor through `_G`, and
+reading an addon's global tainted the whole debuff frame. No Edit Mode anchor names a MyUI frame.)
 `/myui layout` previews every placed part as a labelled box — debuffs, zone button, cooldowns,
 utility, chosen buffs, stance, pet, buff bars, group — even when it has nothing to show.
 `/myui profile` lists and switches; `/myui move self|target|bar|group dx dy` nudges (a built-in

@@ -626,9 +626,11 @@ function Clear.Anchor(key)
                bottom - rowGap - Clear.UNDER_WING_HEIGHT
     end
     if key == "Debuffs" then
-        -- Past the zone button while it is up, otherwise in its place.
-        local g = Clear.ZoneShown() and (ns.Layout.Value("debuffGap") or ns.Layout.Value("wingGap"))
-                  or ns.Layout.Value("wingGap")
+        -- Always past where the zone button goes, up or not. (Sliding them
+        -- into its place needed a MyUI anchor frame, and Edit Mode reading
+        -- that frame's global tainted the whole debuff frame -- round 004
+        -- play, taint.log: "reading global MyUIDebuffAnchor".)
+        local g = ns.Layout.Value("debuffGap") or ns.Layout.Value("wingGap")
         return "BOTTOMLEFT", barX + half + ns.Scale.U(g), bottom
     end
     if key == "BuffBars" then
@@ -642,44 +644,9 @@ function Clear.Anchor(key)
     return point, ns.Scale.U(x), ns.Scale.U(y), rel
 end
 
---- Is Blizzard's zone / extra ability button up right now?
-function Clear.ZoneShown()
-    local c = _G.ExtraAbilityContainer
-    return c ~= nil and c:IsShown() == true
-end
-
--- The debuffs are anchored in the Edit Mode layout to this MyUI frame rather
--- than to UIParent, so MyUI can slide them (Mykel: into the zone button's
--- place when it is not up) without touching Blizzard's frame. Created when
--- this file loads: Edit Mode applies the saved layout (EDIT_MODE_LAYOUTS_
--- UPDATED) before PLAYER_LOGIN, and an anchor made at login was not there
--- yet ("Couldn't find region named 'MyUIDebuffAnchor'", round 004 play).
-function Clear.DebuffAnchor()
-    if not Clear.debuffAnchor then
-        Clear.debuffAnchor = CreateFrame("Frame", "MyUIDebuffAnchor", UIParent)
-        Clear.debuffAnchor:SetSize(1, 1)
-        -- Somewhere sane until login places it (Clear.OnLogin).
-        Clear.debuffAnchor:SetPoint("BOTTOMLEFT", UIParent, "BOTTOM", 240, 80)
-    end
-    return Clear.debuffAnchor
-end
-
-Clear.DebuffAnchor()
-
-function Clear.PlaceDebuffAnchor()
-    Clear.DebuffAnchor()
-    local point, x, y = Clear.Anchor("Debuffs")
-    Clear.debuffAnchor:ClearAllPoints()
-    Clear.debuffAnchor:SetPoint(point, UIParent, "BOTTOM", x, y)
-end
-
-function Clear.HookZone()
-    local c = _G.ExtraAbilityContainer
-    if not c or Clear.zoneHooked then return end
-    c:HookScript("OnShow", Clear.PlaceDebuffAnchor)
-    c:HookScript("OnHide", Clear.PlaceDebuffAnchor)
-    Clear.zoneHooked = true
-end
+-- Edit Mode layouts never name a MyUI frame as an anchor: Edit Mode
+-- resolves it through _G (SetSnappedToFrame), and reading an addon's global
+-- taints the system it is placing for the rest of the session.
 
 function Clear.PlaceWings(layout)
     local E = _G.Enum
@@ -721,10 +688,7 @@ function Clear.PlaceWings(layout)
             for key, w in pairs(Clear.AURA_WINGS) do
                 if aidx and aset and aidx[key] == sys.systemIndex then
                     sys.isInDefaultPosition = false
-                    -- Anchored to MyUI's debuff anchor, which slides.
-                    sys.anchorInfo = { point = "BOTTOMLEFT", relativeTo = "MyUIDebuffAnchor",
-                                       relativePoint = "BOTTOMLEFT", offsetX = 0, offsetY = 0 }
-                    n = n + 1
+                    At(sys, "Debuffs")
                     sys.settings = sys.settings or {}
                     SetSetting(sys, aset.Orientation, E.AuraFrameOrientation.Horizontal)
                     SetSetting(sys, aset.IconDirection, E.AuraFrameIconDirection.Right)
@@ -775,8 +739,6 @@ function Clear.PlaceWings(layout)
             end
         end
     end
-    Clear.PlaceDebuffAnchor()
-    Clear.HookZone()
     return n
 end
 
@@ -947,7 +909,6 @@ function Clear.Restore()
 end
 
 function Clear.OnLogin()
-    Clear.PlaceDebuffAnchor()
     local driver = CreateFrame("Frame", "MyUIClearDriver", UIParent)
     Clear.driver = driver
     driver:RegisterEvent("PLAYER_ENTERING_WORLD")
