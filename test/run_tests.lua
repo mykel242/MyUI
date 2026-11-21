@@ -386,6 +386,11 @@ check("name, percentage and level on one row, bottoms 2 above the bar -- self an
     return near(hy, -Scale.U(13))
 end)())
 
+check("a long name stops short of the centred percentage, on one line", (function()
+    local p, rel, rp, x = stack.name:GetPoint(2)
+    return p == "BOTTOMRIGHT" and rel == stack.health and rp == "TOP" and near(x, -Scale.U(26))
+end)())
+
 -- The compliance keystone. The ticks are fixed marks at 20% and 40% of a
 -- 240-wide bar by construction; nothing computes them from a value, and these
 -- two checks are what proves the geometry says so.

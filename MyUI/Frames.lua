@@ -243,9 +243,15 @@ end
 
 --- Name (left) and level (right, dim) on one row with the percentage, their
 -- bottoms ROW_GAP above the bar, so the three read as one line.
+Frames.NAME_CLEAR = 26   -- half the centred percentage, plus a little air
+
 function Frames.TextRow(group, bar)
     local name = Text(group, 11, "textPrimary", "LEFT")
     name:SetPoint("BOTTOMLEFT", bar, "TOPLEFT", 0, U(Frames.ROW_GAP))
+    -- Round 004 play: a long name ("Crenna Earth-Daughter") ran under the
+    -- percentage centred above the bar. It stops short of it, truncated.
+    name:SetPoint("BOTTOMRIGHT", bar, "TOP", -U(Frames.NAME_CLEAR), U(Frames.ROW_GAP))
+    name:SetWordWrap(false)
     local level = Text(group, 11, "textDim", "RIGHT")
     level:SetPoint("BOTTOMRIGHT", bar, "TOPRIGHT", 0, U(Frames.ROW_GAP))
     return name, level

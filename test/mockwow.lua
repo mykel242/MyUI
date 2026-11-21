@@ -94,7 +94,16 @@ function M.frame(spec)
             elseif method == "SetHeight" then
                 f.__h = ...
             elseif method == "SetPoint" then
-                f.__point = { ... }
+                -- Points by anchor, as the client keeps them: setting one
+                -- again replaces it, a different one adds a second.
+                local pt = { ... }
+                f.__points = f.__points or {}
+                local at = #f.__points + 1
+                for i, q in ipairs(f.__points) do if q[1] == pt[1] then at = i end end
+                f.__points[at] = pt
+                f.__point = f.__points[1]
+            elseif method == "ClearAllPoints" then
+                f.__points, f.__point = nil, nil
             elseif method == "SetFrameStrata" then
                 f.__strata = ...
             end
@@ -197,13 +206,10 @@ function M.frame(spec)
     f.GetWidth  = function() return f.__w or 0 end
     f.GetHeight = function() return f.__h or 0 end
     f.GetSize   = function() return f.__w or 0, f.__h or 0 end
-    f.GetNumPoints = function()
-        if f.__point then return 1 end
-        return 0
-    end
+    f.GetNumPoints = function() return f.__points and #f.__points or 0 end
     f.GetPoint = function(_, i)
-        local p = f.__point
-        if not p or (i and i > 1) then return end
+        local p = f.__points and f.__points[i or 1]
+        if not p then return end
         return p[1], p[2], p[3], p[4], p[5]
     end
 
@@ -233,11 +239,7 @@ function M.frame(spec)
     f.__parent = spec.parent
     f.SetParent = function(_, parent) f.__parent = parent; log("SetParent", parent) end
     f.GetParent = function() return f.__parent end
-    f.GetPoint = function(_, i)
-        local pt = f.__point
-        if not pt then return nil end
-        return pt[1], pt[2], pt[3], pt[4], pt[5]
-    end
+
     f.GetName = function() return spec.name end
 
     f.scripts = {}
