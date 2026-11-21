@@ -104,6 +104,8 @@ function M.frame(spec)
                 f.__point = f.__points[1]
             elseif method == "ClearAllPoints" then
                 f.__points, f.__point = nil, nil
+            elseif method == "EnableMouse" then
+                f.__mouse = (...) and true or false
             elseif method == "SetFrameStrata" then
                 f.__strata = ...
             end
@@ -206,6 +208,7 @@ function M.frame(spec)
     f.GetWidth  = function() return f.__w or 0 end
     f.GetHeight = function() return f.__h or 0 end
     f.GetSize   = function() return f.__w or 0, f.__h or 0 end
+    f.IsMouseEnabled = function() return f.__mouse == true end
     f.GetNumPoints = function() return f.__points and #f.__points or 0 end
     f.GetPoint = function(_, i)
         local p = f.__points and f.__points[i or 1]
@@ -786,8 +789,32 @@ function M.install()
         end,
     }
 
+    -- Round 005's quest tracker reads the log. M.quests is the log, in
+    -- order: { id, title, complete, objectives = { {text, finished,
+    -- numFulfilled, numRequired, type} } }; M.watched lists tracked ids.
+    M.quests, M.watched, M.superTracked = {}, {}, 0
+    local function quest(id)
+        for _, q in ipairs(M.quests) do if q.id == id then return q end end
+    end
     _G.C_QuestLog = {
-        GetTitleForQuestID = function(id) return M.questTitles[id] end,
+        GetTitleForQuestID = function(id)
+            local q = quest(id)
+            return q and q.title or M.questTitles[id]
+        end,
+        GetNumQuestLogEntries = function() return #M.quests end,
+        GetInfo = function(i)
+            local q = M.quests[i]
+            return q and { questID = q.id, title = q.title, isHeader = q.header == true }
+        end,
+        GetQuestObjectives = function(id) local q = quest(id); return q and q.objectives or {} end,
+        IsComplete = function(id) local q = quest(id); return q ~= nil and q.complete == true end,
+        ReadyForTurnIn = function(id) local q = quest(id); return q ~= nil and q.complete == true end,
+        GetNumQuestWatches = function() return #M.watched end,
+        GetQuestIDForQuestWatchIndex = function(i) return M.watched[i] end,
+    }
+    _G.C_SuperTrack = {
+        GetSuperTrackedQuestID = function() return M.superTracked end,
+        SetSuperTrackedQuestID = function(id) M.superTracked = id end,
     }
 
     _G.GetAchievementInfo = function(id) return id, M.achievements[id] end

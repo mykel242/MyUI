@@ -49,4 +49,10 @@
     <Binding name="MYUI_ARRANGE" category="MyUI">
         MyUI_ArrangeBars()
     </Binding>
+
+    <!-- Round 005: the quest list (the tracker's replacement); the same key
+         puts it away. -->
+    <Binding name="MYUI_QUESTS" category="MyUI">
+        MyUI_Quests()
+    </Binding>
 </Bindings>

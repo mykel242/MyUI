@@ -479,10 +479,13 @@ Sources.EVENTS = {
     LOOT_ITEM_ROLL_WON = OnRollWon,
 
     -- amber
+    -- Round 005: with MyUI's quest tracker on (Quests.lua), it says these.
     QUEST_ACCEPTED = function(questID)
+        if ns.Quests and ns.Quests.Active() then return end
         ns.Toast.Add("amber", QuestName(questID, "Quest accepted"))
     end,
     QUEST_TURNED_IN = function(questID)
+        if ns.Quests and ns.Quests.Active() then return end
         ns.Toast.Add("amber", QuestName(questID, "Quest complete"))
     end,
     -- green

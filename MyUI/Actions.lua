@@ -702,6 +702,8 @@ function Actions.Start()
 end
 
 function Actions.OnLogin()
+    -- Round 005: with the "bars" switch off, Blizzard keeps its action bars.
+    if ns.Switches and not ns.Switches.On("bars") then return end
     if Actions.Start() then return end
     local wait = CreateFrame("Frame")
     wait:RegisterEvent("PLAYER_REGEN_ENABLED")

@@ -238,6 +238,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             -- Every source posts a toast, so toasts have to exist before one
             -- can fire. Login primes three latched conditions.
             { "sources",      ns.Sources  },
+            -- Round 005: quest toasts and the quest list, once toasts exist.
+            { "quests",       ns.Quests   },
             -- The history opens at the toast anchor and borrows the toasts'
             -- hues, so both have to exist first.
             { "centre",       ns.Center   },

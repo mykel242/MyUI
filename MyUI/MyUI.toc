@@ -16,6 +16,7 @@ Stow.lua
 Scale.lua
 Palette.lua
 Layout.lua
+Switches.lua
 Guard.lua
 Registry.lua
 Frames.lua
@@ -26,6 +27,7 @@ Toast.lua
 Center.lua
 Panel.lua
 Sources.lua
+Quests.lua
 Chat.lua
 Clear.lua
 Actions.lua

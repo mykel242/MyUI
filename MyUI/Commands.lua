@@ -225,6 +225,8 @@ end
 
 local COMMANDS = {
     { "help",         "this list" },
+    { "override",     "MyUI's replacements, one switch each: list | <name> on|off (off = Blizzard's)" },
+    { "quests",       "the quest list (the tracker's replacement): toggles; bind MyUI -> Show the quest list" },
     { "copy",         "the last output in a selectable window" },
     { "show",         "force every frame to alpha 1, or release back to resting" },
     { "test",         "the acceptance checklist; test report | reset | <phase>" },
@@ -276,6 +278,35 @@ end
 
 local HANDLERS = {
     help         = Help,
+    override     = function(arg)
+        local S = ns.Switches
+        local key, state = (arg or ""):lower():match("^(%S*)%s*(%S*)$")
+        if key ~= "" and S.BY_KEY[key] and (state == "on" or state == "off") then
+            local s, reload = S.Set(key, state == "on")
+            ns.Print(("%s: %s%s"):format(s.label, state == "on" and "MyUI's" or "Blizzard's",
+                     reload and " -- |cffffd159/reload|r to apply" or ""))
+            return
+        end
+        if key ~= "" and not S.BY_KEY[key] then
+            ns.Print(("no switch %q"):format(key))
+        end
+        ns.Print("MyUI's replacements (off gives Blizzard's back):")
+        for _, s in ipairs(S.LIST) do
+            local on = S.On(s.key)
+            ns.Raw(("  %s %-10s|r %s -- %s%s"):format(on and "|cffa6d98con |r" or "|cfff29e73off|r",
+                   s.key, s.label, on and s.mine or "Blizzard's", s.reload and " (on /reload)" or ""))
+        end
+        ns.Raw("  /myui override <name> on|off")
+    end,
+    quests       = function()
+        local Q = ns.Quests
+        if not (Q and Q.Active()) then
+            ns.Print("the quest list is off -- /myui override quests on")
+            return
+        end
+        ns.Print(Q.Toggle() and "quest list: open (left-click a quest: waypoint; right-click: map)"
+                            or "quest list: closed")
+    end,
     actions      = function()
         local A = ns.Actions
         if not A then return end

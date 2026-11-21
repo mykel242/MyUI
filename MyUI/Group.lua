@@ -294,6 +294,12 @@ function Group.Build()
     Precreate(raid, Group.RAID_MAX)
     RegisterStateDriver(party, "visibility", "[group:raid] hide; [group:party] show; hide")
     RegisterStateDriver(raid, "visibility", "[group:raid] show; hide")
+    -- Round 005: with the "group" switch off, Blizzard's party and raid
+    -- frames stay and MyUI's never show.
+    if ns.Switches and not ns.Switches.On("group") then
+        RegisterStateDriver(party, "visibility", "hide")
+        RegisterStateDriver(raid, "visibility", "hide")
+    end
 
     Group.Refresh()
     return true

@@ -697,6 +697,26 @@ restyled after probe P4 — MyUI never predicts a boss.
 In travel, a key (M) calls up Blizzard's world map translucent over the world, and closes it.
 Mount, hearthstone and the like come up on hover.
 
+## 23. Switches and the quest tracker (round 005)
+
+**Switches.** Every place MyUI replaces or hides Blizzard chrome is one player switch
+(`Switches.lua`): quests, chat, minimap, buffs, castbar, cooldowns, menu, meter, bars, unitframes,
+group. On (default) is MyUI's way; off gives that piece back to Blizzard. Alpha-only switches apply
+at once; bars, unitframes and group (protected frames) on `/reload`. `/myui override` lists them;
+`/myui override <name> on|off` flips one. Saved in `MyUIDB.switches` (only the ones turned off).
+
+**Quest tracker** (`Quests.lua`, the "quests" switch). Blizzard's objective tracker stays adopted
+at 0; MyUI says what changes:
+- **Toasts, amber.** An objective moving says its own line ("Boars slain: 4/10"); a quest
+  finishing says "<title> -- ready to turn in" instead of its last objective; accepting and turning
+  in say so too. The first read after login only records. `QUEST_LOG_UPDATE` is read once per burst.
+- **The list, on demand** — the MyUI → Show the quest list key, `/myui quests`, or peek. Right
+  edge, right-aligned, where the tracker was: tracked quests (or the log's first eight when none
+  are tracked), each title with what is left of it a step in. Amber title: the waypoint quest;
+  green: ready to turn in. Left-click a title: waypoint arrow on it (again: off). Right-click: open
+  it on the map (out of combat). Rows take clicks only while open; the pointer never wakes it;
+  combat closes it.
+
 ## § 6 amendment — Blizzard's own toasts
 
 Blizzard's Battle.net toast (friend online, and the like) and alert toasts are old, bordered and

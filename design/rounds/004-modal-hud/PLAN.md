@@ -185,7 +185,8 @@ hiding it — "toast-oriented, UI when you need it, stripped to the bone"; Blizz
 for rarely used things. Every MyUI override is a player switch (on: MyUI's version; off:
 Blizzard's back), so others can take what they want. Biggest pet peeves, first in line: the
 **quest tracker**, the **map**, and the **chat frames**. Done now: the pointer no longer wakes
-adopted Blizzard frames (peek and their own events still do).
+adopted Blizzard frames (peek and their own events still do). **Built 2026-11-21:** the switches
+and the quest tracker (SPEC § 23). Next: the map, then chat.
 
 **Then, one at a time, in Mykel's order:** the mode switch proper (§ 16 — rest, travel and boss
 layouts, the layout rail); boss mode (§ 21, after P4); the map key (§ 22); Blizzard's toasts

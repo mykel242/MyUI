@@ -99,25 +99,28 @@ end
 -- Adoption
 -- ---------------------------------------------------------------------------
 
-function Clear.Adopt()
-    local n = 0
-    for _, spec in ipairs(Clear.ADOPT) do
-        local name, global = spec[1], spec[2]
-        local frame = _G[global]
-        if frame and not Clear.adopted[name] and not ns.Registry.Get(name)
-           and type(frame.SetAlpha) == "function" then
-            local alpha = ns.Compat.Get(frame, "GetAlpha")
-            Clear.adopted[name] = { frame = frame, alpha = type(alpha) == "number" and alpha or 1,
-                                    shown = frame:IsShown() }
-            local entry = ns.Registry.Add(name, frame, 0)
-            entry.hideAtZero = spec.hideAtZero
-            if spec.yieldsTo and ns.Registry.Get(spec.yieldsTo) then
-                ns.Registry.Remove(name)
-                Clear.Pin(frame)
-            end
-            n = n + 1
+local function AdoptSpec(spec)
+    local name, global = spec[1], spec[2]
+    local frame = _G[global]
+    -- Round 005: a switch turned off leaves its frames to Blizzard.
+    if ns.Switches and not ns.Switches.Adopts(name) then return false end
+    if frame and not Clear.adopted[name] and not ns.Registry.Get(name)
+       and type(frame.SetAlpha) == "function" then
+        local alpha = ns.Compat.Get(frame, "GetAlpha")
+        Clear.adopted[name] = { frame = frame, alpha = type(alpha) == "number" and alpha or 1,
+                                shown = frame:IsShown() }
+        local entry = ns.Registry.Add(name, frame, 0)
+        entry.hideAtZero = spec.hideAtZero
+        if spec.yieldsTo and ns.Registry.Get(spec.yieldsTo) then
+            ns.Registry.Remove(name)
+            Clear.Pin(frame)
         end
+        return true
     end
+    return false
+end
+
+local function Settle()
     -- Typing must never happen inside an invisible frame: the edit box leaves
     -- the chat log before the log goes to alpha 0.
     if Clear.adopted.Chat and ns.Chat and ns.Chat.FreeEditBox then
@@ -126,7 +129,41 @@ function Clear.Adopt()
     if ns.Reveal.Calm then ns.Reveal.Calm() end
     ns.Reveal.Resolve()
     ns.Reveal.Snap()
+end
+
+function Clear.Adopt()
+    local n = 0
+    for _, spec in ipairs(Clear.ADOPT) do
+        if AdoptSpec(spec) then n = n + 1 end
+    end
+    Settle()
     return n
+end
+
+--- Adopt one frame by its Clear.ADOPT name (a switch turned back on).
+function Clear.AdoptOne(name)
+    for _, spec in ipairs(Clear.ADOPT) do
+        if spec[1] == name then
+            local ok = AdoptSpec(spec)
+            Settle()
+            return ok
+        end
+    end
+    return false
+end
+
+--- Give one adopted frame back to Blizzard (a switch turned off).
+function Clear.ReleaseOne(name)
+    local a = Clear.adopted[name]
+    if not a then return false end
+    if Clear.pinned[a.frame] then Clear.pinned[a.frame] = false end
+    ns.Reveal.Release("whisper", name)
+    ns.Registry.Remove(name)
+    a.frame:SetAlpha(a.alpha or 1)
+    if a.shown and not a.frame:IsShown() then a.frame:Show() end
+    Clear.adopted[name] = nil
+    ns.Reveal.Resolve()
+    return true
 end
 
 --- Hold a frame at alpha 0 against Blizzard's own code setting it back
@@ -338,7 +375,8 @@ function Clear.HideUnits()
     local n = 0
     for _, name in ipairs(Clear.UNITS) do
         local frame = _G[name]
-        if frame and not Clear.hiddenUnits[name] then
+        if frame and not Clear.hiddenUnits[name]
+           and not (ns.Switches and not ns.Switches.Hides(name)) then
             frame:UnregisterAllEvents()
             frame:Hide()
             -- Belt and braces: anything that still calls Show() is answered

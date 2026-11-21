@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 26, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 28, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -316,8 +316,8 @@ end)())
 section("Frames -- SPEC 2 anchors")
 -- ---------------------------------------------------------------------------
 
-check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar, group frames and pet",
-      Registry.Count() == 7 and Registry.Get("ActionBar") ~= nil and Registry.Get("Focus") ~= nil and Registry.Get("Group") ~= nil and Registry.Get("Pet") ~= nil, Registry.Count())
+check("the three SPEC 2 frames registered (the rail is cut), plus round 004's action bar, group frames and pet, and round 005's quest list",
+      Registry.Count() == 8 and Registry.Get("QuestList") ~= nil and Registry.Get("ActionBar") ~= nil and Registry.Get("Focus") ~= nil and Registry.Get("Group") ~= nil and Registry.Get("Pet") ~= nil, Registry.Count())
 
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
@@ -1301,6 +1301,10 @@ end)())
 
 -- --- amber: quests ---------------------------------------------------------
 
+-- These are the toast sources' own quest rows, which speak only while MyUI's
+-- quest tracker (Quests.lua, round 005) is off.
+local questsWere = ns.Quests.enabled
+ns.Quests.enabled = false
 mock.questTitles[42] = "The Missing Diplomat"
 got = fire("QUEST_ACCEPTED", 42)
 check("accepting a quest posts an amber row", got ~= nil and got.kind == "amber")
@@ -1336,6 +1340,7 @@ check("  while accepting a quest still does", (function()
     sourceDriver:Fire("QUEST_ACCEPTED", 42)
     return #Feed.items == 1, #Feed.items
 end)())
+ns.Quests.enabled = questsWere
 
 -- --- green: currency and reputation ---------------------------------------
 
@@ -4017,6 +4022,126 @@ do
     run("map peek")
     check("/myui map peek: only when summoned", Registry.Get("Minimap").target == 0)
     if not had then Registry.Remove("Minimap") end
+end
+
+-- ---------------------------------------------------------------------------
+section("Round 005 -- switches and the quest tracker")
+-- ---------------------------------------------------------------------------
+do
+    local S, Q, Clear = ns.Switches, ns.Quests, ns.Clear
+    check("every switch is on by default: MyUI's way", (function()
+        for _, sw in ipairs(S.LIST) do if not S.On(sw.key) then return false, sw.key end end
+        return true
+    end)())
+    check("each switch's frames are names Clear adopts", (function()
+        local known = {}
+        for _, spec in ipairs(Clear.ADOPT) do known[spec[1]] = true end
+        for _, sw in ipairs(S.LIST) do
+            for _, f in ipairs(sw.frames or {}) do if not known[f] then return false, f end end
+        end
+        return true
+    end)())
+
+    -- The quest tracker switch, both ways, live.
+    local tracker = mock.frame({ name = "ObjectiveTrackerFrame", shown = true })
+    _G.ObjectiveTrackerFrame = tracker
+    Clear.AdoptOne("Tracker")
+    check("with quests on, Blizzard's tracker is adopted (resting 0)", Clear.IsAdopted("Tracker")
+          and Registry.Get("Tracker") ~= nil)
+    local sw, reload = S.Set("quests", false)
+    check("/myui override quests off: Blizzard's tracker back at once, no reload",
+          sw ~= nil and reload == false and not Clear.IsAdopted("Tracker") and Registry.Get("Tracker") == nil
+          and tracker:GetAlpha() == 1 and not Q.Active() and Registry.Get("QuestList") == nil,
+          ("%s %s %s %s %s"):format(tostring(sw ~= nil), tostring(reload), tostring(Clear.IsAdopted("Tracker")),
+              tostring(Registry.Get("Tracker") ~= nil), tostring(tracker:GetAlpha())))
+    check("  and it stays Blizzard's when clearing runs again", (function()
+        Clear.Adopt()
+        return not Clear.IsAdopted("Tracker")
+    end)())
+    S.Set("quests", true)
+    check("  and on again: MyUI's quest toasts back, the tracker adopted while clearing is on",
+          Q.Active() and Clear.IsAdopted("Tracker") == Clear.Enabled())
+    check("a protected switch waits for /reload", select(2, S.Set("bars", false)) == true
+          and S.On("bars") == false)
+    S.Set("bars", true)
+    check("Blizzard's unit frames are only hidden while their switch is on", (function()
+        S.Set("unitframes", false)
+        local ok = S.Hides("PlayerFrame") == false and S.Hides("SomethingElse") == true
+        S.Set("unitframes", true)
+        return ok and S.Hides("PlayerFrame") == true
+    end)())
+    run("override")
+    check("/myui override lists every switch", (function()
+        local out = ns.GetOutput()
+        for _, s2 in ipairs(S.LIST) do if not out:find(s2.key, 1, true) then return false, s2.key end end
+        return true
+    end)())
+    run("override quests off")
+    check("/myui override quests off flips it", S.On("quests") == false)
+    run("override quests on")
+
+    -- Toasts from the log.
+    mock.quests = {
+        { id = 101, title = "Boar Trouble", objectives = {
+            { text = "Boars slain: 3/10", numFulfilled = 3, numRequired = 10, finished = false },
+            { text = "Talk to the farmer", numFulfilled = 0, numRequired = 1, finished = false } } },
+        { id = 102, title = "Lost Letter", objectives = {
+            { text = "Letter found: 0/1", numFulfilled = 0, numRequired = 1, finished = false } } },
+    }
+    Q.primed, Q.snapshot = false, {}
+    check("the first read only records -- no toasts for where you already are", #Q.Scan() == 0)
+    mock.quests[1].objectives[1] = { text = "Boars slain: 4/10", numFulfilled = 4, numRequired = 10, finished = false }
+    local said = Q.Scan()
+    check("an objective moving toasts its own line", #said == 1 and said[1] == "Boars slain: 4/10", said[1])
+    check("  in amber, the quest hue", Feed.items[1] and Feed.items[1].kind == "amber"
+          and Feed.items[1].name == "Boars slain: 4/10")
+    check("nothing moved, nothing said", #Q.Scan() == 0)
+    mock.quests[2].objectives[1] = { text = "Letter found: 1/1", numFulfilled = 1, numRequired = 1, finished = true }
+    mock.quests[2].complete = true
+    said = Q.Scan()
+    check("finishing a quest says it is ready to turn in, not the last objective",
+          #said == 1 and said[1] == "Lost Letter -- ready to turn in", said[1])
+    check("a progress bar reads as a percentage", Q.ObjectiveText(
+          { text = "", bar = true, have = 45 }, "Clear the camp") == "Clear the camp 45%")
+
+    -- The list.
+    mock.watched = { 101 }
+    local lines = Q.Lines()
+    check("the list shows the tracked quests and what is left of each",
+          lines[1].text == "Boar Trouble" and lines[1].questID == 101
+          and lines[2].text == "Boars slain: 4/10" and lines[2].indent and lines[3].text == "Talk to the farmer"
+          and lines[4] == nil)
+    mock.watched = {}
+    lines = Q.Lines()
+    check("with nothing tracked, the log's quests; a ready one says so", (function()
+        for i, l in ipairs(lines) do
+            if l.text == "Lost Letter" then
+                return l.colour == "notifGreen" and lines[i + 1].text == "ready to turn in"
+            end
+        end
+        return false
+    end)())
+    check("the list is closed until asked for, and the pointer never wakes it",
+          not Q.open and Registry.Get("QuestList").target == 0)
+    run("quests")
+    check("/myui quests opens it", Q.open == true and Registry.Get("QuestList").target == 1)
+    check("  and its quest rows take clicks only while open", Q.rows[1]:IsMouseEnabled() == true)
+    check("left-click points the waypoint arrow at a quest; again clears it", (function()
+        local a = Q.Click(101, "LeftButton")
+        local first = mock.superTracked == 101
+        local b = Q.Click(101, "LeftButton")
+        return a == "tracked" and first and b == "untracked" and mock.superTracked == 0
+    end)())
+    Q.driver:Fire("PLAYER_REGEN_DISABLED")
+    check("combat puts it away", not Q.open and Registry.Get("QuestList").target == 0
+          and Q.rows[1]:IsMouseEnabled() == false)
+    check("the toast sources leave quest rows to the tracker while it is on", (function()
+        Feed.Clear()
+        Q.EVENTS.QUEST_ACCEPTED(101)
+        ns.Sources.Handle("QUEST_ACCEPTED", 101)
+        return #Feed.items == 1 and Feed.items[1].name == "Accepted: Boar Trouble", #Feed.items
+    end)())
+    mock.quests, mock.watched = {}, {}
 end
 
 -- ---------------------------------------------------------------------------

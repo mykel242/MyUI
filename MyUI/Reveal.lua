@@ -81,6 +81,7 @@ Reveal.CHANNELS = {
     -- Round 004: something placeable is on the cursor (a spell, item or
     -- macro picked up) -- the action bar shows every page to drop it on.
     assign  = 1.0,
+    quests  = 1.0,
 }
 
 -- SPEC.md 4 says "highest claim wins" and says nothing about ties -- but every
@@ -102,7 +103,7 @@ Reveal.CHANNELS = {
 -- debug leads because it is not a SPEC channel at all but a diagnostic
 -- override, and an audit that hid it would be lying about why a frame is lit.
 -- lowhealth slots in directly after it in Phase 4.
-Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "hold", "assign", "peek", "calm", "cursor" }
+Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "hold", "assign", "quests", "peek", "calm", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
@@ -135,6 +136,8 @@ local SCOPE = {
     hold = { ActionBar = true },
     assign = { ActionBar = true, WingCooldowns = true, WingUtility = true, WingBuffs = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
+    -- Round 005: the quest list, opened by its key (Quests.lua).
+    quests = { QuestList = true },
 }
 
 -- ---------------------------------------------------------------------------
@@ -199,6 +202,8 @@ end
 Reveal.UNLESS = {
     cursor = {
         TargetStrip = function() return not (_G.UnitExists and _G.UnitExists("target")) end,
+        -- The quest list comes on its key or peek, never by passing near it.
+        QuestList = function() return true end,
     },
 }
 
