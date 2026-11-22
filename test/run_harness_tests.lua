@@ -105,6 +105,24 @@ end
 driver = _G.MyUITestDriver
 
 print("== Seam")
+-- PLAN "Safe to try": the probe reads and never writes.
+do
+    local P = T.Probe
+    local saves = 0
+    local em = _G.C_EditMode
+    local save, pick = em and em.SaveLayouts, em and em.SetActiveLayout
+    if em then
+        em.SaveLayouts = function() saves = saves + 1 end
+        em.SetActiveLayout = function() saves = saves + 1 end
+    end
+    local r = P and P.Read("test")
+    if em then em.SaveLayouts, em.SetActiveLayout = save, pick end
+    local line = r and P.Line({ who = 1, stage = "x", active = 4, activeName = "My Private Layout", cvars = {},
+                                layouts = { { type = 1, name = "My Private Layout" }, { type = 1, name = "MyUI 1365" } } })
+    check("the probe reads without writing, and names nobody's layouts but MyUI's",
+          r ~= nil and saves == 0 and not line:find("Private", 1, true) and line:find("MyUI 1365", 1, true) ~= nil, line)
+end
+
 check("MyUI hands its namespace to MyUI_Test", _G.MyUI_TestAPI == ns)
 check("the harness sees it", T.api.ns() == ns)
 check("suites registered", #T.suites >= 5, #T.suites)

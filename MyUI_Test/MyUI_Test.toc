@@ -8,5 +8,6 @@
 ## SavedVariables: MyUITestDB
 
 Harness.lua
+Probe.lua
 SuitesMyUI.lua
 SuitesRebar.lua

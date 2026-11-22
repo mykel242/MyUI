@@ -188,6 +188,55 @@ Blizzard's back), so others can take what they want. Biggest pet peeves, first i
 adopted Blizzard frames (peek and their own events still do). **Built 2026-11-21:** the switches
 and the quest tracker (SPEC § 23). Next: the map, then chat.
 
+### Safe to try (agreed with Mykel 2026-11-22; before any tester installs MyUI)
+
+Mykel: "I am concerned about using MyUI changing anything that gets synced and creating a headache
+for users who just wanted to see it." So the first rule: **seeing MyUI changes nothing that syncs.**
+
+**Two levels, per character.** *Look* (what `/myui setup` gives): MyUI draws its HUD and fades
+Blizzard's at runtime; it writes no Edit Mode layout, setting, binding, macro or tracking, and
+deleting the folder plus a reload undoes it. Blizzard's own pieces (cooldown viewers, debuffs, stance,
+tooltip) stay where the player has them. *Full* (`/myui setup full`, its own confirmation): adds
+MyUI's Edit Mode layout, the only thing MyUI ever saves outside its own files.
+
+**Commands** only set a wanted state; one `Reconcile()` reads what is there, changes what differs,
+verifies. No difference: no writes. Combat: waits. Each step is saved, so a rerun resumes.
+
+| | does | keeps | second run |
+|---|---|---|---|
+| `setup [full]` | this character on, after a preview and a confirmation | settings | "already set up" |
+| `defaults [all]` | settings back to `Defaults()`; `all` also clears profiles and history | original record; profiles, history unless `all` | "already at defaults" |
+| `uninstall` | this character back as it was; its data cleared; MyUI off here | other characters | "nothing to undo" |
+| `disable` | every character: MyUI loads its commands and nothing else; a Full character's original layout is reselected (this one now, others as they log in) | all settings, levels and records | "already disabled" |
+| `enable` | clears that; each character returns to the level it had; sets up nobody new | everything | "already enabled" |
+
+Agreed: per character; `defaults` keeps profiles and history; full layout slots means stop and
+change nothing. Full words only for these five (prefix matching must not reach `uninstall`).
+A character never set up: MyUI loads and changes nothing. `clear` and `restore` retire.
+
+**Full's rules.** Capture the original (name and exported string, per spec if needed) once, before
+any change, never overwritten, never a MyUI layout. Delete only layouts the record says MyUI made,
+after the original is confirmed active. Original gone: Blizzard's Modern, and offer the saved copy.
+Last character out clears the shared settings.
+
+**Persistent writes live in one file** (`Persist.lua`); a lint rule rejects them anywhere else:
+`C_EditMode` save/select, CVars, bindings, macros, tracking, `Minimap:SetZoom`, user-placed frames.
+Found 2026-11-22: `minimapZoom` is kept in `config-cache.wtf`, and `Map.lua` calls `SetZoom`; until
+the probe says otherwise treat it as a synced write. Bindings a player sets for MyUI are theirs;
+`uninstall` lists them and leaves them. Bars are hidden at runtime (`PinBars`), never by layout.
+
+**Order.** 1 Probes: read-only first (`MyUI_Test/Probe.lua`, `/myuiprobe`); probes that write only
+with Mykel's say-so. 2 One `Defaults()` table. 3 `Persist.lua` + lint; bars out of the layout; map
+zoom. 4 Load gate (`enable`/`disable`, not-set-up). 5 Look. 6 Full: record, reconcile, migration.
+7 Commands.
+
+**Done when:** in Look, the mock counts zero persistent calls through login, combat, every panel and
+every command; from every state a second run makes none and leaves identical data; stopping after
+any step and rerunning ends the same; setup full then uninstall gives back the same layouts, order
+and active choice (full slots, preset, renamed or deleted original, two specs, an alt, combat, a
+hand-edited MyUI layout, Mykel's existing install); in game, a clean character and one whose MyUI
+folder was simply deleted both come back right.
+
 **Then, one at a time, in Mykel's order:** the mode switch proper (§ 16 — rest, travel and boss
 layouts, the layout rail); boss mode (§ 21, after P4); the map key (§ 22); Blizzard's toasts
 (§ 6 amendment); a collected enemy list; the history window and other toast sources; MyUI's chat
