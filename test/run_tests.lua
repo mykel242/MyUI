@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 32, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 33, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -4702,6 +4702,99 @@ do
         return not M.open and mm:GetParent() == corner
     end)())
     _G.Minimap = wasMM
+end
+
+-- ---------------------------------------------------------------------------
+section("Named places")
+-- ---------------------------------------------------------------------------
+do
+    local P, C = ns.Places, ns.Clear
+    local all, act, db = mock.layouts.layouts, mock.layouts.activeLayout, _G.MyUICharDB
+    _G.MyUICharDB = { schema = 1, entries = {} }
+    mock.layouts.layouts = { { layoutName = "Theirs", layoutType = 1, systems = {} },
+                             { layoutName = "MyUI", layoutType = 2, systems = {} } }
+    mock.layouts.activeLayout = 3
+    check("a part in Edit Mode's hands does not move on a spec that is not on MyUI's layout", (function()
+        mock.editMode.saved = nil
+        local p, why = P.Set("cooldowns", "left")
+        return p == nil and why:find("layout use", 1, true) ~= nil and mock.editMode.saved == nil
+           and _G.MyUICharDB.places == nil
+    end)())
+    mock.layouts.activeLayout = 4
+    local pt0, x0, y0, rel0 = C.Anchor("Essential")
+    check("cooldowns to the left edge: anchored to it, growing in, the rows over them too", (function()
+        local p, changed = P.Set("cooldowns", "left")
+        local pt, x, y, rel = C.Anchor("Essential")
+        local pt2, x2 = C.Anchor("BuffIcon")
+        local bb, bx = C.Anchor("BuffBars")
+        return p and changed and pt == "BOTTOMLEFT" and rel == "BOTTOMLEFT" and near(x, Scale.U(16)) and near(y, y0)
+           and pt2 == "BOTTOMLEFT" and near(x2, Scale.U(16)) and bb == "BOTTOMLEFT" and near(bx, Scale.U(16))
+    end)())
+    check("  the same again changes nothing and saves nothing", (function()
+        mock.editMode.saved = nil
+        local p, changed = P.Set("cooldowns", "left")
+        return p and changed == false and mock.editMode.saved == nil
+    end)())
+    check("  the edge is taken: a second part is refused by name, and stays where it was", (function()
+        local p, why = P.Set("group", "left")
+        return p == nil and why:find("Cooldowns", 1, true) ~= nil and P.Of("group") == "target"
+    end)())
+    check("  the tooltip has the right edge until it is moved", (function()
+        local p, why = P.Set("group", "right")
+        return p == nil and why:find("Tooltip", 1, true) ~= nil
+    end)())
+    check("kept for this character and this screen size only", (function()
+        local was = _G.UIParent.__w
+        _G.UIParent.__w = 1188
+        local other = P.Of("cooldowns")
+        _G.UIParent.__w = was
+        return other == "bar" and P.Of("cooldowns") == "left" and _G.MyUICharDB.places.Wide.cooldowns == "left"
+    end)())
+    check("a drag snaps to the place on that side, or to none", P.At("cooldowns", 0.1) == "left"
+          and P.At("cooldowns", 0.5) == "bar" and P.At("cooldowns", 0.9) == nil and P.At("tooltip", 0.2) == "left")
+    check("  dropping a box moves its part", P.Drop("Essential", 0.5) == "bar" and P.Of("cooldowns") == "bar"
+          and (C.Anchor("Essential")) == pt0 and _G.MyUICharDB.places.Wide.cooldowns == nil)
+    check("not in combat", (function()
+        local real = _G.InCombatLockdown
+        _G.InCombatLockdown = function() return true end
+        local p, why = P.Set("group", "left")
+        _G.InCombatLockdown = real
+        return p == nil and why == "not in combat"
+    end)())
+    check("group frames go to an edge, and back with reset; reset twice changes nothing", (function()
+        local home = { ns.Layout.Pos("Group") }
+        P.Set("group", "left")
+        local pt, rel, x = ns.Layout.Pos("Group")
+        local moved = pt == "BOTTOMLEFT" and rel == "BOTTOMLEFT" and x == 16
+        local n, again = P.Reset(), P.Reset()
+        return moved and n == 1 and again == 0 and (ns.Layout.Pos("Group")) == home[1]
+    end)())
+    check("a panel changes columns, and its order with the others holds", (function()
+        ns.Quests.Open()
+        P.Set("quests", "left")
+        local p, rel = ns.Quests.frame:GetPoint(1)
+        local ok = p == "TOPLEFT" and rel == UIParent
+        P.Set("quests", "right")
+        local p2 = ns.Quests.frame:GetPoint(1)
+        ns.Quests.Close()
+        return ok and p2 == "TOPRIGHT"
+    end)())
+    check("a character log that starts again keeps the places", (function()
+        _G.MyUICharDB = { schema = 999, entries = {}, places = { Wide = { group = "left" } } }
+        ns.Log.Attach()
+        local kept = _G.MyUICharDB.places and _G.MyUICharDB.places.Wide.group == "left" and #_G.MyUICharDB.entries == 0
+        return kept
+    end)())
+    run("place")
+    check("/myui place lists every part and its places", (function()
+        local out = ns.GetOutput()
+        for _, part in ipairs(P.PARTS) do if not out:find(part.key, 1, true) then return false, part.key end end
+        return true
+    end)())
+    _G.MyUICharDB = db
+    ns.Log.Attach()
+    mock.layouts.layouts, mock.layouts.activeLayout = all, act
+    P.Apply({ panel = true })
 end
 
 -- ---------------------------------------------------------------------------

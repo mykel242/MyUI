@@ -59,6 +59,9 @@ Log.Fresh = Fresh
 --- Bind the log to its saved variable. Called from Core at ADDON_LOADED.
 function Log.Attach()
     local db = _G.MyUICharDB
+    -- The same file holds where this character put things (Places.lua): a
+    -- log that starts again does not take that with it.
+    local places = type(db) == "table" and db.places or nil
     if type(db) ~= "table" or type(db.entries) ~= "table" then
         db = Fresh()
     elseif tonumber(db.schema) ~= SCHEMA then
@@ -69,6 +72,7 @@ function Log.Attach()
                  :format(tostring(db.schema), SCHEMA))
         db = Fresh()
     end
+    db.places = db.places or places
     _G.MyUICharDB = db
     Log.db = db
     Log.Trim()

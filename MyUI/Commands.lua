@@ -251,6 +251,7 @@ local COMMANDS = {
     { "map",          "the map on a key: toggles | calm (corner minimap up out of combat) | peek (only when summoned)" },
     { "layout",       "preview where everything goes: toggles | use (MyUI's Edit Mode layout, for this character, on this spec)" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
+    { "place",        "where a part goes, this character and screen size: list | <part> <place> | reset" },
     { "move",         "nudge a part of the HUD: self | target | focus | bar | group | zone | timers <dx> <dy> (SPEC units)" },
     { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons) | debuffs <n> (bar to debuffs)" },
     { "bars",         "arrange the action bars: every page on screen, held, until you run it again" },
@@ -397,7 +398,7 @@ local HANDLERS = {
                      tostring((ns.Clear.ActiveLayoutName()))))
         end
         local on = ns.Layout.Preview()
-        ns.Print(on and "layout preview: boxes where each part goes; /myui move to adjust, /myui layout to hide"
+        ns.Print(on and "layout preview: boxes where each part goes; drag one to a side of the screen to move it there, /myui layout to hide"
                     or "layout preview off")
     end,
     profile      = function(arg)
@@ -420,6 +421,33 @@ local HANDLERS = {
         else
             ns.Print(("no profile %q -- /myui profile lists them"):format(verb))
         end
+    end,
+    place        = function(arg)
+        local P = ns.Places
+        local key, place = (arg or ""):lower():match("^(%S*)%s*(%S*)$")
+        if key == "reset" then
+            local n, why = P.Reset()
+            ns.Print(n and (n == 0 and "places: already as they come" or ("places: %d back"):format(n)) or why)
+            return
+        end
+        if key ~= "" and place ~= "" then
+            local p, changed = P.Set(key, place)
+            if not p then ns.Print(changed)
+            else
+                ns.Print(("%s: %s%s"):format(P.BY_KEY[key].label, p.label, changed and "" or " already"))
+            end
+            return
+        end
+        local size = ns.Clear.ScreenSize()
+        ns.Print(("places, for this character on this screen size (%s):"):format(size and size.name or "Wide"))
+        for _, part in ipairs(P.PARTS) do
+            local names = {}
+            for i, p in ipairs(part.places) do
+                names[i] = P.Of(part.key) == p.key and ("|cffffd159%s|r"):format(p.key) or p.key
+            end
+            ns.Raw(("  %-10s %s"):format(part.key, table.concat(names, " | ")))
+        end
+        ns.Raw("  /myui place <part> <place>, or drag the boxes in /myui layout; /myui place reset")
     end,
     move         = function(arg)
         local key, dx, dy = (arg or ""):match("^(%S+)%s+(%-?%d+)%s+(%-?%d+)$")

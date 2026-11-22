@@ -638,6 +638,7 @@ function Clear.WingFit(key)
     local gap = ns.Scale.U(ns.Layout.Value("wingGap"))
     local pad = ns.Layout.Value("iconPadding") or 0
     local avail = screen / 2 + w.side * -(barX + w.side * (half + gap)) - Clear.WING_MARGIN
+    if Clear.WingsAtEdge() then avail = avail - ns.Scale.U(ns.Places.EDGE) + Clear.WING_MARGIN end
     local function width(size, n)
         return n * w.base * (50 + 10 * size) / 100 + (n - 1) * pad
     end
@@ -675,6 +676,11 @@ local function SetSetting(sys, setting, value)
     sys.settings[#sys.settings + 1] = { setting = setting, value = value }
 end
 
+--- Did this character send the cooldowns to the left edge (Places.lua)?
+function Clear.WingsAtEdge()
+    return ns.Places ~= nil and ns.Places.Of("cooldowns") == "left"
+end
+
 --- Place the wings in the layout: each viewer anchored to UIParent's bottom
 -- centre at the bar's edge, growing away from it, so its first icon sits
 -- next to the bar. Returns how many viewers were placed.
@@ -694,6 +700,7 @@ function Clear.Anchor(key)
         else
             y = bottom + w.row * (row + rowGap)
         end
+        if Clear.WingsAtEdge() then return "BOTTOMLEFT", ns.Scale.U(ns.Places.EDGE), y, "BOTTOMLEFT" end
         return w.side < 0 and "BOTTOMRIGHT" or "BOTTOMLEFT", barX + w.side * (half + gap), y
     end
     local o = Clear.OVER_BAR[key]
@@ -706,6 +713,9 @@ function Clear.Anchor(key)
         -- into its place needed a MyUI anchor frame, and Edit Mode reading
         -- that frame's global tainted the whole debuff frame -- round 004
         -- play, taint.log: "reading global MyUIDebuffAnchor".)
+        if ns.Places and ns.Places.Of("debuffs") == "right" then
+            return "BOTTOMRIGHT", -ns.Scale.U(ns.Places.EDGE), bottom, "BOTTOMRIGHT"
+        end
         local g = ns.Layout.Value("debuffGap") or ns.Layout.Value("wingGap")
         return "BOTTOMLEFT", barX + half + ns.Scale.U(g), bottom
     end
@@ -714,6 +724,16 @@ function Clear.Anchor(key)
         -- is an extra lift.
         local point, rel, x, lift = ns.Layout.Pos(key)
         local _, _, under = Clear.Anchor("BuffIcon")
+        local place = ns.Places and ns.Places.Of("timers") or "cooldowns"
+        if place ~= "cooldowns" then
+            local corner = place == "left" and "BOTTOMLEFT" or "BOTTOMRIGHT"
+            local dx = ns.Scale.U(ns.Places.EDGE)
+            return corner, place == "left" and dx or -dx, ns.Scale.U(ns.Places.LOW), corner
+        end
+        if Clear.WingsAtEdge() then
+            return "BOTTOMLEFT", ns.Scale.U(ns.Places.EDGE),
+                   under + Clear.WingIconHeight("BuffIcon") + rowGap, "BOTTOMLEFT"
+        end
         return point, ns.Scale.U(x), under + Clear.WingIconHeight("BuffIcon") + rowGap + ns.Scale.U(lift or 0), rel
     end
     local point, rel, x, y = ns.Layout.Pos(key)
@@ -774,7 +794,9 @@ function Clear.PlaceWings(layout)
                     At(sys, "Debuffs")
                     sys.settings = sys.settings or {}
                     SetSetting(sys, aset.Orientation, E.AuraFrameOrientation.Horizontal)
-                    SetSetting(sys, aset.IconDirection, E.AuraFrameIconDirection.Right)
+                    -- Away from the bar, or in from the screen's edge.
+                    SetSetting(sys, aset.IconDirection, ns.Places and ns.Places.Of("debuffs") == "right"
+                               and E.AuraFrameIconDirection.Left or E.AuraFrameIconDirection.Right)
                     SetSetting(sys, aset.IconWrap, E.AuraFrameIconWrap.Up)
                     SetSetting(sys, aset.IconLimitDebuffFrame, w.limit)
                     SetSetting(sys, aset.IconSize, w.size)
@@ -800,7 +822,7 @@ function Clear.PlaceWings(layout)
                         -- for one row) overlapped it. A stacked row sits on
                         -- the viewer under it, whatever that one's height.
                         local _, _, _, rowGap = ns.Actions.Extent()
-                        local edge = w.side < 0 and "RIGHT" or "LEFT"
+                        local edge = w.side < 0 and not Clear.WingsAtEdge() and "RIGHT" or "LEFT"
                         sys.isInDefaultPosition = false
                         sys.anchorInfo = { point = "BOTTOM" .. edge, relativeTo = Clear.VIEWERS[w.over],
                                            relativePoint = "TOP" .. edge, offsetX = 0, offsetY = rowGap }
@@ -811,7 +833,8 @@ function Clear.PlaceWings(layout)
                     sys.settings = sys.settings or {}
                     SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Horizontal)
                     SetSetting(sys, cdm.IconDirection,
-                               w.side < 0 and E.CooldownViewerIconDirection.Left or E.CooldownViewerIconDirection.Right)
+                               w.side < 0 and not Clear.WingsAtEdge() and E.CooldownViewerIconDirection.Left
+                               or E.CooldownViewerIconDirection.Right)
                     local size, limit = Clear.WingFit(key)
                     SetSetting(sys, cdm.IconSize, size)
                     SetSetting(sys, cdm.IconLimit, limit)
@@ -1060,6 +1083,8 @@ function Clear.OnLogin()
                 C_Timer.After(0.5, function()
                     Clear.refitPending = nil
                     if ns.Layout and ns.Layout.Apply then ns.Layout.Apply() end
+                    -- Places are kept per screen size (Places.lua).
+                    if ns.Places then ns.Places.Apply({ panel = true }) end
                 end)
             end
         elseif event == "PLAYER_REGEN_ENABLED" then

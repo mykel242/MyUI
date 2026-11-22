@@ -150,7 +150,7 @@ function Center.Build()
     -- Round 005 play ("it seems stuck open"): it goes away by itself once
     -- you are done with it, unless pinned (Summon.lua).
     Center.summon = S.Attach({
-        key = "history", frame = panel, header = header, dock = "left", order = 1,
+        key = "history", frame = panel, header = header, dock = "left", order = 3,
         refresh = function() Center.Refresh() end,
         show = function() panel:Show(); Center.Refresh() end,
         hide = function() panel:Hide() end,

@@ -639,7 +639,12 @@ function Quests.ShowCard(row)
     end
     card:SetHeight(y + pad - U(2))
     card:ClearAllPoints()
-    card:SetPoint("TOPRIGHT", frame, "TOPLEFT", -U(8), 0)
+    -- On the side away from the screen's edge.
+    if Quests.summon and Quests.summon.dock == "left" then
+        card:SetPoint("TOPLEFT", frame, "TOPRIGHT", U(8), 0)
+    else
+        card:SetPoint("TOPRIGHT", frame, "TOPLEFT", -U(8), 0)
+    end
     card:SetPoint("TOP", row, "TOP", 0, U(4))
     card:Show()
     return n

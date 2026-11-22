@@ -198,7 +198,7 @@ function Talk.Build()
     panel:Hide()
     Talk.panel, Talk.rows = panel, rows
     Talk.summon = S.Attach({
-        key = "chat", frame = panel, header = header, dock = "left", order = 2,
+        key = "chat", frame = panel, header = header, dock = "left", order = 4,
         refresh = function() Talk.Refresh() end,
         show = function()
             Talk.open = true

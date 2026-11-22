@@ -17,6 +17,7 @@ Scale.lua
 Palette.lua
 Layout.lua
 Switches.lua
+Places.lua
 Guard.lua
 Registry.lua
 Frames.lua

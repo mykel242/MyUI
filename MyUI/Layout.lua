@@ -146,6 +146,11 @@ end
 
 --- A frame's anchor: point, relativePoint, x, y in SPEC units.
 function Layout.Pos(key)
+    -- A part this character moved to one of its places (Places.lua).
+    if ns.Places then
+        local p, rel, x, y = ns.Places.Pos(key)
+        if p then return p, rel, x, y end
+    end
     local a = Layout.Get()[key]
     return a[1], a[2], a[3], a[4]
 end
@@ -273,6 +278,7 @@ Layout.PREVIEW = {
     -- (measured from the preview in game).
     { key = "ZoneAbility",  label = "Zone",          w = 50,     h = 50, dx = 27, dy = 71, centre = true },
     { key = "Group",        label = "Group",         w = 150,    h = 5 * 32, group = true, spec = true },
+    { key = "Tooltip",      label = "Tooltip",       w = 250,    h = 90 },
 }
 
 local boxes = {}
@@ -301,6 +307,22 @@ local function Box(spec)
     label:SetPoint("BOTTOMLEFT", b, "TOPLEFT", 2, 2)
     label:SetText(spec.label)
     b.label = label
+    -- Drag a box to the side it should go to: it snaps to that part's place
+    -- there (Places.lua). Boxes of parts that do not move take no mouse.
+    if ns.Places and ns.Places.BOXES[spec.key] then
+        b:EnableMouse(true)
+        b:SetMovable(true)
+        b:RegisterForDrag("LeftButton")
+        b:SetScript("OnDragStart", function(self)
+            if not InCombatLockdown() then self:StartMoving() end
+        end)
+        b:SetScript("OnDragStop", function(self)
+            self:StopMovingOrSizing()
+            local x = _G.GetCursorPosition()
+            local width = UIParent:GetWidth() * UIParent:GetEffectiveScale()
+            ns.Places.Drop(spec.key, width > 0 and x / width or 0.5)
+        end)
+    end
     boxes[spec.key] = b
     return b
 end
@@ -317,7 +339,7 @@ function Layout.PlaceBoxes()
             b:SetSize(spec.w, spec.h)
         end
         b:ClearAllPoints()
-        if spec.centre then
+        if spec.centre and (rel or "BOTTOM") == "BOTTOM" then
             b:SetPoint("CENTER", UIParent, rel or "BOTTOM", x + ns.Scale.U(spec.dx or 0), y + ns.Scale.U(spec.dy or 0))
         else
             b:SetPoint(point, UIParent, rel or "BOTTOM", x, y)

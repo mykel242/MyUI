@@ -443,7 +443,8 @@ end
 function Summon.Attach(spec)
     local c = { key = spec.key, frame = spec.frame, header = spec.header,
                 show = spec.show, hide = spec.hide, open = false,
-                dock = spec.dock, order = spec.order, refresh = spec.refresh }
+                dock = spec.dock and ns.Places and ns.Places.Of(spec.key) or spec.dock,
+                order = spec.order, refresh = spec.refresh }
     Summon.all[spec.key] = c
 
     function c:IsPinned() return DB()[self.key] == true end
