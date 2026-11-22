@@ -329,8 +329,7 @@ local function Row()
     r.status:SetWidth(U(Quests.STATUS_W))
     r.text = ns.Frames.Text(r, 11, "textPrimary", "LEFT")
     r.text:SetWordWrap(false)
-    r.dot = r:CreateTexture(nil, "ARTWORK")
-    r.dot:SetSize(U(Quests.DOT), U(Quests.DOT))
+    r.dot = ns.Summon.Dot(r)
     r.dot:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(5))
     r.trough = r:CreateTexture(nil, "BACKGROUND", nil, 1)
     r.trough:SetColorTexture(Palette.Get("trough"))
@@ -422,6 +421,7 @@ local function Build()
     ns.Registry.Add("QuestList", frame, 0)
     Quests.summon = ns.Summon.Attach({
         key = "quests", frame = frame, header = header, dock = "right", order = 1,
+        refresh = function() Quests.Refresh() end,
         show = function()
             Quests.open = true
             Quests.Refresh()
@@ -476,6 +476,18 @@ function Quests.Lines()
     end
     local total = #lines
     local cap = Quests.expanded and Quests.MAX_ALL_ROWS or Quests.MAX_QUESTS
+    -- Never past the bottom of the screen: as many as fit (the pinned
+    -- quest's objectives take room too), then "+N more".
+    local fit = ns.Summon.FitRows(Quests.summon, U(Quests.ROW), true, true)
+    if fit ~= math.huge then
+        local pinned = lines[1] and lines[1].expand and lines[1].q
+        if pinned then
+            local left = 0
+            for _, o in ipairs(pinned.objectives) do if not o.done then left = left + 1 end end
+            fit = fit - math.ceil((left * Quests.DETAIL + 6) / Quests.ROW)
+        end
+        cap = math.max(1, math.min(cap, fit))
+    end
     local more = math.max(0, #lines - cap)
     for i = #lines, cap + 1, -1 do lines[i] = nil end
     return lines, more, total
@@ -506,7 +518,7 @@ local function Paint(r, l)
     r.text:ClearAllPoints()
     -- The kind's square leads, as in the history.
     if l.kind then
-        r.dot:SetColorTexture(Palette.Get(Quests.HUE[l.kind] or "textDim"))
+        r.dot:SetHue(Quests.HUE[l.kind] or "textDim")
         r.dot:Show()
         r.text:SetPoint("TOPLEFT", r, "TOPLEFT", U(Quests.DOT + ns.Summon.GAP), -U(3))
     else

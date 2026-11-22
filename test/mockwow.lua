@@ -150,7 +150,7 @@ function M.frame(spec)
         "SetClampedToScreen", "SetMultiLine", "SetAutoFocus", "SetFontObject",
         "SetCursorPosition", "SetFocus", "HighlightText", "SetScrollChild",
         "SetAllPoints", "SetColorTexture", "SetText", "StartMoving",
-        "StopMovingOrSizing", "SetJustifyH", "SetJustifyV", "SetMinMaxValues", "SetFont",
+        "StopMovingOrSizing", "SetJustifyH", "SetJustifyV", "AddMaskTexture", "SetRotation", "SetMinMaxValues", "SetFont",
         "SetTextColor", "SetStatusBarTexture", "SetDrawLayer",
         "SetDuration", "SetFromAlpha", "SetToAlpha", "SetOffset", "SetOrder",
         "SetShadowColor", "SetShadowOffset",
@@ -200,6 +200,7 @@ function M.frame(spec)
     end
 
     f.CreateTexture    = function(...) return M.frame({ objectType = "Texture" }) end
+    f.CreateMaskTexture = function(...) return M.frame({ objectType = "MaskTexture" }) end
     f.CreateFontString = function(...) return M.frame({ objectType = "FontString" }) end
 
     -- Geometry. SetSize/SetPoint are recorded like any other setter; these read

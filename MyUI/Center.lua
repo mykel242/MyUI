@@ -88,6 +88,14 @@ local function BuildRow(parent, index)
     row.name:SetPoint("LEFT", row.dot, "RIGHT", U(S.GAP), 0)
     row.name:SetPoint("RIGHT", row.count, "LEFT", -U(S.GAP), 0)
     row.name:SetWordWrap(false)
+    -- Round 005 play: "clicking on notifications does not seem to do much",
+    -- and "a way to clear a single entry". Left acts on it; right clears it.
+    row:RegisterForClicks("LeftButtonUp", "RightButtonUp")
+    row:SetScript("OnClick", function(self, button)
+        if self.entry then Center.ClickRow(self.entry, button) end
+    end)
+    ns.Frames.HoverEdge(row, 2)
+    row:EnableMouse(false)
     row:Hide()
     return row
 end
@@ -143,6 +151,7 @@ function Center.Build()
     -- you are done with it, unless pinned (Summon.lua).
     Center.summon = S.Attach({
         key = "history", frame = panel, header = header, dock = "left", order = 1,
+        refresh = function() Center.Refresh() end,
         show = function() panel:Show(); Center.Refresh() end,
         hide = function() panel:Hide() end,
     })
@@ -177,11 +186,13 @@ function Center.Rows(limit)
         if Center.ROLLUP and last and last.key == key then
             last.count = last.count + (e.count or 1)
             last.n = last.n + 1
+            last.entries[#last.entries + 1] = e
             if prefix then last.parts[#last.parts + 1] = rest end
         else
             if limit and #out >= limit then break end
-            out[#out + 1] = { key = key, kind = e.kind, at = e.at, name = e.name,
-                              prefix = prefix, parts = { rest }, count = e.count or 1, n = 1 }
+            out[#out + 1] = { key = key, kind = e.kind, at = e.at, name = e.name, sub = e.sub,
+                              prefix = prefix, parts = { rest }, count = e.count or 1, n = 1,
+                              entries = { e } }
         end
     end
     for _, r in ipairs(out) do
@@ -208,17 +219,22 @@ function Center.Refresh()
     panel.__header.title:SetText(chosen and ("Notifications \194\183 " .. chosen) or "Notifications")
 
     local cap = Center.expanded and Center.ROWS_ALL or Center.ROWS
+    -- Never past the bottom of the screen: as many as fit, then "+N more".
+    cap = math.min(cap, ns.Summon.FitRows(Center.summon, U(Center.ROW_H), true, true))
     local all = Center.Rows(Center.ROWS_ALL + 1)
     local now = (Log and Log.Now and Log.Now()) or 0
     local shown = 0
+    local open = Center.summon and Center.summon.open or false
     for i, row in ipairs(panel.rows) do
         local e = i <= cap and all[i]
+        row.entry = e or nil
+        row:EnableMouse(open and e ~= nil and e ~= false)
         if not e then
             row:Hide()
         else
             shown = i
             row:Show()
-            row.dot:SetColorTexture(Palette.Get(ns.Toast.HUES[e.kind] or "textDim"))
+            row.dot:SetHue(ns.Toast.HUES[e.kind] or "textDim")
             row.name:SetText(tostring(e.name or ""))
             row.count:SetText((e.count or 1) > 1 and ("x" .. e.count) or "")
             row.age:SetText(ns.Toast.FormatAge(now - (tonumber(e.at) or now)))
@@ -226,7 +242,7 @@ function Center.Refresh()
     end
     if shown == 0 then
         local row = panel.rows[1]
-        row.dot:SetColorTexture(Palette.Get("trough"))
+        row.dot:SetHue("textDim")
         row.name:SetText("nothing yet")
         row.count:SetText("")
         row.age:SetText("")
@@ -239,6 +255,58 @@ function Center.Refresh()
     -- Only as tall as what it holds.
     panel:SetHeight(S.Height(shown * U(Center.ROW_H), true, true))
     if Center.summon and Center.summon.open then S.Layout() end
+end
+
+--- Clear one row: the notification, or every one a rolled-up row holds.
+function Center.Remove(row)
+    local Log = ns.Log
+    if not (Log and Log.db and row and row.entries) then return 0 end
+    local gone = {}
+    for _, e in ipairs(row.entries) do gone[e] = true end
+    local kept, n = {}, 0
+    for _, e in ipairs(Log.db.entries) do
+        if gone[e] then n = n + 1 else kept[#kept + 1] = e end
+    end
+    Log.db.entries = kept
+    Center.Refresh()
+    return n
+end
+
+--- What a notification leads to: a whisper opens the reply, a login who's
+-- online, a chat line the chat panel, a quest the quest list, loot or full
+-- bags your bags. Anything else has nowhere to go and says so.
+function Center.Act(row)
+    local name = tostring(row.name or "")
+    if row.kind == "violet" then
+        if row.sub and ns.Chat then
+            if ns.Talk and ns.Talk.Active() then ns.Talk.Open("whisper") end
+            ns.Chat.Open(("/w %s "):format(row.sub))
+            return "reply"
+        elseif name:find("^Online:") and ns.Social and ns.Social.panel then
+            ns.Social.Toggle()
+            return "online"
+        elseif ns.Talk and ns.Talk.Active() then
+            ns.Talk.Open()
+            return "chat"
+        end
+    elseif row.kind == "amber" and ns.Quests and ns.Quests.Active() then
+        ns.Quests.Open()
+        return "quests"
+    elseif (row.kind == "blue" or (row.kind == "orange" and name:lower():find("bag"))) then
+        if not InCombatLockdown() and type(_G.OpenAllBags) == "function" then
+            pcall(_G.OpenAllBags)
+            return "bags"
+        end
+    end
+    return nil
+end
+
+function Center.ClickRow(row, button)
+    if button == "RightButton" then
+        Center.Remove(row)
+        return "cleared"
+    end
+    return Center.Act(row)
 end
 
 --- Empty what the filter shows: one hue, or everything.

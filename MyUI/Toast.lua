@@ -95,7 +95,8 @@ local function Build(index)
     f:SetFrameStrata(ns.Frames.STRATA)
     f:SetSize(U(Toast.WIDTH), U(Toast.HEIGHT))
 
-    f.dot = f:CreateTexture(nil, "ARTWORK")
+    -- Round 005: the hue's shape (Summon.SHAPE), as in every panel.
+    f.dot = ns.Summon.Dot(f)
     f.dot:SetSize(U(Toast.DOT), U(Toast.DOT))
     f.dot:SetPoint("LEFT")
 
@@ -171,7 +172,7 @@ end
 
 local function Paint(f, now)
     local item = f.item
-    f.dot:SetColorTexture(Palette.Get(Toast.HUES[item.kind]))
+    f.dot:SetHue(Toast.HUES[item.kind])
     f.name:SetText(Toast.Label(item))
     f.age:SetText(Toast.FormatAge((now or ns.Reveal.Now()) - item.at))
 end
@@ -324,6 +325,11 @@ function Toast.Activate(item)
         -- carries none, and /r answers whoever spoke last.
         ns.Chat.Open(item.sub and ("/w %s "):format(item.sub) or "/r ")
         return "chat"
+    end
+    -- Round 005: a quest toast opens the quest list.
+    if item.kind == "amber" and ns.Quests and ns.Quests.Active() then
+        ns.Quests.Open()
+        return "quests"
     end
     if ns.Extras() and ns.Center and ns.Center.Open then
         ns.Center.Open(item.kind)

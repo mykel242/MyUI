@@ -199,6 +199,7 @@ function Talk.Build()
     Talk.panel, Talk.rows = panel, rows
     Talk.summon = S.Attach({
         key = "chat", frame = panel, header = header, dock = "left", order = 2,
+        refresh = function() Talk.Refresh() end,
         show = function()
             Talk.open = true
             panel:Show()
@@ -247,6 +248,7 @@ function Talk.Refresh()
     panel.online.text:SetText(("online %d"):format(online))
 
     local cap = Talk.expanded and Talk.ROWS_ALL or Talk.ROWS
+    cap = math.min(cap, ns.Summon.FitRows(Talk.summon, U(Talk.ROW), true, true))
     local all = Talk.Lines(Talk.ROWS_ALL + 1)
     local lines = {}
     for i = 1, math.min(#all, cap) do lines[i] = all[i] end
@@ -264,7 +266,7 @@ function Talk.Refresh()
             ns.Guard.Send(r.text, "SetText", e.text or "")
             r.text:SetTextColor(Palette.Get("textPrimary"))
             r.age:SetText(ns.Toast.FormatAge(now - e.at))
-            r.dot:SetColorTexture(Palette.Get(Talk.HUE[e.group] or "textDim"))
+            r.dot:SetHue(Talk.HUE[e.group] or "textDim")
             r.dot:Show()
             r.entry = e
             r:Show()

@@ -1171,9 +1171,9 @@ do
     ns.Chat.Open = realOpen
 end
 check("clicking anything else opens the history at its hue", (function()
-    local it = Toast.Add("amber", "Quest complete")
+    local it = Toast.Add("green", "Valor")
     local how = Toast.Activate(it)
-    local ok = how == "history" and ns.Center.IsOpen() and ns.Center.filter == "amber"
+    local ok = how == "history" and ns.Center.IsOpen() and ns.Center.filter == "green"
     ns.Center.Close()
     ns.Center.Filter(nil)
     return ok, how
@@ -4432,6 +4432,51 @@ do
         local n = ns.Center.ClearShown()
         ns.Center.Filter(nil)
         return ok and n == 2 and #ns.Center.Rows() == 1, ("%d %s %s %s"):format(#r, tostring(r[1] and r[1].name), tostring(r[1] and r[1].count), tostring(r[2] and r[2].name))
+    end)())
+    check("a notification row: right-click clears just it (all of a rolled-up run)", (function()
+        if not ns.Center.panel then return true end
+        ns.Center.filter = nil
+        ns.Log.Clear()
+        Feed.Add("blue", "Pebble")
+        Feed.Add("violet", "Online: Aria")
+        Feed.Add("violet", "Online: Bren")
+        local r = ns.Center.Rows()
+        local how = ns.Center.ClickRow(r[1], "RightButton")
+        local left = ns.Center.Rows()
+        return how == "cleared" and #left == 1 and left[1].name == "Pebble"
+    end)())
+    check("  left-click acts: a login opens who's online, a quest the quest list", (function()
+        if not ns.Center.panel then return true end
+        local a = ns.Center.Act({ kind = "violet", name = "Online: Aria" })
+        if ns.Social.open then ns.Social.Toggle() end
+        local b = ns.Center.Act({ kind = "amber", name = "Accepted: Boar Trouble" })
+        ns.Quests.Close()
+        return a == "online" and b == "quests"
+    end)())
+    check("a docked panel never runs past the bottom of the screen", (function()
+        local was = _G.UIParent.__h
+        _G.UIParent.__h = 400
+        T.log = {}
+        for i = 1, 30 do T.Add("CHAT_MSG_SAY", "line " .. i, "Aria") end
+        T.Open()
+        T.expanded = true
+        T.Refresh()
+        local _, _, _, _, y = T.panel:GetPoint(1)
+        local top = math.abs(y or 0)
+        local fits = top + T.panel:GetHeight() <= 400 - Scale.U(ns.Summon.BOTTOM_RESERVE) + 0.01
+        local more = T.panel.__footer.more.text:GetText()
+        T.expanded = nil
+        T.summon:Close("asked")
+        _G.UIParent.__h = was
+        return fits and more == "fewer", top + T.panel:GetHeight()
+    end)())
+    check("each hue keeps one shape everywhere", (function()
+        local d = ns.Summon.Dot(UIParent, "notifViolet")
+        local a = d.shape
+        d:SetHue("notifBlue")
+        local b = d.shape
+        d:SetHue("notifAmber")
+        return a == "circle" and b == "diamond" and d.shape == "triangle"
     end)())
     check("a docked panel is only as tall as what it holds", (function()
         T.log = {}

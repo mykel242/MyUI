@@ -774,6 +774,15 @@ panel. Both dock columns start 200 from the top, 16 from their edge; toasts star
 The history rolls runs up ("Online: Aria, Bren +3", "Voidsteel Greaves x3"); clear empties what
 the filter shows. While chat is open, Blizzard's typing box sits in its footer.
 
+**Shapes, the top, the bottom, clicks** (round 005 play). Each hue keeps one shape everywhere —
+toasts, history, chat, quests, who's online: violet circle, blue diamond, amber triangle, green
+square, orange bar (`Summon.SHAPE`). The dock columns start just under the status bars at the top.
+A panel never grows into the HUD at the bottom: it shows as many rows as fit (`Summon.FitRows`,
+the panels above it counted) and "+N more" for the rest. History rows act: left-click a whisper
+to answer it, a login for who's online, a chat line for the chat panel, a quest for the quest list,
+loot or full bags for your bags; right-click clears that one notification (or the whole rolled-up
+run). A quest toast opens the quest list.
+
 ## § 6 amendment — Blizzard's own toasts
 
 Blizzard's Battle.net toast (friend online, and the like) and alert toasts are old, bordered and

@@ -46,7 +46,13 @@ Summon.ROW_H    = 22
 Summon.FOOTER_H = 22
 Summon.DOT      = 8
 Summon.GAP      = 6
-Summon.DOCK_TOP = -200
+-- Round 005 play: "the panels should start near the top of the screen
+-- rather than partway down" -- under Blizzard's status bars at the top edge.
+Summon.DOCK_TOP = -28
+-- What a column leaves free at the bottom of the screen: the HUD lives
+-- there (bar, wings, your strip). A panel never grows into it -- it shows
+-- fewer rows and says "+N more" instead.
+Summon.BOTTOM_RESERVE = 230
 
 -- SPEC 7's one recorded exception, moved here from Center.lua so the two
 -- panels cannot drift apart: rgba(10,10,12,0.86).
@@ -145,12 +151,77 @@ function Summon.Height(rowsHeight, hasFilters, hasFooter)
     return Summon.Top(hasFilters) + rowsHeight + U(4) + (hasFooter and U(Summon.FOOTER_H) or 0) + U(4)
 end
 
---- A hue square.
+-- Round 005 play: "the color squares could also be shapes (diamond,
+-- square, circle, triangle ...)". Each hue keeps one shape everywhere --
+-- toasts, the history, chat, quests, who's online -- so the mark reads
+-- without the colour too.
+Summon.SHAPE = {
+    notifViolet = "circle",     -- people: whispers, chat, logins, achievements
+    notifBlue   = "diamond",    -- loot, world quests, group chat, friends
+    notifAmber  = "triangle",   -- quests
+    notifGreen  = "square",     -- gains, events, guild
+    notifOrange = "bar",        -- something wants you
+    textDim     = "bar",
+}
+Summon.CIRCLE_MASK = "Interface\\CharacterFrame\\TempPortraitAlphaMask"
+
+--- A hue mark: a small frame holding one shape per hue (Summon.SHAPE).
+-- mark:SetHue(paletteName) picks the shape and colours it.
 function Summon.Dot(parent, hue)
-    local t = parent:CreateTexture(nil, "ARTWORK")
-    t:SetSize(U(Summon.DOT), U(Summon.DOT))
-    if hue then t:SetColorTexture(Palette.Get(hue)) end
-    return t
+    local s = U(Summon.DOT)
+    local d = CreateFrame("Frame", nil, parent)
+    d:SetSize(s, s)
+    d.shapes = {}
+    local square = d:CreateTexture(nil, "ARTWORK")
+    square:SetAllPoints()
+    d.shapes.square = square
+    local diamond = d:CreateTexture(nil, "ARTWORK")
+    diamond:SetSize(s * 0.74, s * 0.74)
+    diamond:SetPoint("CENTER")
+    if diamond.SetRotation then diamond:SetRotation(math.rad(45)) end
+    d.shapes.diamond = diamond
+    local circle = d:CreateTexture(nil, "ARTWORK")
+    circle:SetAllPoints()
+    if d.CreateMaskTexture and circle.AddMaskTexture then
+        local mask = d:CreateMaskTexture()
+        mask:SetAllPoints(circle)
+        mask:SetTexture(Summon.CIRCLE_MASK, "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
+        circle:AddMaskTexture(mask)
+    end
+    d.shapes.circle = circle
+    -- A triangle is the top half of a diamond, the bottom half clipped off.
+    local clip = CreateFrame("Frame", nil, d)
+    clip:SetSize(s * 1.2, s * 0.6)
+    clip:SetPoint("CENTER", d, "CENTER", 0, 0)
+    if clip.SetClipsChildren then clip:SetClipsChildren(true) end
+    local tri = clip:CreateTexture(nil, "ARTWORK")
+    tri:SetSize(s * 0.85, s * 0.85)
+    tri:SetPoint("CENTER", clip, "BOTTOM", 0, 0)
+    if tri.SetRotation then tri:SetRotation(math.rad(45)) end
+    clip.tex = tri
+    d.shapes.triangle = clip
+    local bar = d:CreateTexture(nil, "ARTWORK")
+    bar:SetSize(s, s * 0.36)
+    bar:SetPoint("CENTER")
+    d.shapes.bar = bar
+
+    function d:SetHue(name)
+        local shape = Summon.SHAPE[name] or "square"
+        local r, g, b, a = Palette.Get(name)
+        for key, t in pairs(self.shapes) do
+            if key == shape then
+                local tex = t.tex or t
+                tex:SetColorTexture(r, g, b, a)
+                tex:Show()
+                t:Show()
+            else
+                t:Hide()
+            end
+        end
+        self.shape = shape
+    end
+    d:SetHue(hue or "textDim")
+    return d
 end
 
 --- The filter row: "all" then one square-and-count per hue, in equal
@@ -235,8 +306,10 @@ end
 function Summon.PaintMore(frame, hidden, expanded)
     local m = frame.__footer and frame.__footer.more
     if not m then return end
-    if hidden > 0 then m.text:SetText(("+%d more"):format(hidden)) m:Show()
-    elseif expanded then m.text:SetText("fewer") m:Show()
+    -- Opened, it offers "fewer" even if the screen still could not take
+    -- them all: a panel never grows past the bottom (Summon.FitRows).
+    if expanded then m.text:SetText("fewer") m:Show()
+    elseif hidden > 0 then m.text:SetText(("+%d more"):format(hidden)) m:Show()
     else m.text:SetText("") m:Hide() end
 end
 
@@ -271,7 +344,41 @@ Summon.DOCK_GAP = 8
 
 --- Stack the open panels of each dock column, in order. Called whenever a
 -- panel opens, closes or changes height.
+--- How tall a docked panel may be: the screen under the dock's top, less
+-- the panels above it in its column, less the HUD's reserve. Unknown screen
+-- height (0): no limit.
+function Summon.Room(c)
+    local screen = _G.UIParent and _G.UIParent.GetHeight and _G.UIParent:GetHeight() or 0
+    if type(screen) ~= "number" or screen <= 0 or not c or not c.dock then return math.huge end
+    local used = U(-Summon.DOCK_TOP) + U(Summon.BOTTOM_RESERVE)
+    for _, o in pairs(Summon.all) do
+        if o ~= c and o.open and o.dock == c.dock and (o.order or 0) < (c.order or 0) then
+            used = used + o.frame:GetHeight() + U(Summon.DOCK_GAP)
+        end
+    end
+    return screen - used
+end
+
+--- How many rows of rowHeight fit in a panel's room, at least one.
+function Summon.FitRows(c, rowHeight, hasFilters, hasFooter)
+    local room = Summon.Room(c)
+    if room == math.huge then return math.huge end
+    local chrome = Summon.Height(0, hasFilters, hasFooter)
+    return math.max(1, math.floor((room - chrome) / rowHeight))
+end
+
 function Summon.Layout()
+    -- A panel's Refresh asks for a layout, and a layout refreshes panels so
+    -- the lower ones fit what the upper ones left them: once at a time.
+    if Summon.busy then return end
+    Summon.busy = true
+    local order = {}
+    for _, c in pairs(Summon.all) do
+        if c.dock and c.open and c.refresh then order[#order + 1] = c end
+    end
+    table.sort(order, function(a, b) return (a.order or 0) < (b.order or 0) end)
+    for _, c in ipairs(order) do pcall(c.refresh) end
+    Summon.busy = false
     local columns = { left = {}, right = {} }
     for _, c in pairs(Summon.all) do
         if c.dock and c.open and columns[c.dock] then
@@ -316,7 +423,7 @@ end
 function Summon.Attach(spec)
     local c = { key = spec.key, frame = spec.frame, header = spec.header,
                 show = spec.show, hide = spec.hide, open = false,
-                dock = spec.dock, order = spec.order }
+                dock = spec.dock, order = spec.order, refresh = spec.refresh }
     Summon.all[spec.key] = c
 
     function c:IsPinned() return DB()[self.key] == true end
