@@ -249,7 +249,7 @@ local COMMANDS = {
     { "pages",        "the pages not in bar 1's place: mini (small, over it; default) | swap (hidden)" },
     { "taint",        "which Blizzard frames MyUI has tainted (Edit Mode, debuffs, cooldown viewers)" },
     { "map",          "the map on a key: toggles | calm (corner minimap up out of combat) | peek (only when summoned)" },
-    { "layout",       "preview where everything goes: toggles | use (MyUI's Edit Mode layout, this spec only)" },
+    { "layout",       "preview where everything goes: toggles | use (MyUI's Edit Mode layout, for this character, on this spec)" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
     { "move",         "nudge a part of the HUD: self | target | focus | bar | group | zone | timers <dx> <dy> (SPEC units)" },
     { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons) | debuffs <n> (bar to debuffs)" },
@@ -385,7 +385,7 @@ local HANDLERS = {
                 elseif ns.Clear.layoutUntouched then
                     ns.Print(("layout: this spec already uses %q"):format(ns.Clear.LayoutName()))
                 else
-                    ns.Print(("layout: %q, on this spec only -- |cffffd159/reload|r. "):format(ns.Clear.LayoutName())
+                    ns.Print(("layout: %q, this character's, on this spec -- |cffffd159/reload|r. "):format(ns.Clear.LayoutName())
                              .. "To leave it, choose another in Edit Mode.")
                 end
             end)

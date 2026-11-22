@@ -248,8 +248,18 @@ The record is therefore per character **and spec**; nothing is selected on a spe
 **Screen sizes (Mykel, 2026-11-22):** MyUI adjusts to them, and says in words which layout is used:
 `MyUI Wide` (1340 UI units across and up: 16:9, ultrawides), `MyUI Standard` (1180 up: 16:10, a
 larger UI scale), `MyUI Compact`. Each is fitted to the narrowest screen of its size, so two screens
-of one size share a layout unchanged. Numbered layouts are renamed in place. One is only made when
-asked (`/myui layout use`); five account layouts already means stop. `/myui layout` says which.
+of one size share a layout unchanged. One is only made when asked (`/myui layout use`).
+`/myui layout` says which. **They are the character's** ("character UI slots not Account"): added
+after every other layout, so nothing moves; verified there before being selected; the layout left is
+written down only once it really is. Five on the character, or the name taken by an account layout:
+stop, change nothing. The account's numbered one is left as the pattern until nobody uses it.
+
+**Constraint-oriented, not draggable** (Mykel, 2026-11-22: "get away from people dragging stuff around
+and ending up with wildly diverse layouts ... minor window adjustments ... drag some things out to an
+edge for THAT character"). *Proposed, not yet agreed:* the HUD core is fixed (your strip, bar, target,
+focus, pet, stance); the rest each has a short list of named places, per character and screen size;
+an arrange mode snaps a drag to the nearest one; taken places are refused. Replaces `/myui move` and
+saved profiles for players (kept for development). What MyUI does not place is the player's.
 **Guard built 2026-11-22, ahead of the rest:** MyUI's layout is kept up only where it is already
 active; `/myui layout use` is the yes for one spec, choosing another in Edit Mode the no; the layout
 left is recorded per character and spec; `restore` never touches a spec on its own layout; the map

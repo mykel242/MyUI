@@ -865,57 +865,48 @@ function Clear.ApplyLayout(use)
             Clear.layoutUntouched = true
             return nil, "not used on this spec"
         end
-        DB().prevLayout = current
-        local key = SpecKey()
-        if key then
-            DB().prevBySpec = DB().prevBySpec or {}
-            DB().prevBySpec[key] = current
-        end
     end
 
-    -- Find this screen's layout. The older numbered and plain ones are
-    -- renamed to their size's words first: same layout, same place in the
-    -- list. Another screen's is the pattern for a new one, and a new one is
-    -- only made when asked for: it takes one of the account's five.
+    -- MyUI's layouts belong to the character (Mykel, 2026-11-22: "character
+    -- UI slots not Account"), so no other character ever sees one. An older
+    -- account one ("MyUI 1365") is the pattern for a new one and is otherwise
+    -- left as it is: other characters may be on it. A new one is only made
+    -- when asked for.
     local want = Clear.LayoutName()
-    local dirty = false   -- renamed or added: the list itself must be saved
-    local taken = {}
-    for _, l in ipairs(info.layouts) do taken[l.layoutName] = true end
-    for _, l in ipairs(info.layouts) do
-        local width = tonumber(tostring(l.layoutName):match("^MyUI (%d+)$"))
-        local words = width and Clear.LayoutName(width) or (l.layoutName == Clear.LAYOUT and want) or nil
-        if words and not taken[words] then
-            l.layoutName = words
-            taken[words] = true
-            dirty = true
-        end
-    end
-    local mine, other
+    local dirty = false   -- added: the list itself must be saved
+    local KIND = E.EditModeLayoutType.Character
+    local mine, other, clash
+    local count, last = 0, 0   -- this character's layouts; where they end
     for i, l in ipairs(info.layouts) do
-        if l.layoutName == want then mine = i
-        elseif Clear.IsMyLayout(l.layoutName) then other = other or i end
+        if l.layoutType == KIND then count = count + 1 end
+        if l.layoutType == KIND or l.layoutType == E.EditModeLayoutType.Account then last = i end
+        if l.layoutName == want then
+            if l.layoutType == KIND then mine = i else clash = i end
+        end
+        if Clear.IsMyLayout(l.layoutName) and (not other or i == activeIdx - presets) then other = i end
     end
     if not mine and use ~= true then
         Clear.layoutUntouched = true
         return nil, "no layout for this screen"
     end
-    local accounts = 0
-    for _, l in ipairs(info.layouts) do
-        if l.layoutType == E.EditModeLayoutType.Account then accounts = accounts + 1 end
+    if not mine and count >= 5 then
+        return nil, "five layouts on this character already -- delete one in Edit Mode"
     end
-    if not mine and accounts >= 5 then
-        return nil, "five account layouts already -- delete one in Edit Mode"
+    if not mine and clash then
+        return nil, ("an account layout is already named %q -- rename or delete it in Edit Mode"):format(want)
     end
-    if not mine and other then
-        local new = DeepCopy(info.layouts[other])
+    -- After the last one, as the client orders them: nothing else moves.
+    local function Append(new)
         new.layoutName = want
-        table.insert(info.layouts, accounts + 1, new)
-        if info.activeLayout > presets + accounts then
+        new.layoutType = KIND
+        mine = last + 1
+        table.insert(info.layouts, mine, new)
+        if info.activeLayout > presets + last then
             info.activeLayout = info.activeLayout + 1
         end
-        mine = accounts + 1
         dirty = true
     end
+    if not mine and other then Append(DeepCopy(info.layouts[other])) end
     if not mine then
         local source
         if activeIdx > presets then
@@ -926,16 +917,7 @@ function Clear.ApplyLayout(use)
             source = copies and copies[activeIdx]
         end
         if not source then return nil, "could not read the active layout" end
-        local new = DeepCopy(source)
-        new.layoutName = want
-        new.layoutType = E.EditModeLayoutType.Account
-        -- Account layouts sort before character ones.
-        mine = accounts + 1
-        table.insert(info.layouts, mine, new)
-        if info.activeLayout > presets + accounts then
-            info.activeLayout = info.activeLayout + 1
-        end
-        dirty = true
+        Append(DeepCopy(source))
     end
 
     local before = DeepCopy(info.layouts[mine])
@@ -957,6 +939,23 @@ function Clear.ApplyLayout(use)
     info.activeLayout = presets + mine
     -- Back on a screen whose layout is already right: only switch to it.
     if not same then C_EditMode.SaveLayouts(info) end
+    -- A new one has to be there before it is selected: an index with nothing
+    -- behind it is somebody else's layout. Asking again picks it up.
+    if dirty then
+        local kept = (C_EditMode.GetLayouts().layouts or {})[mine]
+        if not (kept and kept.layoutName == want and kept.layoutType == KIND) then
+            return nil, "the new layout is not there yet -- /reload, then /myui layout use again"
+        end
+    end
+    -- What this spec is leaving, written down only once it really is.
+    if not Clear.IsMyLayout(current) then
+        DB().prevLayout = current
+        local key = SpecKey()
+        if key then
+            DB().prevBySpec = DB().prevBySpec or {}
+            DB().prevBySpec[key] = current
+        end
+    end
     C_EditMode.SetActiveLayout(presets + mine)
     return changed
 end
@@ -995,7 +994,7 @@ function Clear.HintLayout(err)
     if err == "not used on this spec" then
         text = "this spec keeps its own Edit Mode layout -- /myui layout use for MyUI's"
     elseif err == "no layout for this screen" then
-        text = ("this screen suits the %q layout, which is not made yet -- /myui layout use makes it")
+        text = ("this character has no %q layout yet -- /myui layout use makes it, on this character only")
                :format(Clear.LayoutName())
     end
     if not text or Clear.layoutHints[text] then return false end

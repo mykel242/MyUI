@@ -3165,8 +3165,8 @@ do
     local mine
     for i, l in ipairs(saved.layouts) do if l.layoutName == "MyUI" then mine = i end end
     check("a MyUI layout is made from the active one", mine ~= nil, mine)
-    check("  as an account layout, before the character ones", mine == 2
-          and saved.layouts[mine].layoutType == 1 and saved.layouts[3].layoutName == "Alt")
+    check("  as this character's own, after every other, so nothing moves", mine == 3
+          and saved.layouts[mine].layoutType == 2 and saved.layouts[2].layoutName == "Alt")
     check("  every action bar with a visibility setting is hidden", changed >= 2
           and saved.layouts[mine].systems[2].settings[1].value == 3, changed)
     local function sys(i) return saved.layouts[mine].systems[i + 2] end
@@ -3271,28 +3271,35 @@ do
         Clear.ApplyLayout()
         return saved
     end)())
-    check("each screen size has its layout, named in words: the numbered one is renamed in place, a new one is made when asked", (function()
-        local was = _G.UIParent.__w
+    check("each screen size has its layout, this character's, named in words; a new one is made when asked", (function()
+        local was, all, act = _G.UIParent.__w, mock.layouts.layouts, mock.layouts.activeLayout
         local function find(name)
             for i, l in ipairs(mock.layouts.layouts) do if l.layoutName == name then return i end end
         end
-        local at = find("MyUI")
-        mock.layouts.layouts[at].layoutName = "MyUI 1365"
+        -- As it was: one account layout, named by a number.
+        local old = all[find("MyUI")]
+        old.layoutName, old.layoutType = "MyUI 1365", 1
+        mock.layouts.layouts = { all[1], old, all[2] }
+        mock.layouts.activeLayout = 4
         _G.UIParent.__w = 1365.33
-        Clear.ApplyLayout()
-        local renamed = find("MyUI Wide") == at and find("MyUI 1365") == nil and mock.editMode.active == 2 + at
-        _G.UIParent.__w = 1188                    -- the laptop
         mock.editMode.saved = nil
         local ok, err = Clear.ApplyLayout()
         local asks = ok == nil and err == "no layout for this screen" and mock.editMode.saved == nil
-                     and mock.layouts.activeLayout == 2 + at
+                     and mock.layouts.activeLayout == 4 and find("MyUI 1365") == 2
         Clear.layoutHints = {}
         ns.ClearOutput()
         asks = asks and Clear.HintLayout(err) and not Clear.HintLayout(err)
-               and ns.GetOutput():find('"MyUI Standard"', 1, true) ~= nil
+               and ns.GetOutput():find('"MyUI Wide"', 1, true) ~= nil
         Clear.ApplyLayout(true)
-        local both = find("MyUI Wide") ~= nil and find("MyUI Standard") ~= nil
-                     and mock.editMode.active == 2 + find("MyUI Standard")
+        local at = find("MyUI Wide")
+        local made = at == 4 and mock.layouts.layouts[at].layoutType == 2 and mock.editMode.active == 6
+                     and find("MyUI 1365") == 2 and mock.layouts.layouts[2].layoutType == 1
+        mock.editMode.saved = nil
+        local twice = Clear.ApplyLayout(true) == 0 and mock.editMode.saved == nil
+        _G.UIParent.__w = 1188                    -- the laptop
+        local stays = Clear.ApplyLayout() == nil and mock.layouts.activeLayout == 6
+        Clear.ApplyLayout(true)
+        local both = find("MyUI Standard") == 5 and mock.editMode.active == 7
         -- Another screen of the same size: nothing to write at all.
         mock.editMode.saved = nil
         _G.UIParent.__w = 1229
@@ -3300,33 +3307,39 @@ do
         -- Back to the monitor, or on to an ultrawide: only switched.
         _G.UIParent.__w = 1792
         Clear.ApplyLayout()
-        local back = mock.editMode.active == 2 + find("MyUI Wide") and mock.editMode.saved == nil
+        local back = mock.editMode.active == 6 and mock.editMode.saved == nil
         local prevKept = ns.db.clear.prevLayout == "XYZ - Ultra"
-        table.remove(mock.layouts.layouts, find("MyUI Standard"))
-        mock.layouts.layouts[find("MyUI Wide")].layoutName = "MyUI"
+        old.layoutName, old.layoutType = "MyUI", 2
+        mock.layouts.layouts = all
+        mock.layouts.activeLayout = act
         _G.UIParent.__w = was
         Clear.ApplyLayout()
-        return renamed and asks and both and same and back and prevKept,
-               ("%s %s %s %s %s %s"):format(tostring(renamed), tostring(asks), tostring(both), tostring(same),
-                                            tostring(back), tostring(prevKept))
+        return asks and made and twice and stays and both and same and back and prevKept,
+               ("%s %s %s %s %s %s %s %s"):format(tostring(asks), tostring(made), tostring(twice), tostring(stays),
+                   tostring(both), tostring(same), tostring(back), tostring(prevKept))
     end)())
-    check("with five account layouts, making one stops and changes nothing", (function()
-        local was = _G.UIParent.__w
-        local n = #mock.layouts.layouts
-        for i = 1, 5 do
-            table.insert(mock.layouts.layouts, 1, { layoutName = "Full " .. i, layoutType = 1, systems = {} })
-        end
-        mock.layouts.activeLayout = mock.layouts.activeLayout + 5
-        mock.layouts.layouts[#mock.layouts.layouts - 1].layoutName = "MyUI Wide"
+    check("five on this character, a name already taken, or one the client did not keep: stop, select nothing", (function()
+        local was, all, act = _G.UIParent.__w, mock.layouts.layouts, mock.layouts.activeLayout
         _G.UIParent.__w = 1188
-        mock.editMode.saved = nil
-        local ok, err = Clear.ApplyLayout(true)
-        local stopped = ok == nil and tostring(err):find("five account layouts", 1, true) ~= nil and mock.editMode.saved == nil
-        for _ = 1, 5 do table.remove(mock.layouts.layouts, 1) end
-        mock.layouts.activeLayout = mock.layouts.activeLayout - 5
-        mock.layouts.layouts[#mock.layouts.layouts - 1].layoutName = "MyUI"
+        local function Try(layouts)
+            mock.layouts.layouts, mock.layouts.activeLayout = layouts, 1
+            mock.editMode.saved, mock.editMode.active = nil, nil
+            local ok, err = Clear.ApplyLayout(true)
+            return ok == nil and mock.editMode.active == nil and tostring(err) or "applied"
+        end
+        local five = {}
+        for i = 1, 5 do five[i] = { layoutName = "Mine " .. i, layoutType = 2, systems = {} } end
+        local before = ns.db.clear.prevLayout
+        local full = Try(five)
+        local taken = Try({ { layoutName = "MyUI Standard", layoutType = 1, systems = {} } })
+        local save = C_EditMode.SaveLayouts
+        C_EditMode.SaveLayouts = function() end
+        local lost = Try({ { layoutName = "MyUI 1365", layoutType = 1, systems = {} } })
+        C_EditMode.SaveLayouts = save
+        mock.layouts.layouts, mock.layouts.activeLayout = all, act
         _G.UIParent.__w = was
-        return stopped and #mock.layouts.layouts == n, tostring(err)
+        return full:find("five layouts on this character", 1, true) and taken:find("already named", 1, true)
+           and lost:find("not there yet", 1, true) and ns.db.clear.prevLayout == before, full .. " | " .. taken .. " | " .. lost
     end)())
     check("every size fits its narrowest screen, down to 4:3", (function()
         local was = _G.UIParent.__w
