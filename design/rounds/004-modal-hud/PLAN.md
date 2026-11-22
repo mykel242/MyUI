@@ -242,6 +242,10 @@ zoom. 4 Load gate (`enable`/`disable`, not-set-up). 5 Look. 6 Full: record, reco
 - `minimapZoom`: 5 on disk at the last exit before the probe, 0 in every reading, gone from the file
   since (its default). The map is pinned, so it opens at login and sets 0. Not caught in the act;
   treated as a write.
+- **In game, 2026-11-22:** a character layout is kept over a reload, is not listed on the other
+  character, and moved nothing there; own layouts and a preset stayed put. Deleting an account layout
+  in Edit Mode put a spec that used it on Blizzard's Modern: `uninstall` must select the original on
+  a spec before deleting, and say which specs it could not reach.
 - Not answered: whether adding a layout shifts another character's active one (needs a write).
   A character whose active layout is of the character kind sits after MyUI's and is the one at risk.
 The record is therefore per character **and spec**; nothing is selected on a spec not set up.
