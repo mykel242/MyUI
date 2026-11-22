@@ -256,10 +256,21 @@ stop, change nothing. The account's numbered one is left as the pattern until no
 
 **Constraint-oriented, not draggable** (Mykel, 2026-11-22: "get away from people dragging stuff around
 and ending up with wildly diverse layouts ... minor window adjustments ... drag some things out to an
-edge for THAT character"). *Proposed, not yet agreed:* the HUD core is fixed (your strip, bar, target,
+edge for THAT character"). *First draft (Mykel: "good start - we'll see if it holds up"); built
+only after the character layout passes in game:* the HUD core is fixed (your strip, bar, target,
 focus, pet, stance); the rest each has a short list of named places, per character and screen size;
 an arrange mode snaps a drag to the nearest one; taken places are refused. Replaces `/myui move` and
 saved profiles for players (kept for development). What MyUI does not place is the player's.
+
+| part | places |
+|---|---|
+| cooldowns | beside the bar, left edge |
+| debuffs | beside the bar, right edge |
+| tracked buff bars | above the cooldowns, left edge, right edge |
+| group frames | beside the target, left edge, right edge |
+| zone button | on the bar row, right edge |
+| tooltip | bottom right, bottom left |
+| side panels | left column, right column |
 **Guard built 2026-11-22, ahead of the rest:** MyUI's layout is kept up only where it is already
 active; `/myui layout use` is the yes for one spec, choosing another in Edit Mode the no; the layout
 left is recorded per character and spec; `restore` never touches a spec on its own layout; the map
