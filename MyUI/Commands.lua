@@ -383,13 +383,18 @@ local HANDLERS = {
                 if not ok then
                     ns.Print("layout: " .. tostring(err))
                 elseif ns.Clear.layoutUntouched then
-                    ns.Print("layout: this spec already uses MyUI's")
+                    ns.Print(("layout: this spec already uses %q"):format(ns.Clear.LayoutName()))
                 else
-                    ns.Print("layout: MyUI's, on this spec only -- |cffffd159/reload|r. "
+                    ns.Print(("layout: %q, on this spec only -- |cffffd159/reload|r. "):format(ns.Clear.LayoutName())
                              .. "To leave it, choose another in Edit Mode.")
                 end
             end)
             return
+        end
+        local size = ns.Clear.ScreenSize()
+        if size then
+            ns.Print(("this screen: %s (%s). Edit Mode layout here: %s"):format(size.name, size.what,
+                     tostring((ns.Clear.ActiveLayoutName()))))
         end
         local on = ns.Layout.Preview()
         ns.Print(on and "layout preview: boxes where each part goes; /myui move to adjust, /myui layout to hide"

@@ -410,19 +410,54 @@ end
 
 Clear.LAYOUT = "MyUI"
 
--- Round 004 play (Mykel, moving between a desktop monitor and a laptop):
--- one MyUI layout per screen width, so going back to a screen picks up the
--- layout already fitted to it instead of rewriting one layout each time.
--- Named "MyUI 1229" (UIParent's width in UI units); "MyUI" when unknown.
-function Clear.LayoutName()
+-- Mykel (2026-11-22): adjust for screen sizes, and say "with words which
+-- layout is used". Three sizes, by the room WoW's UI has across (its width
+-- in UI units: the screen's shape and the UI scale together). Every screen of
+-- one size gets the same layout, sized for the narrowest of them, so moving
+-- between two of them rewrites nothing. Everything from 1340 up already has
+-- room for full-size icons, ultrawides included.
+Clear.SIZES = {
+    { name = "Wide",     from = 1340, what = "16:9 and wider" },
+    { name = "Standard", from = 1180, what = "16:10, or a larger UI scale" },
+    { name = "Compact",  from = 0, fit = 1000, what = "narrower still" },
+}
+
+local function ScreenWidth()
     local w = _G.UIParent and _G.UIParent.GetWidth and _G.UIParent:GetWidth() or 0
-    if type(w) ~= "number" or w <= 0 then return Clear.LAYOUT end
-    return ("%s %d"):format(Clear.LAYOUT, math.floor(w + 0.5))
+    return type(w) == "number" and w > 0 and w or nil
 end
 
---- Is this one of MyUI's layouts (any screen)?
+--- The size a width falls in; this screen's when none is given.
+function Clear.ScreenSize(width)
+    width = width or ScreenWidth()
+    if not width then return nil end
+    for _, size in ipairs(Clear.SIZES) do
+        if width >= size.from then return size end
+    end
+end
+
+--- The width the wings are fitted to: the narrowest screen of this size.
+function Clear.FitWidth()
+    local width, size = ScreenWidth(), Clear.ScreenSize()
+    if not size then return nil end
+    return size.fit and math.min(size.fit, width) or size.from
+end
+
+--- This screen's layout: "MyUI Wide"; "MyUI" while the width is unknown.
+function Clear.LayoutName(width)
+    local size = Clear.ScreenSize(width)
+    return size and ("%s %s"):format(Clear.LAYOUT, size.name) or Clear.LAYOUT
+end
+
+--- Is this one of MyUI's layouts (any screen)? The numbered ones ("MyUI
+-- 1365", the width) are from before the sizes had names.
 function Clear.IsMyLayout(name)
-    return name == Clear.LAYOUT or (type(name) == "string" and name:match("^MyUI %d+$") ~= nil)
+    if name == Clear.LAYOUT then return true end
+    if type(name) ~= "string" then return false end
+    for _, size in ipairs(Clear.SIZES) do
+        if name == Clear.LAYOUT .. " " .. size.name then return true end
+    end
+    return name:match("^MyUI %d+$") ~= nil
 end
 
 local function DeepCopy(t)
@@ -595,8 +630,8 @@ Clear.WING_MARGIN = 4        -- units kept clear of the screen edge
 -- screen. Unknown screen width (0): the wing's own numbers.
 function Clear.WingFit(key)
     local w = Clear.WINGS[key]
-    local screen = _G.UIParent and _G.UIParent.GetWidth and _G.UIParent:GetWidth() or 0
-    if not (ns.Actions and ns.Actions.Extent) or type(screen) ~= "number" or screen <= 0 then
+    local screen = Clear.FitWidth()
+    if not (ns.Actions and ns.Actions.Extent) or not screen then
         return w.size, w.limit
     end
     local half, _, _, _, barX = ns.Actions.Extent()
@@ -838,31 +873,38 @@ function Clear.ApplyLayout(use)
         end
     end
 
-    -- Find this screen's layout; else take over the old single "MyUI" one;
-    -- else start from another screen's (already MyUI's shape); else from
-    -- whatever is active.
+    -- Find this screen's layout. The older numbered and plain ones are
+    -- renamed to their size's words first: same layout, same place in the
+    -- list. Another screen's is the pattern for a new one, and a new one is
+    -- only made when asked for: it takes one of the account's five.
     local want = Clear.LayoutName()
-    local mine, plain, other
     local dirty = false   -- renamed or added: the list itself must be saved
+    local taken = {}
+    for _, l in ipairs(info.layouts) do taken[l.layoutName] = true end
+    for _, l in ipairs(info.layouts) do
+        local width = tonumber(tostring(l.layoutName):match("^MyUI (%d+)$"))
+        local words = width and Clear.LayoutName(width) or (l.layoutName == Clear.LAYOUT and want) or nil
+        if words and not taken[words] then
+            l.layoutName = words
+            taken[words] = true
+            dirty = true
+        end
+    end
+    local mine, other
     for i, l in ipairs(info.layouts) do
         if l.layoutName == want then mine = i
-        elseif l.layoutName == Clear.LAYOUT then plain = i
         elseif Clear.IsMyLayout(l.layoutName) then other = other or i end
     end
-    if not mine and plain then
-        mine = plain
-        info.layouts[mine].layoutName = want
-        dirty = true
+    if not mine and use ~= true then
+        Clear.layoutUntouched = true
+        return nil, "no layout for this screen"
     end
     local accounts = 0
     for _, l in ipairs(info.layouts) do
         if l.layoutType == E.EditModeLayoutType.Account then accounts = accounts + 1 end
     end
-    if not mine and other and accounts >= 5 then
-        -- No room for another: the other screen's layout becomes this one's.
-        mine = other
-        info.layouts[mine].layoutName = want
-        dirty = true
+    if not mine and accounts >= 5 then
+        return nil, "five account layouts already -- delete one in Edit Mode"
     end
     if not mine and other then
         local new = DeepCopy(info.layouts[other])
@@ -884,7 +926,6 @@ function Clear.ApplyLayout(use)
             source = copies and copies[activeIdx]
         end
         if not source then return nil, "could not read the active layout" end
-        if accounts >= 5 then return nil, "five account layouts already -- delete one in Edit Mode" end
         local new = DeepCopy(source)
         new.layoutName = want
         new.layoutType = E.EditModeLayoutType.Account
@@ -947,6 +988,22 @@ end
 -- On and off
 -- ---------------------------------------------------------------------------
 
+--- Why MyUI's layout was left alone, once a session for each reason.
+Clear.layoutHints = {}
+function Clear.HintLayout(err)
+    local text
+    if err == "not used on this spec" then
+        text = "this spec keeps its own Edit Mode layout -- /myui layout use for MyUI's"
+    elseif err == "no layout for this screen" then
+        text = ("this screen suits the %q layout, which is not made yet -- /myui layout use makes it")
+               :format(Clear.LayoutName())
+    end
+    if not text or Clear.layoutHints[text] then return false end
+    Clear.layoutHints[text] = true
+    ns.Print("|cffadb1b8" .. text .. "|r")
+    return true
+end
+
 --- Everything R3b clears. Adoption is alpha and happens now; the unit frames
 -- and the layout wait for combat to end.
 function Clear.Apply()
@@ -955,10 +1012,7 @@ function Clear.Apply()
     Clear.Defer("units", Clear.HideUnits)
     Clear.Defer("layout", function()
         local ok, err = Clear.ApplyLayout()
-        if err == "not used on this spec" and not Clear.layoutHinted then
-            Clear.layoutHinted = true
-            ns.Print("|cffadb1b8this spec keeps its own Edit Mode layout -- /myui layout use for MyUI's|r")
-        end
+        Clear.HintLayout(err)
         DB().layoutResult = ok and ("bars changed: " .. tostring(ok)) or tostring(err)
         Clear.StyleExtra(true)
         -- Saving the Edit Mode layout from MyUI taints what Edit Mode touches

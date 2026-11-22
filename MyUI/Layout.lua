@@ -233,7 +233,8 @@ function Layout.Apply()
         if ns.Group and ns.Group.PlaceFocus then ns.Group.PlaceFocus() end
         if ns.Group and ns.Group.PlaceTarget then ns.Group.PlaceTarget() end
         if ns.Clear and ns.Clear.Enabled and ns.Clear.Enabled() and ns.Clear.ApplyLayout then
-            ns.Clear.ApplyLayout()
+            local _, err = ns.Clear.ApplyLayout()
+            ns.Clear.HintLayout(err)
             if ns.Reveal then ns.Reveal.Snap() end
             -- Saving an Edit Mode layout from addon code taints what Edit
             -- Mode touches; a reload starts Blizzard's frames clean.
