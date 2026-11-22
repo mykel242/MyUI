@@ -1,8 +1,66 @@
 # MyUI — status
 
-**Last updated:** 2026-08-27 · `0.4.0-phase3` · 476 addon checks / 7 lint rules over 16 files, all green
+**Last updated:** 2026-11-21 · branch `mvp/m2-swap-bars` @ `1b2c2d6` (pushed) · 864 addon checks, harness 23, lint + deps clean
 
 Target: WoW Midnight 12.1.5, TOC `120105`. Reference source read at build **12.1.5.70783** (R1 diffed it against 12.1.0.69497).
+
+---
+
+## Pick up here (2026-11-21, evening) — round 005, "replace the chrome"
+
+Direction (Mykel, PLAN): MyUI *replaces* Blizzard chrome, toast-oriented, UI when you need it;
+every replacement is a player switch. SPEC § 22–23 and the round-005 paragraphs after § 23 say
+what was built; this is where it stands.
+
+**Built this session (all pushed, all deployed; only partly seen in game):**
+- **Switches** (`Switches.lua`, `/myui override`): quests, chat, minimap, buffs, castbar,
+  cooldowns, menu, meter (live); bars, unitframes, group, chat (on `/reload`).
+- **Summoned panels** (`Summon.lua`): one grid (width 320, PAD 10, header 26, filters 22, rows 22,
+  footer 22), pin / ×, go away by themselves (1.5 s after the pointer leaves, 10 s unseen,
+  combat) unless pinned, pinned ones reopen after `/reload`. Dock columns from the top:
+  left = history, chat; right = map, quests, who's online. A panel never grows into the bottom
+  HUD (`FitRows`, `BOTTOM_RESERVE` 230) — "+N more" / "fewer" in the footer instead. Hue shapes
+  everywhere (`Summon.SHAPE`: violet circle, blue diamond, amber triangle, green square,
+  orange bar).
+- **Quests** (`Quests.lua`): progress / ready / accepted / turned-in toasts; the list (key
+  "Show the quest list", `/myui quests`) with kinds — quests, world, events, achievements —
+  as filters; counts only on the waypoint quest; hover card; left-click waypoint, right-click
+  map (achievements: open / untrack).
+- **Chat panel** (`Talk.lua`, key "Show chat", `/myui chat`): keeps 200 messages from CHAT_MSG_
+  events, filters, click to reply on the channel, "type..." footer; Blizzard's edit box docks in
+  the footer while open. Toasts: party/instance outside raids, guild/raid only when named.
+  Secret messages forwarded via `Guard.Send`, never toasted.
+- **Who's online** (`Social.lua`, key, `/myui social`, "online N" in chat's header): guild +
+  friends, filters, click to whisper; "Online: A, B +3" login toasts (2 s gather).
+- **Notifications history** (`Center.lua`, an extra): roll-ups ("Online: …", "x2"), clear (what
+  the filter shows), right-click a row clears it, left-click acts (reply / who's online / chat /
+  quests / bags).
+- **Map** (`Map.lua`, key "Show the map", `/myui map`): Blizzard's minimap moved into a panel,
+  square, zoomed out, zone + coords header, "world map" footer; ring / zoom buttons hidden;
+  LibDBIcon buttons stood in for by proxies (found as minimap children carrying `dataObject` —
+  no LibStub, RULES), other buttons (landing-page orb) moved with strata + hit insets fixed.
+- **Fixes:** BuffFrame/DebuffFrame taint — Edit Mode resolved `MyUIDebuffAnchor` via `_G`
+  (taint.log); debuffs now anchor to UIParent and no Edit Mode anchor may name a MyUI frame
+  (test). Wings fit narrow screens; one Edit Mode layout per screen width ("MyUI 1229");
+  stacked wing rows anchor to the viewer below. Friendly targets bring only the bar. Tooltip
+  corner moved by the Edit Mode HudTooltip system (bottom-right). Long names truncate before
+  the centred %.
+
+**Next, in order:**
+1. **Mykel's bugs and tweaks** from playing round 005 — he has more; ask for them first.
+2. **Chat panel** — Mykel wants more time with it; expect feedback.
+3. **Not yet confirmed in game:** map button stand-ins (BugSack click/tooltip, orb), the dock
+   fitting on the laptop screen, per-screen layout switching, roll-ups/clear, quest kinds with
+   a real world quest / bonus area / tracked achievement, guild list on first open.
+4. **Map, still to do:** SPEC 22's "mount, hearthstone and the like on hover".
+5. Older open items: M3 hover cards and shift-click pinning, alt-click casting (P3), dispel
+   dots; quest progress could roll up in the history the way currency does.
+
+**Working notes:** deploy = `rsync -a --delete MyUI/ MyUI_Test/` into
+`/Applications/World of Warcraft/_retail_/Interface/AddOns/`; `./smoke.sh` (check its exit,
+not `| tail`); before every push scan `git diff origin/mvp/m2-swap-bars..HEAD` for character /
+guild / friend names, paths, WTF — test fixtures use made-up names. Taint log: `/console
+taintLog 2`, reproduce, `/reload`, read `Logs/taint.log`, then `taintLog 0`.
 
 ---
 
