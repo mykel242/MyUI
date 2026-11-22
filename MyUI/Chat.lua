@@ -425,6 +425,25 @@ function Chat.FreeEditBox()
     return true
 end
 
+--- Round 005 play: Blizzard's typing box sat by itself at the bottom left
+-- while MyUI's chat panel was open. While the panel is out, the box takes
+-- the panel's footer; nil sends it back to its own spot.
+function Chat.DockBox(panel)
+    local box = _G.ChatFrame1EditBox
+    if type(box) ~= "table" or not Chat.editBoxFreed then return false end
+    box:ClearAllPoints()
+    if panel then
+        local S = ns.Summon
+        box:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", U(S.PAD - 4), U(2))
+        box:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -U(S.PAD - 4), U(2))
+        box:SetHeight(U(S.FOOTER_H))
+    else
+        box:SetPoint("BOTTOMLEFT", _G.UIParent, "BOTTOMLEFT", U(Chat.X), U(Chat.Y + Chat.HEIGHT + 14))
+        box:SetSize(U(Chat.WIDTH), U(Chat.HEIGHT))
+    end
+    return true
+end
+
 function Chat.HideLog()
     -- Always first: the edit box is declared inside the chat frame, so stowing
     -- the frame with the box still in it is what kills slash commands.

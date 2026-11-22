@@ -27,7 +27,7 @@ local Quests = {}
 ns.Quests = Quests
 
 Quests.SETTLE  = 0.25    -- QUEST_LOG_UPDATE comes in bursts; read once after
-Quests.WIDTH   = 300
+Quests.WIDTH   = ns.Summon.WIDTH
 Quests.MAX_ALL = 12       -- with nothing tracked, the first quests in the log
 -- Where Blizzard's tracker sat: the right edge, below the minimap's place.
 Quests.ANCHOR  = { point = "TOPRIGHT", x = -24, y = -200 }
@@ -282,7 +282,7 @@ end
 -- Third pass: the history's surface and header (Summon.lua) so the two
 -- summoned panels match -- left-aligned rows, pin and close -- and the same
 -- going-away: by itself once you are done with it, unless pinned.
-Quests.ROW      = 24     -- title, a gap, the bar, a gap
+Quests.ROW      = ns.Summon.ROW_H + 4   -- title, a gap, the bar, a gap
 Quests.DETAIL   = 15     -- one objective line
 Quests.STATUS_W = 44
 Quests.BAR_H    = 2
@@ -290,11 +290,10 @@ Quests.MAX_QUESTS = 8
 Quests.MAX_ALL_ROWS = 30 -- the whole list, opened
 Quests.CARD_W   = 300
 Quests.CARD_LINES = 10
-Quests.FILTER_H = 22
-Quests.CHIP_W   = { 34, 66, 60, 62, 76 }
+Quests.FILTER_H = ns.Summon.FILTER_H
 -- Each kind's square, the history's grammar.
 Quests.HUE = { quest = "notifAmber", world = "notifBlue", event = "notifGreen", achievement = "notifViolet" }
-Quests.DOT = 8
+Quests.DOT = ns.Summon.DOT
 
 local frame, rows, details, card = nil, {}, {}, nil
 
@@ -391,8 +390,8 @@ local function SetMouse(on)
         h.pin:EnableMouse(on)
         h.close:EnableMouse(on)
     end
-    for _, r in ipairs(rows) do r:EnableMouse(on and (r.line ~= nil or r.more == true)) end
-    for _, c in ipairs(frame and frame.chips or {}) do c:EnableMouse(on) end
+    for _, r in ipairs(rows) do r:EnableMouse(on and r.line ~= nil) end
+    if frame then ns.Summon.Mouse(frame, on) end
 end
 
 local function Build()
@@ -407,33 +406,15 @@ local function Build()
     local a = Quests.ANCHOR
     frame:SetPoint(a.point, UIParent, a.point, U(a.x), U(a.y))
     local header = ns.Summon.Chrome(frame, "Quests")
-    -- The filters, a row of their own under the header: all, then each kind
-    -- with its count; the chosen one lit, like the history's hues.
-    frame.chips = {}
-    local x = ns.Summon.PAD
-    for i, kind in ipairs({ "all", "quest", "world", "event", "achievement" }) do
-        local c = CreateFrame("Button", nil, frame)
-        c:SetSize(U(Quests.CHIP_W[i]), U(Quests.FILTER_H - 4))
-        c:SetPoint("TOPLEFT", frame, "TOPLEFT", U(x), -U(ns.Summon.HEADER_H + 3))
-        x = x + Quests.CHIP_W[i] + 4
-        c.kind = kind ~= "all" and kind or nil
-        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
-        if c.kind then
-            c.dot = c:CreateTexture(nil, "ARTWORK")
-            c.dot:SetSize(U(Quests.DOT), U(Quests.DOT))
-            c.dot:SetPoint("LEFT")
-            c.dot:SetColorTexture(Palette.Get(Quests.HUE[c.kind]))
-            c.text:SetPoint("LEFT", c.dot, "RIGHT", U(5), 0)
-            c.text:SetPoint("RIGHT")
-        else
-            c.text:SetAllPoints()
-        end
-        c:SetScript("OnClick", function(self) Quests.Filter(self.kind) end)
-        frame.chips[i] = c
+    -- The filters, on the shared grid: all, then each kind's square and count.
+    local items = { { key = nil, label = "all" } }
+    for _, k in ipairs(Quests.KINDS) do
+        items[#items + 1] = { key = k, hue = Quests.HUE[k], label = Quests.KIND_LABEL[k] }
     end
-    local under = ns.Summon.Hairline(frame, "trough")
-    under:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -U(ns.Summon.HEADER_H + Quests.FILTER_H))
-    under:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -U(ns.Summon.HEADER_H + Quests.FILTER_H))
+    frame.chips = ns.Summon.Filters(frame, items, function(k)
+        if Quests.filter == k then Quests.Filter(nil) else Quests.Filter(k) end
+    end)
+    ns.Summon.Footer(frame, nil, nil, function() Quests.SetExpanded(not Quests.expanded) end)
     for i = 1, Quests.MAX_QUESTS + 1 do RowAt(i) end
     for i = 1, 8 do details[i] = Detail() end
     BuildCard()
@@ -509,15 +490,8 @@ function Quests.Filter(kind)
 end
 
 function Quests.PaintChips()
-    local counts = Quests.counts or {}
-    for _, c in ipairs(frame and frame.chips or {}) do
-        local label = c.kind and Quests.KIND_LABEL[c.kind] or "all"
-        if c.kind == "achievement" then label = "achieve" end
-        c.text:SetText(("%s %d"):format(label, counts[c.kind or "all"] or 0))
-        local lit = Quests.filter == c.kind
-        c.text:SetTextColor(Palette.Get(lit and "textPrimary" or "textDim"))
-        c:SetAlpha((Quests.filter == nil or lit) and 1 or 0.45)
-    end
+    if not frame then return nil end
+    return ns.Summon.PaintFilters(frame, Quests.counts or {}, Quests.filter)
 end
 
 --- "+N more" opens the whole list; "fewer" closes it.
@@ -534,7 +508,7 @@ local function Paint(r, l)
     if l.kind then
         r.dot:SetColorTexture(Palette.Get(Quests.HUE[l.kind] or "textDim"))
         r.dot:Show()
-        r.text:SetPoint("TOPLEFT", r, "TOPLEFT", U(Quests.DOT + 6), -U(3))
+        r.text:SetPoint("TOPLEFT", r, "TOPLEFT", U(Quests.DOT + ns.Summon.GAP), -U(3))
     else
         r.dot:Hide()
         r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(3))
@@ -557,9 +531,9 @@ function Quests.Refresh()
     if not frame then return end
     local lines, more, total = Quests.Lines()
     local pad = ns.Summon.PAD
-    frame.__header.title:SetText("Quests")
-    Quests.PaintChips()
-    local y, d = U(ns.Summon.HEADER_H + Quests.FILTER_H + 4), 0
+    local chosen = Quests.PaintChips()
+    frame.__header.title:SetText(chosen and ("Quests \194\183 " .. chosen) or "Quests")
+    local y, d = ns.Summon.Top(true), 0
     local function Place(r)
         r:ClearAllPoints()
         r:SetPoint("TOPLEFT", frame, "TOPLEFT", U(pad), -y)
@@ -583,8 +557,10 @@ function Quests.Refresh()
                     d = d + 1
                     local t = details[d]
                     t:ClearAllPoints()
-                    t:SetPoint("TOPLEFT", frame, "TOPLEFT", U(pad + 10), -y)
-                    t:SetWidth(Inner() - U(10))
+                    -- Under the title's text, past its square.
+                    local indent = Quests.DOT + ns.Summon.GAP
+                    t:SetPoint("TOPLEFT", frame, "TOPLEFT", U(pad + indent), -y)
+                    t:SetWidth(Inner() - U(indent))
                     t:SetText(Quests.ObjectiveText(o, l.q.title))
                     t:Show()
                     y = y + U(Quests.DETAIL)
@@ -593,16 +569,8 @@ function Quests.Refresh()
             y = y + U(6)
         end
     end
-    -- The toggle: "+N more" while closed, "fewer" while the whole list is out.
-    if more > 0 or Quests.expanded then
-        used = used + 1
-        local r = RowAt(used)
-        Paint(r, { text = more > 0 and ("+%d more"):format(more) or "fewer", colour = "textDim" })
-        r.trough:Hide()
-        r.fill:Hide()
-        r.questID, r.achievementID, r.line, r.more = nil, nil, nil, true
-        Place(r)
-    end
+    -- "+N more" / "fewer" in the footer, as on every panel.
+    ns.Summon.PaintMore(frame, more, Quests.expanded)
     if #lines == 0 then
         used = 1
         local r = RowAt(1)
@@ -619,7 +587,7 @@ function Quests.Refresh()
     end
     for i = d + 1, #details do details[i]:Hide() end
     SetMouse(Quests.open == true)
-    frame:SetHeight(y + U(pad - 4))
+    frame:SetHeight(ns.Summon.Height(y - ns.Summon.Top(true), true, true))
     if Quests.open then ns.Summon.Layout() end
 end
 

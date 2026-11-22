@@ -40,7 +40,7 @@ local NAME_GAP = 6
 -- Where the anchor sits until the layout layer (R4) lets the player place it:
 -- the left edge, upper third -- clear of SelfStack (bottom centre) and
 -- TargetStrip (top centre), which a toast must never cover (SPEC 6).
-Toast.DEFAULT = { point = "TOPLEFT", x = 20, y = -240 }
+Toast.DEFAULT = { point = "TOPLEFT", x = 16, y = -200 }   -- round 005: the left dock's top
 
 -- SPEC 6's hues, by meaning. Five, all palette entries: four mean SOMETHING
 -- HAPPENED, orange means SOMETHING WANTS YOU. The Aug 28 sixth hue (red, for

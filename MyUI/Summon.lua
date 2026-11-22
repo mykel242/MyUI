@@ -25,9 +25,28 @@ ns.Summon = Summon
 Summon.LINGER   = 1.5
 Summon.UNSEEN   = 10
 Summon.TICK     = 0.25
-Summon.HEADER_H = 26
+
+-- THE GRID (round 005 play: "tighten up the grid and design language so
+-- things line up better -- margins are inconsistent and the panels are
+-- arbitrary sizes"). Every summoned panel is built from these and nothing
+-- else, in SPEC units:
+--
+--   width     WIDTH, every panel
+--   header    HEADER_H: title left, pin and close right
+--   filters   FILTER_H: hue squares with counts, equal columns
+--   rows      ROW_H a line (a panel may use whole multiples of it)
+--   footer    FOOTER_H: the panel's action left, "+N more" / "fewer" right
+--   margins   PAD inside, everywhere; DOT squares; GAP between a square
+--             and its text
+Summon.WIDTH    = 320
 Summon.PAD      = 10
+Summon.HEADER_H = 26
+Summon.FILTER_H = 22
 Summon.ROW_H    = 22
+Summon.FOOTER_H = 22
+Summon.DOT      = 8
+Summon.GAP      = 6
+Summon.DOCK_TOP = -200
 
 -- SPEC 7's one recorded exception, moved here from Center.lua so the two
 -- panels cannot drift apart: rgba(10,10,12,0.86).
@@ -111,6 +130,129 @@ function Summon.Chrome(frame, title)
     return h
 end
 
+--- The inner width: WIDTH less PAD each side.
+function Summon.Inner()
+    return U(Summon.WIDTH - 2 * Summon.PAD)
+end
+
+--- Where the rows start: under the header, and under the filters if any.
+function Summon.Top(hasFilters)
+    return U(Summon.HEADER_H + (hasFilters and Summon.FILTER_H or 0) + 4)
+end
+
+--- A panel's height for rowsHeight of rows (UI units).
+function Summon.Height(rowsHeight, hasFilters, hasFooter)
+    return Summon.Top(hasFilters) + rowsHeight + U(4) + (hasFooter and U(Summon.FOOTER_H) or 0) + U(4)
+end
+
+--- A hue square.
+function Summon.Dot(parent, hue)
+    local t = parent:CreateTexture(nil, "ARTWORK")
+    t:SetSize(U(Summon.DOT), U(Summon.DOT))
+    if hue then t:SetColorTexture(Palette.Get(hue)) end
+    return t
+end
+
+--- The filter row: "all" then one square-and-count per hue, in equal
+-- columns across the inner width. items: { { key = nil, label = "all" },
+-- { key = "world", hue = "notifBlue", label = "world" }, ... }. onPick(key).
+function Summon.Filters(frame, items, onPick)
+    local chips = {}
+    local w = (Summon.WIDTH - 2 * Summon.PAD) / #items
+    for i, item in ipairs(items) do
+        local c = CreateFrame("Button", nil, frame)
+        c:SetSize(U(w), U(Summon.FILTER_H - 4))
+        c:SetPoint("TOPLEFT", frame, "TOPLEFT", U(Summon.PAD + (i - 1) * w), -U(Summon.HEADER_H + 2))
+        c.key, c.label, c.hue = item.key, item.label, item.hue
+        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
+        if item.hue then
+            c.dot = Summon.Dot(c, item.hue)
+            c.dot:SetPoint("LEFT")
+            c.text:SetPoint("LEFT", c.dot, "RIGHT", U(Summon.GAP), 0)
+            c.text:SetPoint("RIGHT")
+        else
+            c.text:SetAllPoints()
+        end
+        c:SetScript("OnClick", function(self) onPick(self.key) end)
+        chips[i] = c
+    end
+    local under = Hairline(frame, "trough")
+    under:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -U(Summon.HEADER_H + Summon.FILTER_H))
+    under:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -U(Summon.HEADER_H + Summon.FILTER_H))
+    frame.__chips = chips
+    return chips
+end
+
+--- Paint the filters: "all N", then each square's count; while one is
+-- chosen the others dim. Returns the chosen one's label, for the title.
+function Summon.PaintFilters(frame, counts, chosen)
+    local label
+    for _, c in ipairs(frame.__chips or {}) do
+        local n = counts[c.key or "all"] or 0
+        c.text:SetText(c.key and tostring(n) or ("all " .. n))
+        local lit = chosen == c.key
+        c.text:SetTextColor(Palette.Get(lit and "textPrimary" or "textDim"))
+        c:SetAlpha((chosen == nil or lit) and 1 or 0.4)
+        if lit and c.key then label = c.label end
+    end
+    return label
+end
+
+--- The footer: the panel's action at the left, "+N more" / "fewer" at the
+-- right. Either may be absent. Returns { action, more }.
+function Summon.Footer(frame, actionText, onAction, onMore)
+    local f = {}
+    local function Button(justify)
+        local b = CreateFrame("Button", nil, frame)
+        b:SetHeight(U(Summon.FOOTER_H - 4))
+        b.text = ns.Frames.Text(b, 10, "textDim", justify)
+        b.text:SetAllPoints()
+        ns.Frames.HoverEdge(b, 2)
+        return b
+    end
+    f.line = Hairline(frame, "trough")
+    f.line:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, U(Summon.FOOTER_H + 4))
+    f.line:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, U(Summon.FOOTER_H + 4))
+    if onAction then
+        f.action = Button("LEFT")
+        f.action:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", U(Summon.PAD), U(6))
+        f.action:SetWidth(U(Summon.WIDTH * 0.6))
+        f.action.text:SetText(actionText or "")
+        f.action:SetScript("OnClick", function() onAction() end)
+    end
+    if onMore then
+        f.more = Button("RIGHT")
+        f.more:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", -U(Summon.PAD), U(6))
+        f.more:SetWidth(U(Summon.WIDTH * 0.3))
+        f.more:SetScript("OnClick", function() onMore() end)
+    end
+    frame.__footer = f
+    return f
+end
+
+--- "+N more" while some are hidden, "fewer" while the whole list is out,
+-- nothing when everything fits.
+function Summon.PaintMore(frame, hidden, expanded)
+    local m = frame.__footer and frame.__footer.more
+    if not m then return end
+    if hidden > 0 then m.text:SetText(("+%d more"):format(hidden)) m:Show()
+    elseif expanded then m.text:SetText("fewer") m:Show()
+    else m.text:SetText("") m:Hide() end
+end
+
+--- Mouse for the shared parts (header buttons, filters, footer) with the
+-- panel open or closed.
+function Summon.Mouse(frame, on)
+    local h = frame.__header
+    if h then h.pin:EnableMouse(on); h.close:EnableMouse(on) end
+    for _, c in ipairs(frame.__chips or {}) do c:EnableMouse(on) end
+    local f = frame.__footer
+    if f then
+        if f.action then f.action:EnableMouse(on) end
+        if f.more then f.more:EnableMouse(on) end
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- Behaviour
 -- ---------------------------------------------------------------------------
@@ -122,8 +264,8 @@ Summon.all = {}
 -- panel under the one before it, every panel only as tall as what it holds.
 -- Left: the history, then chat. Right: the quest list, then who's online.
 Summon.DOCK = {
-    left  = { point = "TOPLEFT",  x = 16,  y = -120 },
-    right = { point = "TOPRIGHT", x = -24, y = -200 },
+    left  = { point = "TOPLEFT",  x = 16,  y = Summon.DOCK_TOP },
+    right = { point = "TOPRIGHT", x = -16, y = Summon.DOCK_TOP },
 }
 Summon.DOCK_GAP = 8
 

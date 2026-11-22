@@ -764,6 +764,16 @@ chat filters and rows (whispers violet, group blue, guild green, say grey) and q
 rows (quests amber, world blue, events green, achievements violet); an unchosen filter dims while
 another is chosen.
 
+**The grid** (round 005 play: "margins are inconsistent and the panels are arbitrary sizes").
+Every summoned panel is built from `Summon.lua`'s numbers and builders only: one width (320), PAD
+10 inside, a 26 header (title left — with the chosen filter's name, "Quests · world" — pin and ×
+right), a 22 filter row of equal columns (all N, then each hue's square and count), rows on the
+22 grid (a chat message is two lines, a quest is a line plus its bar), and a 22 footer: the panel's
+action at the left (history: clear; chat: type...), "+N more" / "fewer" at the right on every
+panel. Both dock columns start 200 from the top, 16 from their edge; toasts start there too.
+The history rolls runs up ("Online: Aria, Bren +3", "Voidsteel Greaves x3"); clear empties what
+the filter shows. While chat is open, Blizzard's typing box sits in its footer.
+
 ## § 6 amendment — Blizzard's own toasts
 
 Blizzard's Battle.net toast (friend online, and the like) and alert toasts are old, bordered and

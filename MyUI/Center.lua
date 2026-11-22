@@ -22,12 +22,12 @@ local U = function(v) return Scale.U(v) end
 local Center = {}
 ns.Center = Center
 
-Center.WIDTH    = 356    -- "356 wide, same anchor as the rail"
-Center.ROW_H    = 22
-Center.ROWS     = 10
-Center.HEADER_H = 26
-Center.FOOTER_H = 20
-Center.PAD      = 10
+-- Round 005: on the summoned panels' grid (Summon.lua). Eight rows until
+-- "+N more" opens the rest.
+Center.ROW_H    = ns.Summon.ROW_H
+Center.ROWS     = 8
+Center.ROWS_ALL = 24
+Center.ROLLUP   = true   -- runs of the same thing read as one row
 
 -- Allowed by Mykel in R3 (2026-11-14) as the palette's one recorded
 -- exception (SPEC 7). Round 5 made the case: "SPEC 1 forbids fills
@@ -70,100 +70,63 @@ end
 -- Build
 -- ---------------------------------------------------------------------------
 
-
 local function BuildRow(parent, index)
+    local S = ns.Summon
     local row = CreateFrame("Button", nil, parent)
     row:SetHeight(U(Center.ROW_H))
-    row:SetPoint("TOPLEFT", parent, "TOPLEFT",
-                 U(Center.PAD), -U(Center.HEADER_H + (index - 1) * Center.ROW_H))
-    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT",
-                 -U(Center.PAD), -U(Center.HEADER_H + (index - 1) * Center.ROW_H))
-
-    row.dot = row:CreateTexture(nil, "ARTWORK")
-    row.dot:SetSize(U(8), U(8))
-    row.dot:SetPoint("LEFT", row, "LEFT", 0, 0)
-
+    local top = S.Top(true) + (index - 1) * U(Center.ROW_H)
+    row:SetPoint("TOPLEFT", parent, "TOPLEFT", U(S.PAD), -top)
+    row:SetPoint("TOPRIGHT", parent, "TOPRIGHT", -U(S.PAD), -top)
+    row.dot = S.Dot(row)
+    row.dot:SetPoint("LEFT")
     row.age = ns.Frames.Text(row, 10, "textDim", "RIGHT")
-    row.age:SetPoint("RIGHT", row, "RIGHT", 0, 0)
-
+    row.age:SetPoint("RIGHT")
+    row.age:SetWidth(U(28))
     row.count = ns.Frames.Text(row, 10, "textDim", "RIGHT")
-    row.count:SetPoint("RIGHT", row.age, "LEFT", -U(8), 0)
-
+    row.count:SetPoint("RIGHT", row.age, "LEFT", -U(S.GAP), 0)
     row.name = ns.Frames.Text(row, 11, "textPrimary", "LEFT")
-    row.name:SetPoint("LEFT", row.dot, "RIGHT", U(8), 0)
-    row.name:SetPoint("RIGHT", row.count, "LEFT", -U(8), 0)
+    row.name:SetPoint("LEFT", row.dot, "RIGHT", U(S.GAP), 0)
+    row.name:SetPoint("RIGHT", row.count, "LEFT", -U(S.GAP), 0)
     row.name:SetWordWrap(false)
-
     row:Hide()
     return row
-end
-
-local function BuildChip(parent, index, hue)
-    local chip = CreateFrame("Button", nil, parent)
-    chip:SetSize(U(46), U(16))
-    chip:SetPoint("TOPLEFT", parent, "TOPLEFT",
-                  U(Center.PAD + (index - 1) * 50), -U(6))
-
-    chip.dot = chip:CreateTexture(nil, "ARTWORK")
-    chip.dot:SetSize(U(8), U(8))
-    chip.dot:SetPoint("LEFT", chip, "LEFT", 0, 0)
-    chip.dot:SetColorTexture(Palette.Get(ns.Toast.HUES[hue]))
-
-    chip.count = ns.Frames.Text(chip, 10, "textDim", "LEFT")
-    chip.count:SetPoint("LEFT", chip.dot, "RIGHT", U(5), 0)
-
-    chip.hue = hue
-    chip:SetScript("OnClick", function(self)
-        -- Spelled out rather than `a and nil or b`: that idiom cannot yield
-        -- nil, so the filter could be set and never cleared.
-        if Center.filter == self.hue then
-            Center.Filter(nil)
-        else
-            Center.Filter(self.hue)
-        end
-    end)
-    return chip
 end
 
 function Center.Build()
     if panel then
         return panel
     end
-    -- Reattached from the rail to the toasts (SPEC 6): the history opens
-    -- where notifications speak.
-    local anchor = ns.Toast and ns.Toast.Anchor()
-    if not anchor then
-        return nil
-    end
-
-    local height = Center.HEADER_H + Center.ROWS * Center.ROW_H + Center.FOOTER_H
+    local S = ns.Summon
     panel = CreateFrame("Frame", "MyUICenter", UIParent)
     panel:SetFrameStrata("DIALOG")
-    panel:SetSize(U(Center.WIDTH), U(height))
-
-    -- Round 005: docked down the left with the chat panel (Summon.Layout).
-    local d = ns.Summon.DOCK.left
+    panel:SetSize(U(S.WIDTH), U(200))
+    -- Docked down the left with the chat panel (Summon.Layout).
+    local d = S.DOCK.left
     panel:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
 
-    -- Round 005 play: the quest list's header too -- pin and close at the
-    -- right, the hue filters where the title would be.
-    local header = ns.Summon.Chrome(panel, "")
-
-    panel.chips = {}
-    for i, name in ipairs(Center.HUES) do
-        panel.chips[i] = BuildChip(panel, i, Center.HUE_OF[name])
+    local header = S.Chrome(panel, "Notifications")
+    local items = { { key = nil, label = "all" } }
+    for _, name in ipairs(Center.HUES) do
+        local hue = Center.HUE_OF[name]
+        items[#items + 1] = { key = hue, hue = ns.Toast.HUES[hue], label = name }
     end
+    panel.chips = S.Filters(panel, items, function(hue)
+        -- Picking the lit one again clears it (spelled out: `a and nil or
+        -- b` cannot yield nil).
+        if Center.filter == hue then Center.Filter(nil) else Center.Filter(hue) end
+    end)
+    for _, chip in ipairs(panel.chips) do chip.hue, chip.count = chip.key, chip.text end
 
     panel.rows = {}
-    for i = 1, Center.ROWS do
+    for i = 1, Center.ROWS_ALL do
         panel.rows[i] = BuildRow(panel, i)
     end
 
-    panel.footer = ns.Frames.Text(panel, 10, "textDim", "LEFT")
-    panel.footer:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", U(Center.PAD), U(6))
-
-    panel.hint = ns.Frames.Text(panel, 10, "textDim", "RIGHT")
-    panel.hint:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -U(Center.PAD), U(6))
+    -- Round 005 play: "the notification items need a way to be rolled up
+    -- and cleared". Clear empties what the filter shows (all of it, or one
+    -- hue); runs of the same thing are rolled into one row.
+    S.Footer(panel, "clear", function() Center.ClearShown() end,
+             function() Center.expanded = not Center.expanded; Center.Refresh() end)
 
     panel:Hide()
 
@@ -178,9 +141,9 @@ function Center.Build()
     Center.panel = panel
     -- Round 005 play ("it seems stuck open"): it goes away by itself once
     -- you are done with it, unless pinned (Summon.lua).
-    Center.summon = ns.Summon.Attach({
+    Center.summon = S.Attach({
         key = "history", frame = panel, header = header, dock = "left", order = 1,
-        show = function() Center.Refresh(); panel:Show() end,
+        show = function() panel:Show(); Center.Refresh() end,
         hide = function() panel:Hide() end,
     })
     -- Escape hides the frame directly; keep the behaviour in step.
@@ -194,30 +157,66 @@ end
 -- Contents
 -- ---------------------------------------------------------------------------
 
+--- What a row says about a run: "Online: Aria, Bren +3" for a run of the
+-- same kind of notice, "Voidsteel Greaves" x3 for the same thing again.
+local function RollKey(e)
+    local name = tostring(e.name or "")
+    local prefix, rest = name:match("^(.-):%s*(.+)$")
+    if prefix then return e.kind .. "|" .. prefix, prefix, rest end
+    return e.kind .. "|=" .. name, nil, name
+end
+
+--- The log, newest first, with runs rolled up (Center.ROLLUP).
+function Center.Rows(limit)
+    local Log = ns.Log
+    local entries = (Log and Log.Filter and Log.Filter(Center.filter)) or {}
+    local out = {}
+    for _, e in ipairs(entries) do
+        local key, prefix, rest = RollKey(e)
+        local last = out[#out]
+        if Center.ROLLUP and last and last.key == key then
+            last.count = last.count + (e.count or 1)
+            last.n = last.n + 1
+            if prefix then last.parts[#last.parts + 1] = rest end
+        else
+            if limit and #out >= limit then break end
+            out[#out + 1] = { key = key, kind = e.kind, at = e.at, name = e.name,
+                              prefix = prefix, parts = { rest }, count = e.count or 1, n = 1 }
+        end
+    end
+    for _, r in ipairs(out) do
+        if r.prefix and r.n > 1 then
+            local shown = { r.parts[1], r.parts[2] }
+            r.name = ("%s: %s"):format(r.prefix, table.concat(shown, ", "))
+            if r.n > 2 then r.name = r.name .. (" +%d"):format(r.n - 2) end
+            r.count = 1
+        end
+    end
+    return out
+end
+
 function Center.Refresh()
     if not panel then
         return
     end
+    local S = ns.Summon
     local Log = ns.Log
     local tally = (Log and Log.Tally and Log.Tally()) or {}
+    local counts = { all = 0 }
+    for hue, n in pairs(tally) do counts[hue] = n; counts.all = counts.all + n end
+    local chosen = S.PaintFilters(panel, counts, Center.filter)
+    panel.__header.title:SetText(chosen and ("Notifications \194\183 " .. chosen) or "Notifications")
 
-    for _, chip in ipairs(panel.chips) do
-        local n = tally[chip.hue] or 0
-        chip.count:SetText(tostring(n))
-        -- The selected filter is the only lit one. Alpha carries the state,
-        -- which is the design's whole vocabulary; nothing grows a border.
-        local dim = (Center.filter ~= nil and Center.filter ~= chip.hue)
-        chip:SetAlpha(dim and 0.35 or 1)
-    end
-
-    local rows = (Log and Log.Filter and Log.Filter(Center.filter, Center.ROWS)) or {}
+    local cap = Center.expanded and Center.ROWS_ALL or Center.ROWS
+    local all = Center.Rows(Center.ROWS_ALL + 1)
     local now = (Log and Log.Now and Log.Now()) or 0
-
+    local shown = 0
     for i, row in ipairs(panel.rows) do
-        local e = rows[i]
+        local e = i <= cap and all[i]
         if not e then
             row:Hide()
         else
+            shown = i
             row:Show()
             row.dot:SetColorTexture(Palette.Get(ns.Toast.HUES[e.kind] or "textDim"))
             row.name:SetText(tostring(e.name or ""))
@@ -225,15 +224,38 @@ function Center.Refresh()
             row.age:SetText(ns.Toast.FormatAge(now - (tonumber(e.at) or now)))
         end
     end
+    if shown == 0 then
+        local row = panel.rows[1]
+        row.dot:SetColorTexture(Palette.Get("trough"))
+        row.name:SetText("nothing yet")
+        row.count:SetText("")
+        row.age:SetText("")
+        row:Show()
+        shown = 1
+    end
+    S.PaintMore(panel, math.max(0, #all - cap), Center.expanded)
+    S.Mouse(panel, Center.IsOpen() or (Center.summon and Center.summon.open) or false)
 
     -- Only as tall as what it holds.
-    panel:SetHeight(U(Center.HEADER_H + math.max(#rows, 1) * Center.ROW_H + Center.FOOTER_H + 4))
-    if Center.summon and Center.summon.open then ns.Summon.Layout() end
+    panel:SetHeight(S.Height(shown * U(Center.ROW_H), true, true))
+    if Center.summon and Center.summon.open then S.Layout() end
+end
 
-    local total = (Log and Log.Count and Log.Count(Center.filter)) or 0
-    panel.footer:SetText(("%d kept%s"):format(
-        total, Center.filter and (" \194\183 " .. (Center.LABEL_OF[Center.filter] or Center.filter)) or ""))
-    panel.hint:SetText(#rows < total and ("showing %d"):format(#rows) or "")
+--- Empty what the filter shows: one hue, or everything.
+function Center.ClearShown()
+    local Log = ns.Log
+    if not (Log and Log.db) then return 0 end
+    local kept, n = {}, 0
+    for _, e in ipairs(Log.db.entries) do
+        if Center.filter ~= nil and e.kind ~= Center.filter then
+            kept[#kept + 1] = e
+        else
+            n = n + 1
+        end
+    end
+    Log.db.entries = kept
+    Center.Refresh()
+    return n
 end
 
 function Center.Filter(hue)

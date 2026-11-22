@@ -4182,13 +4182,11 @@ do
         local l, more = Q.Lines()
         Q.Build()
         Q.Refresh()
-        local toggle
-        for _, r in ipairs(Q.rows) do if r.more and r:IsShown() then toggle = r end end
-        local says = toggle and toggle.text:GetText()
+        local toggle = Q.frame.__footer.more
+        local says = toggle:IsShown() and toggle.text:GetText()
         Q.SetExpanded(true)
         local all, rest = Q.Lines()
-        local fewer
-        for _, r in ipairs(Q.rows) do if r.more and r:IsShown() then fewer = r.text:GetText() end end
+        local fewer = toggle.text:GetText()
         Q.SetExpanded(false)
         for i = #mock.quests, 4, -1 do mock.quests[i] = nil end
         mock.watched = was
@@ -4303,8 +4301,9 @@ do
     check("  and every chip carries its count", (function()
         local t = {}
         for _, c in ipairs(Q.frame.chips) do t[#t + 1] = c.text:GetText() end
-        return t[1] == "all 4" and t[2] == "quests 1" and t[3] == "world 1" and t[4] == "events 1"
-           and t[5] == "achieve 1", table.concat(t, ",")
+        return t[1] == "all 4" and t[2] == "1" and t[3] == "1" and t[4] == "1"
+           and t[5] == "1" and Q.frame.__header.title:GetText():find("world", 1, true) ~= nil,
+           table.concat(t, ",")
     end)())
     Q.Filter("achievement")
     l = Q.Lines()
@@ -4405,6 +4404,34 @@ do
         T.summon:Close("asked")
         ns.db.extras = was
         return ok
+    end)())
+    check("every summoned panel is one width, on the grid", (function()
+        local panels = { T.panel, ns.Social.panel, ns.Quests.frame, ns.Center.panel }
+        local first
+        for _, p in ipairs(panels) do
+            if p then
+                first = first or p:GetWidth()
+                if math.abs(p:GetWidth() - first) > 0.01 then return false end
+            end
+        end
+        return first ~= nil
+    end)())
+    check("the history rolls runs up and clears what it shows", (function()
+        if not ns.Center.panel then return true end
+        ns.Center.filter = nil
+        ns.Log.Clear()
+        Feed.Add("violet", "Online: Aria")
+        Feed.Add("violet", "Online: Bren")
+        Feed.Add("violet", "Online: Cato")
+        Feed.Add("blue", "Voidsteel Greaves")
+        Feed.Add("blue", "Voidsteel Greaves")
+        local r = ns.Center.Rows()
+        local ok = #r == 2 and r[1].name == "Voidsteel Greaves" and r[1].count == 2
+                   and r[2].name == "Online: Cato, Bren +1"
+        ns.Center.Filter("blue")
+        local n = ns.Center.ClearShown()
+        ns.Center.Filter(nil)
+        return ok and n == 2 and #ns.Center.Rows() == 1, ("%d %s %s %s"):format(#r, tostring(r[1] and r[1].name), tostring(r[1] and r[1].count), tostring(r[2] and r[2].name))
     end)())
     check("a docked panel is only as tall as what it holds", (function()
         T.log = {}
