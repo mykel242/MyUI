@@ -23,8 +23,9 @@ local U = function(v) return Scale.U(v) end
 local Map = {}
 ns.Map = Map
 
-Map.WIDTH = 420         -- wider than the docked panels: it is a map
-Map.TOP   = -28         -- with the dock columns, under the status bars
+-- Round 005 play: "put the map at the top of the right stack and match the
+-- width" -- docked first on the right, the panels' one width.
+Map.WIDTH = ns.Summon.WIDTH
 Map.ALPHA = 0.85        -- the world shows through a little
 Map.TICK  = 0.5
 
@@ -233,7 +234,8 @@ function Map.Build()
     panel = CreateFrame("Frame", "MyUIMap", UIParent)
     panel:SetFrameStrata("DIALOG")
     panel:SetSize(U(Map.WIDTH), S.Top(false) + Size() + U(4) + U(S.FOOTER_H) + U(4))
-    panel:SetPoint("TOP", UIParent, "TOP", 0, U(Map.TOP))
+    local d = S.DOCK.right
+    panel:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
     local header = S.Chrome(panel, "Map")
     -- The world through the map's square, not a dark board.
     panel.__surface.bg:SetAlpha(0.45)
@@ -246,7 +248,7 @@ function Map.Build()
     panel:Hide()
     Map.panel = panel
     Map.summon = S.Attach({
-        key = "map", frame = panel, header = header,
+        key = "map", frame = panel, header = header, dock = "right", order = 0,
         show = function() return Map.Show() end,
         hide = function() Map.Hide() end,
     })

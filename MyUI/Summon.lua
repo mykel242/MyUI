@@ -305,12 +305,18 @@ end
 -- nothing when everything fits.
 function Summon.PaintMore(frame, hidden, expanded)
     local m = frame.__footer and frame.__footer.more
-    if not m then return end
+    if not m then return frame.__footer ~= nil end
     -- Opened, it offers "fewer" even if the screen still could not take
     -- them all: a panel never grows past the bottom (Summon.FitRows).
     if expanded then m.text:SetText("fewer") m:Show()
     elseif hidden > 0 then m.text:SetText(("+%d more"):format(hidden)) m:Show()
     else m.text:SetText("") m:Hide() end
+    -- A footer with nothing in it is not drawn (round 005 play: an empty
+    -- band under the quest list).
+    local f = frame.__footer
+    local used = f.action ~= nil or m:IsShown()
+    if used then f.line:Show() else f.line:Hide() end
+    return used
 end
 
 --- Mouse for the shared parts (header buttons, filters, footer) with the

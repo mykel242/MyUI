@@ -699,8 +699,8 @@ Mount, hearthstone and the like come up on hover.
 
 **Built, round 005 (`Map.lua`, the "minimap" switch).** The key (MyUI → Show the map, or
 `/myui map`) brings Blizzard's own minimap render — terrain, your arrow, quest blips, nodes, the
-addon buttons on its edge — up big and zoomed out in a summoned panel at the top centre (420 wide,
-the world showing through at 85%), and hands it back to its corner when it closes. Header: the
+addon buttons on its edge — up big and zoomed out in a summoned panel docked first in the right
+column, the panels' one width (the world showing through at 85%), and hands it back to its corner when it closes. Header: the
 zone and your coordinates (the zone alone where the client restricts position). Footer: "world
 map" opens Blizzard's (out of combat). Wheel zooms, click pings. Pin, ×, and going away by itself
 as the other panels do. While it is out the map is square, the minimap's ring, compass and zoom
@@ -769,7 +769,7 @@ Bren +3"; clicking that toast opens the list.
 
 **Docking and squares** (round 005 play: the history and chat overlapped; "I like the color
 coding ... the squares"). Summoned panels dock in two columns and stack instead of overlapping —
-left: history, then chat; right: the quest list, then who's online — each only as tall as what it
+left: history, then chat; right: the map, the quest list, then who's online — each only as tall as what it
 holds. While the left column is out, toasts speak beside it. The history's hue squares carry over:
 chat filters and rows (whispers violet, group blue, guild green, say grey) and quest filters and
 rows (quests amber, world blue, events green, achievements violet); an unchosen filter dims while

@@ -4560,6 +4560,17 @@ do
         local z2, at2 = M.Where()
         return zone == "Dornogal" and at == "41.2, 63.8" and z2 == "Dornogal" and at2 == nil
     end)())
+    check("the map heads the right column, the quest list under it, one width", (function()
+        M.Toggle()
+        ns.Quests.Open()
+        local p, rel = M.panel:GetPoint(1)
+        local q, qrel, qrp = ns.Quests.frame:GetPoint(1)
+        local ok = p == "TOPRIGHT" and rel == UIParent and q == "TOPRIGHT" and qrel == M.panel
+                   and qrp == "BOTTOMRIGHT" and math.abs(M.panel:GetWidth() - ns.Quests.frame:GetWidth()) < 0.01
+        ns.Quests.Close()
+        M.Toggle()
+        return ok
+    end)())
     check("combat puts it away unless pinned", (function()
         M.Toggle()
         ns.Summon.driver:Fire("PLAYER_REGEN_DISABLED")

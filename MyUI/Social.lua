@@ -268,9 +268,9 @@ function Social.Refresh()
         rows[1]:Show()
         shown = 1
     end
-    ns.Summon.PaintMore(panel, math.max(0, #lines - cap), Social.expanded)
+    local footer = ns.Summon.PaintMore(panel, math.max(0, #lines - cap), Social.expanded)
     SetMouse(Social.open == true)
-    panel:SetHeight(ns.Summon.Height(shown * U(Social.ROW), true, true))
+    panel:SetHeight(ns.Summon.Height(shown * U(Social.ROW), true, footer))
     if Social.summon and Social.summon.open then ns.Summon.Layout() end
 end
 

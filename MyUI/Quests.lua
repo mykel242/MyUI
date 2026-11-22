@@ -582,7 +582,7 @@ function Quests.Refresh()
         end
     end
     -- "+N more" / "fewer" in the footer, as on every panel.
-    ns.Summon.PaintMore(frame, more, Quests.expanded)
+    Quests.footer = ns.Summon.PaintMore(frame, more, Quests.expanded)
     if #lines == 0 then
         used = 1
         local r = RowAt(1)
@@ -599,7 +599,7 @@ function Quests.Refresh()
     end
     for i = d + 1, #details do details[i]:Hide() end
     SetMouse(Quests.open == true)
-    frame:SetHeight(ns.Summon.Height(y - ns.Summon.Top(true), true, true))
+    frame:SetHeight(ns.Summon.Height(y - ns.Summon.Top(true), true, Quests.footer))
     if Quests.open then ns.Summon.Layout() end
 end
 
