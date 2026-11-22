@@ -230,6 +230,22 @@ with Mykel's say-so. 2 One `Defaults()` table. 3 `Persist.lua` + lint; bars out 
 zoom. 4 Load gate (`enable`/`disable`, not-set-up). 5 Look. 6 Full: record, reconcile, migration.
 7 Commands.
 
+**Read-only probe, answered 2026-11-22** (18 readings, two characters, three specs of one):
+- The active layout is kept **per spec**: one character's three specs had three different ones.
+- **MyUI takes a spec over at its next login or reload without asking** (spec 3 went from the
+  player's own layout to MyUI's within 5 s). A spec change alone does not, until then.
+- **Layouts are not kept by environment.** A layout made in one `wowaddons.py` environment after the
+  other was created with empty Edit Mode files is present there too, so they come from Blizzard's
+  servers: no file backup or environment undoes MyUI's. Whether the per-spec *choice* travels as
+  well is likely and not shown.
+- Account slots: 4 of 5 used here, one by MyUI; a layout per screen would take the last.
+- `minimapZoom`: 5 on disk at the last exit before the probe, 0 in every reading, gone from the file
+  since (its default). The map is pinned, so it opens at login and sets 0. Not caught in the act;
+  treated as a write.
+- Not answered: whether adding a layout shifts another character's active one (needs a write).
+  A character whose active layout is of the character kind sits after MyUI's and is the one at risk.
+The record is therefore per character **and spec**; nothing is selected on a spec not set up.
+
 **Done when:** in Look, the mock counts zero persistent calls through login, combat, every panel and
 every command; from every state a second run makes none and leaves identical data; stopping after
 any step and rerunning ends the same; setup full then uninstall gives back the same layouts, order
