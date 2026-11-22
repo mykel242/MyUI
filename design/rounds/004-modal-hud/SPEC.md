@@ -794,6 +794,11 @@ to answer it, a login for who's online, a chat line for the chat panel, a quest 
 loot or full bags for your bags; right-click clears that one notification (or the whole rolled-up
 run). A quest toast opens the quest list.
 
+**Under Blizzard's windows** (round 005 play). Summoned panels share MEDIUM with Blizzard's windows,
+which raise themselves over them when opened. On the talents and specialization pages the bar does
+not arrange, and it and the clickable strips go under the window; the spellbook page, or anything on
+the cursor, brings the bar back on top.
+
 ## § 6 amendment — Blizzard's own toasts
 
 Blizzard's Battle.net toast (friend online, and the like) and alert toasts are old, bordered and

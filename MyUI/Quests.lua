@@ -366,7 +366,7 @@ end
 
 local function BuildCard()
     card = CreateFrame("Frame", "MyUIQuestCard", UIParent)
-    card:SetFrameStrata("DIALOG")
+    ns.Summon.Depth(card, 20)
     card:SetWidth(U(Quests.CARD_W))
     ns.Summon.Surface(card)
     card.lines = {}
@@ -400,7 +400,7 @@ local function Build()
         return frame
     end
     frame = CreateFrame("Frame", "MyUIQuestList", UIParent)
-    frame:SetFrameStrata("DIALOG")
+    ns.Summon.Depth(frame)
     frame:SetSize(U(Quests.WIDTH), U(ns.Summon.HEADER_H + Quests.ROW))
     local a = Quests.ANCHOR
     frame:SetPoint(a.point, UIParent, a.point, U(a.x), U(a.y))

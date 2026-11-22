@@ -178,7 +178,7 @@ end
 function Social.Build()
     if panel then return panel end
     panel = CreateFrame("Frame", "MyUISocial", UIParent)
-    panel:SetFrameStrata("DIALOG")
+    ns.Summon.Depth(panel)
     panel:SetWidth(U(ns.Summon.WIDTH))
     -- Docked down the right, under the quest list (Summon.Layout).
     local d = ns.Summon.DOCK.right

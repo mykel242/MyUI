@@ -145,8 +145,7 @@ function Map.Proxy(name, original)
     p.dataObject = data
     p.icon:SetTexture(data.icon)
     if data.iconCoords and p.icon.SetTexCoord then p.icon:SetTexCoord(unpack(data.iconCoords)) end
-    p:SetFrameStrata("DIALOG")
-    p:SetFrameLevel(panel:GetFrameLevel() + 10)
+    ns.Summon.Depth(p, 10)
     return p
 end
 
@@ -179,8 +178,7 @@ function Map.Gather()
     for _, b in ipairs(Map.Buttons()) do
         Map.kept[#Map.kept + 1] = Keep(b)
         b:SetParent(panel)
-        if b.SetFrameStrata then b:SetFrameStrata("DIALOG") end
-        if b.SetFrameLevel then b:SetFrameLevel(panel:GetFrameLevel() + 10) end
+        if b.SetFrameStrata and b.SetFrameLevel then ns.Summon.Depth(b, 10) end
         if b.SetHitRectInsets then b:SetHitRectInsets(0, 0, 0, 0) end
         Place(b)
     end
@@ -232,7 +230,7 @@ function Map.Build()
     if panel then return panel end
     local S = ns.Summon
     panel = CreateFrame("Frame", "MyUIMap", UIParent)
-    panel:SetFrameStrata("DIALOG")
+    ns.Summon.Depth(panel)
     panel:SetSize(U(Map.WIDTH), S.Top(false) + Size() + U(4) + U(S.FOOTER_H) + U(4))
     local d = S.DOCK.right
     panel:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))

@@ -4431,6 +4431,12 @@ do
         ns.db.extras = was
         return ok
     end)())
+    check("every summoned panel sits where Blizzard's windows open over it", (function()
+        for key, c in pairs(ns.Summon.all) do
+            if c.frame:GetFrameStrata() ~= "MEDIUM" then return false, key end
+        end
+        return ns.Quests.card:GetFrameStrata() == "MEDIUM"
+    end)())
     check("every summoned panel is one width, on the grid", (function()
         local panels = { T.panel, ns.Social.panel, ns.Quests.frame, ns.Center.panel }
         local first

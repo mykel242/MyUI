@@ -164,7 +164,7 @@ function Talk.Build()
     if panel then return panel end
     local S = ns.Summon
     panel = CreateFrame("Frame", "MyUITalk", UIParent)
-    panel:SetFrameStrata("DIALOG")
+    ns.Summon.Depth(panel)
     panel:SetSize(U(S.WIDTH), U(200))
     -- Docked down the left, under the history (Summon.Layout).
     local d = S.DOCK.left

@@ -106,7 +106,7 @@ function Center.Build()
     end
     local S = ns.Summon
     panel = CreateFrame("Frame", "MyUICenter", UIParent)
-    panel:SetFrameStrata("DIALOG")
+    ns.Summon.Depth(panel)
     panel:SetSize(U(S.WIDTH), U(200))
     -- Docked down the left with the chat panel (Summon.Layout).
     local d = S.DOCK.left

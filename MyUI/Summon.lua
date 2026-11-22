@@ -72,6 +72,20 @@ local function Hairline(parent, colorName)
 end
 Summon.Hairline = Hairline
 
+-- Round 005 play: a pinned panel covered part of the talents window. Panels
+-- share the strata Blizzard's windows open in, and those raise themselves to
+-- the top of it when shown, so a window opens over them. The level keeps
+-- panels above Blizzard's faded frames, which still take the mouse.
+Summon.STRATA = "MEDIUM"
+Summon.LEVEL  = 20
+
+--- Put a panel (or something of its own, `above` it) at that depth. Called
+-- before its children are made: they take their level from it.
+function Summon.Depth(frame, above)
+    frame:SetFrameStrata(Summon.STRATA)
+    frame:SetFrameLevel(Summon.LEVEL + (above or 0))
+end
+
 --- The surface alone: background and the top and bottom hairlines.
 function Summon.Surface(frame)
     local s = Summon.SURFACE
