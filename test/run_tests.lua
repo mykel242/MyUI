@@ -4143,9 +4143,32 @@ do
             mock.watched[i] = 200 + i
         end
         local l, more = Q.Lines()
+        Q.Build()
+        Q.Refresh()
+        local toggle
+        for _, r in ipairs(Q.rows) do if r.more and r:IsShown() then toggle = r end end
+        local says = toggle and toggle.text:GetText()
+        Q.SetExpanded(true)
+        local all, rest = Q.Lines()
+        local fewer
+        for _, r in ipairs(Q.rows) do if r.more and r:IsShown() then fewer = r.text:GetText() end end
+        Q.SetExpanded(false)
         for i = #mock.quests, 4, -1 do mock.quests[i] = nil end
         mock.watched = was
-        return #l == 8 and more == 3, #l .. " " .. more
+        return #l == 8 and more == 3 and says == "+3 more" and #all == 11 and rest == 0 and fewer == "fewer",
+               ("%d %d %s %d %s"):format(#l, more, tostring(says), #all, tostring(fewer))
+    end)())
+    check("only the pinned quest carries a count; the rest read to the edge", (function()
+        mock.watched, mock.superTracked = { 101, 103 }, 101
+        Q.Build()
+        Q.Refresh()
+        local pinned, other
+        for _, r in ipairs(Q.rows) do
+            if r.questID == 101 then pinned = r elseif r.questID == 103 then other = r end
+        end
+        mock.superTracked = 0
+        return pinned and other and pinned.status:IsShown() and pinned.status:GetText() == "36%"
+           and not other.status:IsShown()
     end)())
     check("the list is closed until asked for, and the pointer never wakes it",
           not Q.open and Registry.Get("QuestList").target == 0)

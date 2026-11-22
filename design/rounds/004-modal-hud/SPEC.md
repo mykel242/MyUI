@@ -712,11 +712,12 @@ at 0; MyUI says what changes:
   in say so too. The first read after login only records. `QUEST_LOG_UPDATE` is read once per burst.
 - **The list, on demand** — the MyUI → Show the quest list key, `/myui quests`, or peek. Right
   edge, where the tracker was, compact (round 005 play: "details called up rather than all
-  listed"): one line per quest — title, a status at the edge (`18/20` for one counted objective,
-  a percentage of the whole otherwise, `ready` in green) and a hairline progress bar under it,
-  filling from the screen edge. Order: the waypoint quest (amber, the only one showing what is
-  left of it), then ready to turn in, then the rest; eight at most, then "+N more". Hover a quest:
-  a card to its left with every objective, done ones green. Left-click: waypoint arrow on it
+  listed"): one line per quest — its title and a hairline progress bar under it, filling from
+  the screen edge. Counts are noise unless pinned: only the waypoint quest carries one (`18/20`
+  for one counted objective, a percentage otherwise) and shows what is left of it; a quest ready
+  to turn in says `ready` in green. Order: the waypoint quest (amber), then ready, then the rest;
+  eight at most, then "+N more", which opens the whole list ("fewer" closes it). Hover a quest:
+  a card to its left with the whole title and every objective, done ones green. Left-click: waypoint arrow on it
   (again: off). Right-click: open it on the map (out of combat). Rows take clicks only while
   open; the pointer never wakes it; combat closes it.
 
