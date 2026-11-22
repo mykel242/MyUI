@@ -4536,6 +4536,21 @@ do
            and zoom:GetAlpha() == 1, ("%s %s %s %s %s %s"):format(tostring(out), tostring(btn:GetParent() == mm),
            tostring(p2), tostring(rel2 == mm), tostring(btn:GetWidth()), tostring(zoom:GetAlpha()))
     end)())
+    check("LibDBIcon buttons are stood in for: the original hidden, a proxy in the row that clicks through", (function()
+        local clicked
+        local orig = mock.frame({ name = "LibDBIcon10_BugSack", objectType = "Button", parent = mm, shown = true })
+        orig.dataObject = { icon = "Interface\\Icons\\bug", OnClick = function(_, b) clicked = b end }
+        orig.db = { hide = false }
+        mm.GetChildren = function() return orig end
+        M.Toggle()
+        local proxy = M.proxies.BugSack
+        local ok = proxy and proxy:IsShown() and not orig:IsShown() and proxy:GetPoint(1) == "BOTTOMRIGHT"
+        if proxy then proxy:Click("RightButton") end
+        M.Toggle()
+        mm.GetChildren = nil
+        return ok and clicked == "RightButton" and orig:IsShown() and not proxy:IsShown(),
+               ("%s %s %s %s"):format(tostring(ok), tostring(clicked), tostring(orig:IsShown()), tostring(proxy and proxy:IsShown()))
+    end)())
     check("the header says where you are", (function()
         _G.GetMinimapZoneText = function() return "Dornogal" end
         _G.C_Map = { GetBestMapForUnit = function() return 1 end,

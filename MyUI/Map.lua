@@ -45,11 +45,31 @@ Map.ROUND_MASK  = "Interface\\Masks\\CircleMaskScalable"
 
 --- The buttons to gather: every addon button on the minimap's edge, and
 -- Blizzard's landing-page orb. Not the zoom buttons (hidden instead).
+--- Addon buttons made by LibDBIcon (BugSack and most others): name ->
+-- button. These are not moved -- the library keeps putting them back round
+-- the minimap -- but stood in for (Map.Proxy). Found by what they are (a
+-- minimap child carrying its broker object), not through the library:
+-- MyUI depends on nothing but Blizzard (RULES).
+function Map.LibButtons()
+    local mm = _G.Minimap
+    local out = {}
+    if not (mm and mm.GetChildren) then return out end
+    for _, kid in ipairs({ mm:GetChildren() }) do
+        local name = kid.GetName and kid:GetName()
+        local hidden = type(kid.db) == "table" and kid.db.hide
+        if type(kid.dataObject) == "table" and type(name) == "string" and not hidden then
+            out[(name:gsub("^LibDBIcon%d*_", ""))] = kid
+        end
+    end
+    return out
+end
+
 function Map.Buttons()
     local mm = _G.Minimap
     local out, seen = {}, {}
     local skip = {}
     if mm then skip[mm.ZoomIn or 0] = true; skip[mm.ZoomOut or 0] = true end
+    for _, b in pairs(Map.LibButtons()) do skip[b] = true end
     local function add(b)
         if b and not seen[b] and not skip[b] and b.IsShown and b:IsShown() then
             seen[b] = true
@@ -65,7 +85,10 @@ end
 
 local function Keep(f)
     local k = { frame = f, parent = f:GetParent(), w = f:GetWidth(), h = f:GetHeight(), points = {},
-                alpha = f.GetAlpha and f:GetAlpha() or 1, mouse = f.IsMouseEnabled and f:IsMouseEnabled() }
+                alpha = f.GetAlpha and f:GetAlpha() or 1, mouse = f.IsMouseEnabled and f:IsMouseEnabled(),
+                strata = f.GetFrameStrata and f:GetFrameStrata(), level = f.GetFrameLevel and f:GetFrameLevel(),
+                shown = f.IsShown and f:IsShown() }
+    if f.GetHitRectInsets then k.insets = { f:GetHitRectInsets() } end
     for i = 1, (f.GetNumPoints and f:GetNumPoints() or 0) do k.points[i] = { f:GetPoint(i) } end
     return k
 end
@@ -78,19 +101,87 @@ local function Put(k)
     f:SetSize(k.w, k.h)
     if f.SetAlpha then f:SetAlpha(k.alpha or 1) end
     if k.mouse ~= nil and f.EnableMouse then f:EnableMouse(k.mouse) end
+    if k.strata and f.SetFrameStrata then f:SetFrameStrata(k.strata) end
+    if k.level and f.SetFrameLevel then f:SetFrameLevel(k.level) end
+    if k.insets and f.SetHitRectInsets and #k.insets == 4 then f:SetHitRectInsets(unpack(k.insets)) end
+    if k.shown and f.Show and not f:IsShown() then f:Show() end
+end
+
+-- A stand-in for a LibDBIcon button: its broker object's icon, click and
+-- tooltip, on a small button of MyUI's own.
+Map.proxies = {}
+function Map.Proxy(name, original)
+    local p = Map.proxies[name]
+    local data = original.dataObject
+    if not p then
+        p = CreateFrame("Button", nil, panel)
+        p:RegisterForClicks("AnyUp")
+        p.icon = p:CreateTexture(nil, "ARTWORK")
+        p.icon:SetAllPoints()
+        ns.Frames.HoverEdge(p, 2)
+        p:SetScript("OnClick", function(self, button)
+            local d = self.dataObject
+            if d and type(d.OnClick) == "function" then pcall(d.OnClick, self, button) end
+        end)
+        p:SetScript("OnEnter", function(self)
+            local d, tip = self.dataObject, _G.GameTooltip
+            if not d then return end
+            if type(d.OnTooltipShow) == "function" and tip then
+                tip:SetOwner(self, "ANCHOR_BOTTOMLEFT")
+                pcall(d.OnTooltipShow, tip)
+                tip:Show()
+            elseif type(d.OnEnter) == "function" then
+                pcall(d.OnEnter, self)
+            end
+        end)
+        p:SetScript("OnLeave", function(self)
+            local d, tip = self.dataObject, _G.GameTooltip
+            if d and type(d.OnLeave) == "function" then pcall(d.OnLeave, self) end
+            if tip and tip.IsOwned and tip:IsOwned(self) then tip:Hide() end
+        end)
+        Map.proxies[name] = p
+    end
+    p.dataObject = data
+    p.icon:SetTexture(data.icon)
+    if data.iconCoords and p.icon.SetTexCoord then p.icon:SetTexCoord(unpack(data.iconCoords)) end
+    p:SetFrameStrata("DIALOG")
+    p:SetFrameLevel(panel:GetFrameLevel() + 10)
+    return p
 end
 
 --- Line the buttons up in the footer, right to left; remember where each was.
 function Map.Gather()
     Map.kept = {}
     local x = 0
-    for _, b in ipairs(Map.Buttons()) do
-        Map.kept[#Map.kept + 1] = Keep(b)
-        b:SetParent(panel)
+    local function Place(b)
         b:ClearAllPoints()
         b:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -U(ns.Summon.PAD) - x, U(6))
         b:SetSize(U(Map.BUTTON), U(Map.BUTTON))
+        b:Show()
         x = x + U(Map.BUTTON + 4)
+    end
+    -- LibDBIcon's: hidden where they are, stood in for in the row.
+    local names = {}
+    for name in pairs(Map.LibButtons()) do names[#names + 1] = name end
+    table.sort(names)
+    local lib = Map.LibButtons()
+    for _, name in ipairs(names) do
+        local b = lib[name]
+        Map.kept[#Map.kept + 1] = Keep(b)
+        b:Hide()
+        Place(Map.Proxy(name, b))
+    end
+    -- Everything else (Blizzard's landing-page orb, other addons'): moved
+    -- into the row. Round 005 play: they were behind the panel (their own
+    -- strata) and the orb's hit area was its 53 px one, inset to nothing at
+    -- this size -- so strata, level and hit area come too.
+    for _, b in ipairs(Map.Buttons()) do
+        Map.kept[#Map.kept + 1] = Keep(b)
+        b:SetParent(panel)
+        if b.SetFrameStrata then b:SetFrameStrata("DIALOG") end
+        if b.SetFrameLevel then b:SetFrameLevel(panel:GetFrameLevel() + 10) end
+        if b.SetHitRectInsets then b:SetHitRectInsets(0, 0, 0, 0) end
+        Place(b)
     end
     -- The furniture that only fits the corner.
     local mm = _G.Minimap
@@ -108,6 +199,7 @@ function Map.Gather()
 end
 
 function Map.Scatter()
+    for _, p in pairs(Map.proxies) do p:Hide() end
     for i = #(Map.kept or {}), 1, -1 do Put(Map.kept[i]) end
     Map.kept = nil
     local mm = _G.Minimap
