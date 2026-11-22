@@ -291,7 +291,10 @@ Quests.MAX_ALL_ROWS = 30 -- the whole list, opened
 Quests.CARD_W   = 300
 Quests.CARD_LINES = 10
 Quests.FILTER_H = 22
-Quests.CHIP_W   = { 34, 58, 52, 56, 84 }
+Quests.CHIP_W   = { 34, 66, 60, 62, 76 }
+-- Each kind's square, the history's grammar.
+Quests.HUE = { quest = "notifAmber", world = "notifBlue", event = "notifGreen", achievement = "notifViolet" }
+Quests.DOT = 8
 
 local frame, rows, details, card = nil, {}, {}, nil
 
@@ -327,6 +330,9 @@ local function Row()
     r.status:SetWidth(U(Quests.STATUS_W))
     r.text = ns.Frames.Text(r, 11, "textPrimary", "LEFT")
     r.text:SetWordWrap(false)
+    r.dot = r:CreateTexture(nil, "ARTWORK")
+    r.dot:SetSize(U(Quests.DOT), U(Quests.DOT))
+    r.dot:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(5))
     r.trough = r:CreateTexture(nil, "BACKGROUND", nil, 1)
     r.trough:SetColorTexture(Palette.Get("trough"))
     r.trough:SetHeight(U(Quests.BAR_H))
@@ -410,9 +416,18 @@ local function Build()
         c:SetSize(U(Quests.CHIP_W[i]), U(Quests.FILTER_H - 4))
         c:SetPoint("TOPLEFT", frame, "TOPLEFT", U(x), -U(ns.Summon.HEADER_H + 3))
         x = x + Quests.CHIP_W[i] + 4
-        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
-        c.text:SetAllPoints()
         c.kind = kind ~= "all" and kind or nil
+        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
+        if c.kind then
+            c.dot = c:CreateTexture(nil, "ARTWORK")
+            c.dot:SetSize(U(Quests.DOT), U(Quests.DOT))
+            c.dot:SetPoint("LEFT")
+            c.dot:SetColorTexture(Palette.Get(Quests.HUE[c.kind]))
+            c.text:SetPoint("LEFT", c.dot, "RIGHT", U(5), 0)
+            c.text:SetPoint("RIGHT")
+        else
+            c.text:SetAllPoints()
+        end
         c:SetScript("OnClick", function(self) Quests.Filter(self.kind) end)
         frame.chips[i] = c
     end
@@ -425,7 +440,7 @@ local function Build()
     Quests.frame, Quests.rows, Quests.details = frame, rows, details
     ns.Registry.Add("QuestList", frame, 0)
     Quests.summon = ns.Summon.Attach({
-        key = "quests", frame = frame, header = header,
+        key = "quests", frame = frame, header = header, dock = "right", order = 1,
         show = function()
             Quests.open = true
             Quests.Refresh()
@@ -501,7 +516,7 @@ function Quests.PaintChips()
         c.text:SetText(("%s %d"):format(label, counts[c.kind or "all"] or 0))
         local lit = Quests.filter == c.kind
         c.text:SetTextColor(Palette.Get(lit and "textPrimary" or "textDim"))
-        c:SetAlpha(lit and 1 or 0.6)
+        c:SetAlpha((Quests.filter == nil or lit) and 1 or 0.45)
     end
 end
 
@@ -515,7 +530,15 @@ end
 
 local function Paint(r, l)
     r.text:ClearAllPoints()
-    r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(3))
+    -- The kind's square leads, as in the history.
+    if l.kind then
+        r.dot:SetColorTexture(Palette.Get(Quests.HUE[l.kind] or "textDim"))
+        r.dot:Show()
+        r.text:SetPoint("TOPLEFT", r, "TOPLEFT", U(Quests.DOT + 6), -U(3))
+    else
+        r.dot:Hide()
+        r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(3))
+    end
     -- Only a pinned quest carries a count; the rest read across.
     if l.pinned or (l.q and l.q.complete) then
         r.text:SetPoint("TOPRIGHT", r.status, "TOPLEFT", -U(8), 0)
@@ -597,6 +620,7 @@ function Quests.Refresh()
     for i = d + 1, #details do details[i]:Hide() end
     SetMouse(Quests.open == true)
     frame:SetHeight(y + U(pad - 4))
+    if Quests.open then ns.Summon.Layout() end
 end
 
 --- The details, called up: the whole title, every objective (done ones in

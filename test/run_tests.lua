@@ -2629,9 +2629,15 @@ check("  closed at rest", Center.IsOpen() == false)
 
 -- "The center is the rail" -- same anchor, growing right, not a window
 -- somewhere else.
-check("it opens at the toast anchor (round 003: reattached from the rail)", (function()
-    local _, rel = Center.panel:GetPoint(1)
-    return rel ~= nil and rel == ns.Toast.Anchor()
+check("it opens at the top of the left dock, and the toasts speak beside it (round 005)", (function()
+    Center.Open()
+    local p, rel = Center.panel:GetPoint(1)
+    local tp, trel, trp = ns.Toast.Anchor():GetPoint(1)
+    local ok = Center.IsOpen() and p == "TOPLEFT" and rel == UIParent
+       and trel == Center.panel and tp == "TOPLEFT" and trp == "TOPRIGHT"
+    Center.Close()
+    local _, back = ns.Toast.Anchor():GetPoint(1)
+    return ok and back == UIParent
 end)())
 
 -- Allowed in R3 as SPEC 7's one recorded exception, and still not a palette
@@ -4380,6 +4386,30 @@ do
         local how = So.Whisper({ name = "Aria", full = "Aria-Realm" })
         ns.Chat.Open = realOpen
         return how == "whisper" and got == "/w Aria-Realm "
+    end)())
+    check("docked panels stack instead of overlapping: chat sits under the history", (function()
+        if not ns.Center.panel then return true end   -- the history is an extra
+        local was = ns.db.extras
+        ns.db.extras = true
+        ns.Center.Open()
+        T.Open()
+        local p, rel, rp = T.panel:GetPoint(1)
+        local ok = p == "TOPLEFT" and rel == ns.Center.panel and rp == "BOTTOMLEFT"
+        ns.Center.Close()
+        local p2, rel2 = T.panel:GetPoint(1)
+        ok = ok and p2 == "TOPLEFT" and rel2 == UIParent
+        T.summon:Close("asked")
+        ns.db.extras = was
+        return ok
+    end)())
+    check("a docked panel is only as tall as what it holds", (function()
+        T.log = {}
+        T.Build()
+        T.Refresh()
+        local h1 = T.panel:GetHeight()
+        for i = 1, 5 do T.Add("CHAT_MSG_SAY", "hi " .. i, "Aria") end
+        T.Refresh()
+        return T.panel:GetHeight() > h1
     end)())
     mock.guild, mock.friends = {}, {}
     _G.UnitName = nil

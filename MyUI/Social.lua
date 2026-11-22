@@ -173,19 +173,15 @@ function Social.Build()
     panel = CreateFrame("Frame", "MyUISocial", UIParent)
     panel:SetFrameStrata("DIALOG")
     panel:SetWidth(U(Social.WIDTH))
-    -- Beside the chat panel, where talking to someone starts.
-    local chat = ns.Talk and ns.Talk.Build and ns.Talk.Build()
-    if chat then
-        panel:SetPoint("BOTTOMLEFT", chat, "BOTTOMRIGHT", U(8), 0)
-    else
-        panel:SetPoint("BOTTOMLEFT", UIParent, "BOTTOMLEFT", U(320), U(260))
-    end
+    -- Docked down the right, under the quest list (Summon.Layout).
+    local d = ns.Summon.DOCK.right
+    panel:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
     local header = ns.Summon.Chrome(panel, "Online")
     for i = 1, Social.ROWS do rows[i] = Row(i) end
     panel:Hide()
     Social.panel, Social.rows = panel, rows
     Social.summon = ns.Summon.Attach({
-        key = "social", frame = panel, header = header,
+        key = "social", frame = panel, header = header, dock = "right", order = 2,
         show = function()
             Social.open = true
             -- Ask the server for a fresh roster; GUILD_ROSTER_UPDATE repaints.
@@ -253,6 +249,7 @@ function Social.Refresh()
     end
     SetMouse(Social.open == true)
     panel:SetHeight(U(ns.Summon.HEADER_H + 4 + shown * Social.ROW + ns.Summon.PAD))
+    if Social.summon and Social.summon.open then ns.Summon.Layout() end
 end
 
 --- Whisper them: a character by name, a Battle.net friend through

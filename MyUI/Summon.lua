@@ -117,12 +117,64 @@ end
 
 Summon.all = {}
 
+-- Round 005 play: the history and the chat panel opened on top of each
+-- other. Summoned panels DOCK instead: a column down each side, each open
+-- panel under the one before it, every panel only as tall as what it holds.
+-- Left: the history, then chat. Right: the quest list, then who's online.
+Summon.DOCK = {
+    left  = { point = "TOPLEFT",  x = 16,  y = -120 },
+    right = { point = "TOPRIGHT", x = -24, y = -200 },
+}
+Summon.DOCK_GAP = 8
+
+--- Stack the open panels of each dock column, in order. Called whenever a
+-- panel opens, closes or changes height.
+function Summon.Layout()
+    local columns = { left = {}, right = {} }
+    for _, c in pairs(Summon.all) do
+        if c.dock and c.open and columns[c.dock] then
+            local col = columns[c.dock]
+            col[#col + 1] = c
+        end
+    end
+    local tops = {}
+    for side, col in pairs(columns) do
+        table.sort(col, function(a, b) return (a.order or 0) < (b.order or 0) end)
+        local d = Summon.DOCK[side]
+        local prev
+        for _, c in ipairs(col) do
+            c.frame:ClearAllPoints()
+            if prev then
+                local edge = side == "left" and "LEFT" or "RIGHT"
+                c.frame:SetPoint("TOP" .. edge, prev.frame, "BOTTOM" .. edge, 0, -U(Summon.DOCK_GAP))
+            else
+                c.frame:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
+            end
+            prev = c
+        end
+        tops[side] = col[1] and col[1].frame or nil
+    end
+    -- Toasts speak beside the left column while it is out, never under it.
+    if ns.Toast and ns.Toast.Beside then ns.Toast.Beside(tops.left) end
+    return columns
+end
+
+--- A docked panel's resting place while closed (peek can still show the
+-- quest list): the top of its column.
+function Summon.Home(c)
+    local d = c.dock and Summon.DOCK[c.dock]
+    if not d then return end
+    c.frame:ClearAllPoints()
+    c.frame:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
+end
+
 --- Give a panel the shared behaviour. spec: { key, frame, header (from
 -- Chrome), show = function() end, hide = function() end }. show and hide
 -- do the panel's own opening and closing; this decides when.
 function Summon.Attach(spec)
     local c = { key = spec.key, frame = spec.frame, header = spec.header,
-                show = spec.show, hide = spec.hide, open = false }
+                show = spec.show, hide = spec.hide, open = false,
+                dock = spec.dock, order = spec.order }
     Summon.all[spec.key] = c
 
     function c:IsPinned() return DB()[self.key] == true end
@@ -170,6 +222,7 @@ function Summon.Attach(spec)
         self.open, self.seen, self.openedAt = true, false, ns.Reveal.Now()
         self:PaintPin()
         if not self:IsPinned() then self:Watch() end
+        Summon.Layout()
         return true
     end
 
@@ -178,6 +231,8 @@ function Summon.Attach(spec)
         self.open = false
         self.closedBy = why
         self.hide()
+        Summon.Home(self)
+        Summon.Layout()
         return true
     end
 

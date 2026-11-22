@@ -756,6 +756,14 @@ beside the chat panel; "online N" in the chat header, MyUI → Show who's online
 Click a name to whisper. Logins (guild mates and friends) toast, gathered for 2 s: "Online: Aria,
 Bren +3"; clicking that toast opens the list.
 
+**Docking and squares** (round 005 play: the history and chat overlapped; "I like the color
+coding ... the squares"). Summoned panels dock in two columns and stack instead of overlapping —
+left: history, then chat; right: the quest list, then who's online — each only as tall as what it
+holds. While the left column is out, toasts speak beside it. The history's hue squares carry over:
+chat filters and rows (whispers violet, group blue, guild green, say grey) and quest filters and
+rows (quests amber, world blue, events green, achievements violet); an unchosen filter dims while
+another is chosen.
+
 ## § 6 amendment — Blizzard's own toasts
 
 Blizzard's Battle.net toast (friend online, and the like) and alert toasts are old, bordered and

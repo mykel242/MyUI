@@ -24,7 +24,7 @@ ns.Center = Center
 
 Center.WIDTH    = 356    -- "356 wide, same anchor as the rail"
 Center.ROW_H    = 22
-Center.ROWS     = 12
+Center.ROWS     = 10
 Center.HEADER_H = 26
 Center.FOOTER_H = 20
 Center.PAD      = 10
@@ -141,7 +141,9 @@ function Center.Build()
     panel:SetFrameStrata("DIALOG")
     panel:SetSize(U(Center.WIDTH), U(height))
 
-    panel:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
+    -- Round 005: docked down the left with the chat panel (Summon.Layout).
+    local d = ns.Summon.DOCK.left
+    panel:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
 
     -- Round 005 play: the quest list's header too -- pin and close at the
     -- right, the hue filters where the title would be.
@@ -177,7 +179,7 @@ function Center.Build()
     -- Round 005 play ("it seems stuck open"): it goes away by itself once
     -- you are done with it, unless pinned (Summon.lua).
     Center.summon = ns.Summon.Attach({
-        key = "history", frame = panel, header = header,
+        key = "history", frame = panel, header = header, dock = "left", order = 1,
         show = function() Center.Refresh(); panel:Show() end,
         hide = function() panel:Hide() end,
     })
@@ -223,6 +225,10 @@ function Center.Refresh()
             row.age:SetText(ns.Toast.FormatAge(now - (tonumber(e.at) or now)))
         end
     end
+
+    -- Only as tall as what it holds.
+    panel:SetHeight(U(Center.HEADER_H + math.max(#rows, 1) * Center.ROW_H + Center.FOOTER_H + 4))
+    if Center.summon and Center.summon.open then ns.Summon.Layout() end
 
     local total = (Log and Log.Count and Log.Count(Center.filter)) or 0
     panel.footer:SetText(("%d kept%s"):format(

@@ -31,11 +31,13 @@ ns.Talk = Talk
 Talk.KEEP   = 200       -- messages kept
 Talk.WIDTH  = 400
 Talk.ROW    = 32        -- who + up to two lines of what
-Talk.ROWS   = 9
+Talk.ROWS   = 8
 Talk.WHO_W  = 92
 Talk.FILTER_H = 22
--- Where Blizzard's chat sat: the left edge, above the left wing.
-Talk.ANCHOR = { point = "BOTTOMLEFT", x = 16, y = 300 }
+-- Each group's square, the history's grammar (round 005 play: "I like the
+-- color coding ... the squares").
+Talk.HUE = { whisper = "notifViolet", group = "notifBlue", guild = "notifGreen", say = "textDim" }
+Talk.DOT = 8
 
 -- Each chat event: its group (the filter), its colour, and how a reply
 -- starts. A whisper replies to its sender.
@@ -129,9 +131,12 @@ local function Row(i)
     local top = ns.Summon.HEADER_H + Talk.FILTER_H + 4 + (i - 1) * Talk.ROW
     r:SetPoint("TOPLEFT", panel, "TOPLEFT", U(pad), -U(top))
     r:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -U(pad), -U(top))
+    r.dot = r:CreateTexture(nil, "ARTWORK")
+    r.dot:SetSize(U(Talk.DOT), U(Talk.DOT))
+    r.dot:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(4))
     r.who = ns.Frames.Text(r, 10, "textPrimary", "LEFT")
-    r.who:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(2))
-    r.who:SetWidth(U(Talk.WHO_W))
+    r.who:SetPoint("TOPLEFT", r, "TOPLEFT", U(Talk.DOT + 6), -U(2))
+    r.who:SetWidth(U(Talk.WHO_W - Talk.DOT - 6))
     r.who:SetWordWrap(false)
     r.text = ns.Frames.Text(r, 11, "textPrimary", "LEFT")
     r.text:SetPoint("TOPLEFT", r, "TOPLEFT", U(Talk.WHO_W + 8), -U(1))
@@ -166,8 +171,9 @@ function Talk.Build()
     panel:SetFrameStrata("DIALOG")
     local pad = ns.Summon.PAD
     panel:SetSize(U(Talk.WIDTH), U(ns.Summon.HEADER_H + Talk.FILTER_H + 8 + Talk.ROWS * Talk.ROW + 26))
-    local a = Talk.ANCHOR
-    panel:SetPoint(a.point, UIParent, a.point, U(a.x), U(a.y))
+    -- Docked down the left, under the history (Summon.Layout).
+    local d = ns.Summon.DOCK.left
+    panel:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
     local header = ns.Summon.Chrome(panel, "Chat")
 
     -- Who's online, from the header.
@@ -181,15 +187,24 @@ function Talk.Build()
     -- Filters: all, then each group with what came in while you were away.
     panel.chips = {}
     local x = pad
-    local widths = { 34, 74, 56, 50, 40 }
+    local widths = { 30, 84, 66, 60, 50 }
     for i, group in ipairs({ "all", "whisper", "group", "guild", "say" }) do
         local c = CreateFrame("Button", nil, panel)
         c:SetSize(U(widths[i]), U(Talk.FILTER_H - 4))
         c:SetPoint("TOPLEFT", panel, "TOPLEFT", U(x), -U(ns.Summon.HEADER_H + 3))
         x = x + widths[i] + 6
-        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
-        c.text:SetAllPoints()
         c.group = group ~= "all" and group or nil
+        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
+        if c.group then
+            c.dot = c:CreateTexture(nil, "ARTWORK")
+            c.dot:SetSize(U(Talk.DOT), U(Talk.DOT))
+            c.dot:SetPoint("LEFT")
+            c.dot:SetColorTexture(Palette.Get(Talk.HUE[c.group]))
+            c.text:SetPoint("LEFT", c.dot, "RIGHT", U(5), 0)
+            c.text:SetPoint("RIGHT")
+        else
+            c.text:SetAllPoints()
+        end
         c:SetScript("OnClick", function(self) Talk.Filter(self.group) end)
         panel.chips[i] = c
     end
@@ -213,7 +228,7 @@ function Talk.Build()
     panel:Hide()
     Talk.panel, Talk.rows = panel, rows
     Talk.summon = ns.Summon.Attach({
-        key = "chat", frame = panel, header = header,
+        key = "chat", frame = panel, header = header, dock = "left", order = 2,
         show = function()
             Talk.open = true
             Talk.Refresh()
@@ -257,7 +272,8 @@ function Talk.Refresh()
         local new = c.group and (Talk.unread[c.group] or 0) or 0
         c.text:SetText(new > 0 and ("%s %d"):format(label, new) or label)
         local lit = Talk.filter == c.group
-        c.text:SetTextColor(Palette.Get(lit and "textPrimary" or (new > 0 and "notifAmber" or "textDim")))
+        c.text:SetTextColor(Palette.Get(lit and "textPrimary" or (new > 0 and "textPrimary" or "textDim")))
+        c:SetAlpha((Talk.filter == nil or lit) and 1 or 0.45)
     end
     local online = ns.Social and (select(2, ns.Social.Lines())) or 0
     panel.online.text:SetText(("online %d"):format(online))
@@ -276,6 +292,8 @@ function Talk.Refresh()
             end
             ns.Guard.Send(r.text, "SetText", e.text or "")
             r.age:SetText(ns.Toast.FormatAge(now - e.at))
+            r.dot:SetColorTexture(Palette.Get(Talk.HUE[e.group] or "textDim"))
+            r.dot:Show()
             r.entry = e
             r:Show()
         else
@@ -283,6 +301,20 @@ function Talk.Refresh()
             r:Hide()
         end
     end
+    if #lines == 0 then
+        local r = rows[1]
+        r.who:SetText("")
+        r.text:SetText(Talk.filter and ("no " .. Talk.GROUP_LABEL[Talk.filter] .. " yet") or "nothing yet")
+        r.text:SetTextColor(Palette.Get("textDim"))
+        r.age:SetText("")
+        r.dot:Hide()
+        r:Show()
+    else
+        rows[1].text:SetTextColor(Palette.Get("textPrimary"))
+    end
+    -- Only as tall as what it holds.
+    panel:SetHeight(U(ns.Summon.HEADER_H + Talk.FILTER_H + 8 + math.max(#lines, 1) * Talk.ROW + 26))
+    if Talk.open then ns.Summon.Layout() end
     SetMouse(Talk.open == true)
 end
 

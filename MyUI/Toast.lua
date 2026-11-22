@@ -344,6 +344,20 @@ function Toast.Anchor()
     return anchor
 end
 
+--- Round 005: while summoned panels are docked down the left, toasts speak
+-- beside that column instead of under it; nil puts them home.
+function Toast.Beside(frame)
+    if not anchor then return end
+    anchor:ClearAllPoints()
+    if frame then
+        anchor:SetPoint("TOPLEFT", frame, "TOPRIGHT", U(12), 0)
+    else
+        local d = Toast.DEFAULT
+        anchor:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
+    end
+    Toast.Layout()
+end
+
 function Toast.OnLogin()
     if anchor then return end
     anchor = CreateFrame("Frame", "MyUIToastAnchor", UIParent)
