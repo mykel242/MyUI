@@ -57,6 +57,9 @@ Layout.PRESETS = {
         -- this anchor); the height is Mykel's own, set in game with
         -- /myui move zone and baked in here.
         ZoneAbility = { "BOTTOM", "BOTTOM", 250, 39 },
+        -- Round 005 play: Blizzard's tooltip out of the middle of the fight,
+        -- into the bottom-right corner, growing up.
+        Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 16 },
         -- The debuffs on bar 1's row start past the zone button.
         debuffGap   = 128,
         wingGap     = 32,
@@ -72,6 +75,7 @@ Layout.PRESETS = {
         StatusBars  = { "TOP", "TOP", 0, 0 },
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 0 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
+        Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 16 },
         debuffGap   = 32,
         wingGap     = 32,
         iconPadding = 2,
@@ -86,6 +90,7 @@ Layout.ALIASES = {
     group = "Group", party = "Group", raid = "Group",
     zone = "ZoneAbility", extra = "ZoneAbility", ability = "ZoneAbility",
     timers = "BuffBars", buffbars = "BuffBars",
+    tooltip = "Tooltip", tip = "Tooltip",
 }
 
 local function DB()

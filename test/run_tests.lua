@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 28, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 29, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -3200,6 +3200,11 @@ do
         local a = sys(11).anchorInfo
         return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(250)) and near(a.offsetY, Scale.U(39))
     end)())
+    check("  Blizzard's tooltip corner in the bottom right, growing up (the tooltip itself untouched)", (function()
+        local a = sys(14).anchorInfo
+        return a and a.point == "BOTTOMRIGHT" and a.relativePoint == "BOTTOMRIGHT" and a.relativeTo == "UIParent"
+           and near(a.offsetX, Scale.U(-16)) and near(a.offsetY, Scale.U(16))
+    end)())
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
     check("  and it is selected", mock.editMode.active == 2 + mine, mock.editMode.active)
@@ -4190,9 +4195,46 @@ do
         local b = Q.Click(101, "LeftButton")
         return a == "tracked" and first and b == "untracked" and mock.superTracked == 0
     end)())
-    Q.driver:Fire("PLAYER_REGEN_DISABLED")
+    ns.Summon.driver:Fire("PLAYER_REGEN_DISABLED")
     check("combat puts it away", not Q.open and Registry.Get("QuestList").target == 0
-          and Q.rows[1]:IsMouseEnabled() == false)
+          and Q.rows[1]:IsMouseEnabled() == false and Q.frame.__header.close:IsMouseEnabled() == false)
+
+    -- Summoned panels go away by themselves, unless pinned (Summon.lua).
+    local Sm = ns.Summon
+    Q.Open()
+    check("a summoned panel the pointer never reaches goes after a while", (function()
+        mock.advance(ns, Sm.UNSEEN - 1, 4)
+        local still = Q.open
+        mock.advance(ns, 1.5, 6)
+        return still and not Q.open and Q.summon.closedBy == "unseen"
+    end)())
+    check("  and once the pointer has been and left, soon after", (function()
+        Q.Open()
+        Q.frame.__over = true
+        mock.advance(ns, 0.5, 2)
+        Q.frame.__over = false
+        mock.advance(ns, Sm.LINGER - 0.5, 4)
+        local still = Q.open
+        mock.advance(ns, 1, 4)
+        return still and not Q.open and Q.summon.closedBy == "left"
+    end)())
+    check("pinned, it stays: past the pointer leaving and through combat", (function()
+        Q.Open()
+        Q.summon.header.pin:Click()
+        mock.advance(ns, Sm.UNSEEN + 5, 10)
+        Sm.driver:Fire("PLAYER_REGEN_DISABLED")
+        return Q.open and Q.summon:IsPinned() and ns.db.pinned.quests == true
+           and Q.summon.header.pin.text:GetText() == "pinned"
+    end)())
+    check("  and comes back open after a reload", (function()
+        Q.summon.open = false
+        Sm.Restore()
+        return Q.open == true
+    end)())
+    check("close always closes, and unpins", (function()
+        Q.summon.header.close:Click()
+        return not Q.open and not Q.summon:IsPinned() and ns.db.pinned.quests == nil
+    end)())
     check("the toast sources leave quest rows to the tracker while it is on", (function()
         Feed.Clear()
         Q.EVENTS.QUEST_ACCEPTED(101)

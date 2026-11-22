@@ -721,6 +721,19 @@ at 0; MyUI says what changes:
   (again: off). Right-click: open it on the map (out of combat). Rows take clicks only while
   open; the pointer never wakes it; combat closes it.
 
+**Summoned panels** (`Summon.lua`, round 005 play: the history "seems stuck open"; the two
+panels "should match better"). The quest list and the history share one surface — SPEC 7's dark
+exception, hairlines top and bottom, a header with a title (the history: its hue filters) and
+**pin** / **×** at the right — and one behaviour: an unpinned panel goes 1.5 s after the pointer
+leaves it, 10 s after opening if the pointer never came, and when combat starts. Pinned (amber
+"pinned"), it stays through all of that and comes back open after `/reload`. × always closes and
+unpins. The quest list's rows are left-aligned like the history's; its hover card wears the
+same surface.
+
+**Tooltip.** Blizzard anchors its default tooltip to the HUD Tooltip Edit Mode system's corner, so
+the MyUI layout moves that system (profile key `Tooltip`, bottom-right, growing up; `/myui move
+tooltip`). Nothing of MyUI's touches the tooltip itself — it carries secret values.
+
 ## § 6 amendment — Blizzard's own toasts
 
 Blizzard's Battle.net toast (friend online, and the like) and alert toasts are old, bordered and

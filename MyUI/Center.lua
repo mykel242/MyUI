@@ -40,8 +40,9 @@ Center.PAD      = 10
 -- colours and a test asserts a fourteenth is an error; this is one surface
 -- that exists only while summoned, and burying it in the palette would make it
 -- look like something the HUD may draw at rest.
-local SURFACE = { 10 / 255, 10 / 255, 12 / 255, 0.86 }
-Center.SURFACE = SURFACE
+-- (Round 005: the surface lives in Summon.lua now, shared with the quest
+-- list, so the two summoned panels cannot drift apart.)
+Center.SURFACE = ns.Summon.SURFACE
 
 -- The filter row: SPEC 6's five hues, by what each means. Violet leads
 -- because whispers are the reason chat and the history are one view (SPEC 14).
@@ -69,12 +70,6 @@ end
 -- Build
 -- ---------------------------------------------------------------------------
 
-local function Hairline(parent, colorName)
-    local line = parent:CreateTexture(nil, "ARTWORK")
-    line:SetColorTexture(Palette.Get(colorName))
-    line:SetHeight(Scale.Hairline())
-    return line
-end
 
 local function BuildRow(parent, index)
     local row = CreateFrame("Button", nil, parent)
@@ -148,21 +143,9 @@ function Center.Build()
 
     panel:SetPoint("TOPLEFT", anchor, "TOPLEFT", 0, 0)
 
-    local bg = panel:CreateTexture(nil, "BACKGROUND")
-    bg:SetAllPoints()
-    bg:SetColorTexture(SURFACE[1], SURFACE[2], SURFACE[3], SURFACE[4])
-
-    local top = Hairline(panel, "fillDim")
-    top:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, 0)
-    top:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, 0)
-
-    local under = Hairline(panel, "trough")
-    under:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -U(Center.HEADER_H) + Scale.Hairline())
-    under:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, -U(Center.HEADER_H) + Scale.Hairline())
-
-    local bottom = Hairline(panel, "fillDim")
-    bottom:SetPoint("BOTTOMLEFT", panel, "BOTTOMLEFT", 0, 0)
-    bottom:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", 0, 0)
+    -- Round 005 play: the quest list's header too -- pin and close at the
+    -- right, the hue filters where the title would be.
+    local header = ns.Summon.Chrome(panel, "")
 
     panel.chips = {}
     for i, name in ipairs(Center.HUES) do
@@ -191,6 +174,17 @@ function Center.Build()
     end
 
     Center.panel = panel
+    -- Round 005 play ("it seems stuck open"): it goes away by itself once
+    -- you are done with it, unless pinned (Summon.lua).
+    Center.summon = ns.Summon.Attach({
+        key = "history", frame = panel, header = header,
+        show = function() Center.Refresh(); panel:Show() end,
+        hide = function() panel:Hide() end,
+    })
+    -- Escape hides the frame directly; keep the behaviour in step.
+    panel:HookScript("OnHide", function()
+        if Center.summon.open then Center.summon.open = false end
+    end)
     return panel
 end
 
@@ -258,12 +252,13 @@ function Center.Open(hue)
         Center.filter = hue
     end
     Center.Refresh()
-    p:Show()
-    return true
+    return Center.summon:Open()
 end
 
 function Center.Close()
-    if panel then
+    if Center.summon then
+        Center.summon:Close("asked")
+    elseif panel then
         panel:Hide()
     end
     return true

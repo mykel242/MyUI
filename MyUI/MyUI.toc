@@ -24,6 +24,7 @@ Bars.lua
 Reveal.lua
 Peek.lua
 Toast.lua
+Summon.lua
 Center.lua
 Panel.lua
 Sources.lua

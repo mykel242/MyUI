@@ -717,6 +717,13 @@ function Clear.PlaceWings(layout)
                                offsetX = ns.Scale.U(x),
                                offsetY = ns.Scale.U(y) - (second and ns.Scale.U(Clear.STATUS_BAR_STEP) or 0) }
             n = n + 1
+        elseif E.EditModeSystem.HudTooltip and sys.system == E.EditModeSystem.HudTooltip then
+            -- Round 005 play: the tooltip "less obtrusive". Blizzard anchors
+            -- its default tooltip to this Edit Mode system's corner
+            -- (GameTooltip_SetDefaultAnchor), so moving the system moves the
+            -- tooltip -- nothing of MyUI's touches the tooltip itself, which
+            -- carries secret values and must stay untainted.
+            At(sys, "Tooltip")
         elseif E.EditModeSystem.ExtraAbilities and sys.system == E.EditModeSystem.ExtraAbilities then
             -- Blizzard's zone / extra ability button (round 004 play: it sat
             -- mid-screen over the character). Placed by the profile.

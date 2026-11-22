@@ -253,6 +253,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             { "action bar",   ns.Actions  },
             -- After clearing: it hides Blizzard's party and raid frames.
             { "group frames", ns.Group    },
+            -- Last: brings back any summoned panel left pinned.
+            { "summoned panels", ns.Summon },
         }) do
             local label, module = step[1], step[2]
             if module and module.OnLogin then

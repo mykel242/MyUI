@@ -27,7 +27,7 @@ local Quests = {}
 ns.Quests = Quests
 
 Quests.SETTLE  = 0.25    -- QUEST_LOG_UPDATE comes in bursts; read once after
-Quests.WIDTH   = 220
+Quests.WIDTH   = 300
 Quests.MAX_ALL = 12       -- with nothing tracked, the first quests in the log
 -- Where Blizzard's tracker sat: the right edge, below the minimap's place.
 Quests.ANCHOR  = { point = "TOPRIGHT", x = -24, y = -200 }
@@ -179,6 +179,9 @@ end
 -- Second pass (round 005 play): more air between lines; counts only on the
 -- waypoint quest ("the numbers are noise unless we have pinned something");
 -- "+N more" opens the whole list and "fewer" closes it again.
+-- Third pass: the history's surface and header (Summon.lua) so the two
+-- summoned panels match -- left-aligned rows, pin and close -- and the same
+-- going-away: by itself once you are done with it, unless pinned.
 Quests.ROW      = 24     -- title, a gap, the bar, a gap
 Quests.DETAIL   = 15     -- one objective line
 Quests.STATUS_W = 44
@@ -186,10 +189,13 @@ Quests.BAR_H    = 2
 Quests.MAX_QUESTS = 8
 Quests.MAX_ALL_ROWS = 30 -- the whole list, opened
 Quests.CARD_W   = 300
-Quests.CARD_PAD = 12
 Quests.CARD_LINES = 10
 
 local frame, rows, details, card = nil, {}, {}, nil
+
+local function Inner()
+    return U(Quests.WIDTH - 2 * ns.Summon.PAD)
+end
 
 --- How far along a quest is, 0..1, and its count for when it is pinned.
 function Quests.Progress(q)
@@ -212,28 +218,28 @@ end
 
 local function Row()
     local r = CreateFrame("Button", nil, frame)
-    r:SetSize(U(Quests.WIDTH), U(Quests.ROW))
+    r:SetSize(Inner(), U(Quests.ROW))
     r:RegisterForClicks("LeftButtonUp", "RightButtonUp")
     r.status = ns.Frames.Text(r, 10, "textDim", "RIGHT")
-    r.status:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -U(2))
+    r.status:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -U(3))
     r.status:SetWidth(U(Quests.STATUS_W))
-    r.text = ns.Frames.Text(r, 11, "textPrimary", "RIGHT")
+    r.text = ns.Frames.Text(r, 11, "textPrimary", "LEFT")
     r.text:SetWordWrap(false)
-    r.trough = r:CreateTexture(nil, "BACKGROUND")
+    r.trough = r:CreateTexture(nil, "BACKGROUND", nil, 1)
     r.trough:SetColorTexture(Palette.Get("trough"))
     r.trough:SetHeight(U(Quests.BAR_H))
-    r.trough:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, U(5))
-    r.trough:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, U(5))
+    r.trough:SetPoint("BOTTOMLEFT", r, "BOTTOMLEFT", 0, U(4))
+    r.trough:SetPoint("BOTTOMRIGHT", r, "BOTTOMRIGHT", 0, U(4))
     r.fill = r:CreateTexture(nil, "ARTWORK")
     r.fill:SetHeight(U(Quests.BAR_H))
-    r.fill:SetPoint("BOTTOMRIGHT", r.trough, "BOTTOMRIGHT", 0, 0)
+    r.fill:SetPoint("BOTTOMLEFT", r.trough, "BOTTOMLEFT", 0, 0)
     r:SetScript("OnClick", function(self, button)
         if self.more then Quests.SetExpanded(not Quests.expanded)
         elseif self.questID then Quests.Click(self.questID, button) end
     end)
     r:SetScript("OnEnter", function(self) if self.questID then Quests.ShowCard(self) end end)
     r:SetScript("OnLeave", function() Quests.HideCard() end)
-    ns.Frames.HoverEdge(r, 4)
+    ns.Frames.HoverEdge(r, 3)
     r:EnableMouse(false)
     r:Hide()
     return r
@@ -245,7 +251,7 @@ local function RowAt(i)
 end
 
 local function Detail()
-    local d = ns.Frames.Text(frame, 10, "textDim", "RIGHT")
+    local d = ns.Frames.Text(frame, 10, "textDim", "LEFT")
     d:SetWordWrap(false)
     d:Hide()
     return d
@@ -253,15 +259,14 @@ end
 
 local function BuildCard()
     card = CreateFrame("Frame", "MyUIQuestCard", UIParent)
-    card:SetFrameStrata(ns.Frames.STRATA)
+    card:SetFrameStrata("DIALOG")
     card:SetWidth(U(Quests.CARD_W))
-    card.bg = card:CreateTexture(nil, "BACKGROUND")
-    card.bg:SetAllPoints()
-    card.bg:SetColorTexture(Palette.Get("tickDark"))
+    ns.Summon.Surface(card)
     card.lines = {}
+    local pad = ns.Summon.PAD
     for i = 1, Quests.CARD_LINES do
         local l = ns.Frames.Text(card, i == 1 and 11 or 10, i == 1 and "textPrimary" or "textDim", "LEFT")
-        l:SetWidth(U(Quests.CARD_W - 2 * Quests.CARD_PAD))
+        l:SetWidth(U(Quests.CARD_W - 2 * pad))
         -- The title may take two lines rather than lose its end.
         l:SetWordWrap(i == 1)
         if i == 1 and l.SetMaxLines then l:SetMaxLines(2) end
@@ -271,6 +276,15 @@ local function BuildCard()
     Quests.card = card
 end
 
+local function SetMouse(on)
+    local h = frame and frame.__header
+    if h then
+        h.pin:EnableMouse(on)
+        h.close:EnableMouse(on)
+    end
+    for _, r in ipairs(rows) do r:EnableMouse(on and (r.questID ~= nil or r.more == true)) end
+end
+
 local function Build()
     if frame then
         if not ns.Registry.Get("QuestList") then ns.Registry.Add("QuestList", frame, 0) end
@@ -278,21 +292,38 @@ local function Build()
         return frame
     end
     frame = CreateFrame("Frame", "MyUIQuestList", UIParent)
-    frame:SetFrameStrata(ns.Frames.STRATA)
-    frame:SetSize(U(Quests.WIDTH), U(Quests.ROW))
+    frame:SetFrameStrata("DIALOG")
+    frame:SetSize(U(Quests.WIDTH), U(ns.Summon.HEADER_H + Quests.ROW))
     local a = Quests.ANCHOR
     frame:SetPoint(a.point, UIParent, a.point, U(a.x), U(a.y))
+    local header = ns.Summon.Chrome(frame, "Quests")
     for i = 1, Quests.MAX_QUESTS + 1 do RowAt(i) end
     for i = 1, 8 do details[i] = Detail() end
     BuildCard()
     Quests.frame, Quests.rows, Quests.details = frame, rows, details
     ns.Registry.Add("QuestList", frame, 0)
+    Quests.summon = ns.Summon.Attach({
+        key = "quests", frame = frame, header = header,
+        show = function()
+            Quests.open = true
+            Quests.Refresh()
+            SetMouse(true)
+            ns.Reveal.Claim("quests")
+        end,
+        hide = function()
+            Quests.open = false
+            Quests.HideCard()
+            SetMouse(false)
+            ns.Reveal.Release("quests")
+        end,
+    })
+    SetMouse(false)
     return frame
 end
 
 --- What the list shows now, in order: the waypoint quest first (pinned: its
 -- count and what is left of it), then the ones ready to turn in, then the
--- rest. Returns the lines and how many more there are than show.
+-- rest. Returns the lines, how many more there are than show, and the total.
 function Quests.Lines()
     local tracked = API("C_SuperTrack.GetSuperTrackedQuestID")
     local first, ready, rest = {}, {}, {}
@@ -315,10 +346,11 @@ function Quests.Lines()
     for _, group in ipairs({ first, ready, rest }) do
         for _, l in ipairs(group) do lines[#lines + 1] = l end
     end
+    local total = #lines
     local cap = Quests.expanded and Quests.MAX_ALL_ROWS or Quests.MAX_QUESTS
     local more = math.max(0, #lines - cap)
     for i = #lines, cap + 1, -1 do lines[i] = nil end
-    return lines, more
+    return lines, more, total
 end
 
 --- "+N more" opens the whole list; "fewer" closes it.
@@ -331,15 +363,15 @@ end
 
 local function Paint(r, l)
     r.text:ClearAllPoints()
-    r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(2))
-    -- Only a pinned quest carries a count; the rest read to the edge.
+    r.text:SetPoint("TOPLEFT", r, "TOPLEFT", 0, -U(3))
+    -- Only a pinned quest carries a count; the rest read across.
     if l.pinned or (l.q and l.q.complete) then
         r.text:SetPoint("TOPRIGHT", r.status, "TOPLEFT", -U(8), 0)
         r.status:SetText(l.q.complete and "ready" or l.status)
         r.status:SetTextColor(Palette.Get(l.q.complete and "notifGreen" or "textDim"))
         r.status:Show()
     else
-        r.text:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -U(2))
+        r.text:SetPoint("TOPRIGHT", r, "TOPRIGHT", 0, -U(3))
         r.status:Hide()
     end
     r.text:SetText(l.text)
@@ -348,12 +380,13 @@ end
 
 function Quests.Refresh()
     if not frame then return end
-    local lines, more = Quests.Lines()
-    local y, d = 0, 0
+    local lines, more, total = Quests.Lines()
+    local pad = ns.Summon.PAD
+    frame.__header.title:SetText(total > 0 and ("Quests  %d"):format(total) or "Quests")
+    local y, d = U(ns.Summon.HEADER_H + 4), 0
     local function Place(r)
         r:ClearAllPoints()
-        r:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -y)
-        r:EnableMouse(Quests.open == true)
+        r:SetPoint("TOPLEFT", frame, "TOPLEFT", U(pad), -y)
         r:Show()
         y = y + U(Quests.ROW)
     end
@@ -363,8 +396,7 @@ function Quests.Refresh()
         used = i
         Paint(r, l)
         r.fill:SetColorTexture(Palette.Get(l.q.complete and "notifGreen" or (l.pinned and "notifAmber" or "fill")))
-        -- Fills from the screen edge inward, like the list reads.
-        r.fill:SetWidth(math.max(U(Quests.WIDTH) * l.frac, 0.01))
+        r.fill:SetWidth(math.max(Inner() * l.frac, 0.01))
         r.fill:Show()
         r.trough:Show()
         r.questID, r.line, r.more = l.questID, l, nil
@@ -375,8 +407,8 @@ function Quests.Refresh()
                     d = d + 1
                     local t = details[d]
                     t:ClearAllPoints()
-                    t:SetPoint("TOPRIGHT", frame, "TOPRIGHT", -U(Quests.STATUS_W + 8), -y)
-                    t:SetWidth(U(Quests.WIDTH - Quests.STATUS_W - 8))
+                    t:SetPoint("TOPLEFT", frame, "TOPLEFT", U(pad + 10), -y)
+                    t:SetWidth(Inner() - U(10))
                     t:SetText(Quests.ObjectiveText(o, l.q.title))
                     t:Show()
                     y = y + U(Quests.DETAIL)
@@ -389,8 +421,7 @@ function Quests.Refresh()
     if more > 0 or Quests.expanded then
         used = used + 1
         local r = RowAt(used)
-        local l = { text = more > 0 and ("+%d more"):format(more) or "fewer", colour = "textDim" }
-        Paint(r, l)
+        Paint(r, { text = more > 0 and ("+%d more"):format(more) or "fewer", colour = "textDim" })
         r.trough:Hide()
         r.fill:Hide()
         r.questID, r.line, r.more = nil, nil, true
@@ -404,15 +435,14 @@ function Quests.Refresh()
         r.fill:Hide()
         r.questID, r.line, r.more = nil, nil, nil
         Place(r)
-        r:EnableMouse(false)
     end
     for i = used + 1, #rows do
         rows[i].questID, rows[i].line, rows[i].more = nil, nil, nil
-        rows[i]:EnableMouse(false)
         rows[i]:Hide()
     end
     for i = d + 1, #details do details[i]:Hide() end
-    frame:SetHeight(math.max(y, U(Quests.ROW)))
+    SetMouse(Quests.open == true)
+    frame:SetHeight(y + U(pad - 4))
 end
 
 --- The details, called up: the whole title, every objective (done ones in
@@ -420,7 +450,7 @@ end
 function Quests.ShowCard(row)
     local l = row.line
     if not (card and l) then return end
-    local pad = U(Quests.CARD_PAD)
+    local pad = U(ns.Summon.PAD)
     local n = 1
     local title = card.lines[1]
     title:SetText(l.q.title)
@@ -437,7 +467,6 @@ function Quests.ShowCard(row)
     end
     if l.q.complete then Line("ready to turn in", "notifGreen") end
     for i = n + 1, Quests.CARD_LINES do card.lines[i]:Hide() end
-    -- Stack the lines: the title as tall as it wraps to, the rest one line.
     local th = (title.GetStringHeight and title:GetStringHeight()) or U(Quests.DETAIL)
     if type(th) ~= "number" or th <= 0 then th = U(Quests.DETAIL) end
     title:ClearAllPoints()
@@ -452,7 +481,8 @@ function Quests.ShowCard(row)
     end
     card:SetHeight(y + pad - U(2))
     card:ClearAllPoints()
-    card:SetPoint("TOPRIGHT", row, "TOPLEFT", -U(16), U(4))
+    card:SetPoint("TOPRIGHT", frame, "TOPLEFT", -U(8), 0)
+    card:SetPoint("TOP", row, "TOP", 0, U(4))
     card:Show()
     return n
 end
@@ -468,7 +498,7 @@ function Quests.Click(questID, button)
         if InCombatLockdown() then return "combat" end
         if type(_G.QuestMapFrame_OpenToQuestDetails) == "function" then
             pcall(_G.QuestMapFrame_OpenToQuestDetails, questID)
-            Quests.Close()
+            if not (Quests.summon and Quests.summon:IsPinned()) then Quests.Close() end
             return "map"
         end
         return nil
@@ -484,19 +514,12 @@ Quests.Build = Build
 function Quests.Open()
     if not Quests.Active() then return false end
     Build()
-    Quests.open = true
-    Quests.Refresh()
-    ns.Reveal.Claim("quests")
-    return true
+    return Quests.summon:Open()
 end
 
 function Quests.Close()
-    if not Quests.open then return false end
-    Quests.open = false
-    Quests.HideCard()
-    for _, r in ipairs(rows) do r:EnableMouse(false) end
-    ns.Reveal.Release("quests")
-    return true
+    if not Quests.summon then return false end
+    return Quests.summon:Close("asked")
 end
 
 function Quests.Toggle()
@@ -527,8 +550,6 @@ Quests.EVENTS = {
         Quests.snapshot[questID] = nil
     end,
     PLAYER_ENTERING_WORLD = function() Soon() end,
-    -- The list is for between pulls.
-    PLAYER_REGEN_DISABLED = function() Quests.Close() end,
 }
 
 function Quests.Enable()

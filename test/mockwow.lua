@@ -209,6 +209,8 @@ function M.frame(spec)
     f.GetHeight = function() return f.__h or 0 end
     f.GetSize   = function() return f.__w or 0, f.__h or 0 end
     f.IsMouseEnabled = function() return f.__mouse == true end
+    -- Set by a test: is the pointer over this frame?
+    f.IsMouseOver = function() return f.__over == true end
     f.GetNumPoints = function() return f.__points and #f.__points or 0 end
     f.GetPoint = function(_, i)
         local p = f.__points and f.__points[i or 1]
@@ -251,6 +253,10 @@ function M.frame(spec)
     f.UnregisterAllEvents = function() f.__unregisteredAll = true end
     f.GetChildren = function() return end
     f.SetScript = function(_, name, fn) f.scripts[name] = fn end
+    -- A button's click, as the client runs it: its OnClick with the button.
+    f.Click = function(self, button)
+        if f.scripts.OnClick then f.scripts.OnClick(self, button or "LeftButton") end
+    end
     f.HookScript = function(_, name, fn)
         local prev = f.scripts[name]
         f.scripts[name] = function(...)
@@ -333,8 +339,8 @@ function M.install()
     -- in it), an active index that counts the two presets first, and the
     -- enums. M.editMode records what was saved and selected.
     M.editMode = { saved = nil, active = nil }
-    _G.Enum.EditModeSystem = { ActionBar = 0, UnitFrame = 3, AuraFrame = 5, ExtraAbilities = 12,
-        StatusTrackingBar = 15, CooldownViewer = 20 }
+    _G.Enum.EditModeSystem = { ActionBar = 0, UnitFrame = 3, AuraFrame = 5, HudTooltip = 11,
+        ExtraAbilities = 12, StatusTrackingBar = 15, CooldownViewer = 20 }
     _G.Enum.EditModeStatusTrackingBarSystemIndices = { StatusTrackingBar1 = 1, StatusTrackingBar2 = 2 }
     _G.Enum.EditModeAuraFrameSystemIndices = { BuffFrame = 1, DebuffFrame = 2 }
     _G.Enum.EditModeAuraFrameSetting = { Orientation = 0, IconWrap = 1, IconDirection = 2,
@@ -371,6 +377,7 @@ function M.install()
                 { system = 12, settings = {} },
                 { system = 15, systemIndex = 1, settings = {} },
                 { system = 15, systemIndex = 2, settings = {} },
+                { system = 11, settings = {} },
             } },
             { layoutName = "Alt", layoutType = 2, systems = {} },
         },
