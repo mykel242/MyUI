@@ -32,6 +32,88 @@ local function API(path, ...) return ns.Sources.API(path, ...) end
 
 local panel
 
+-- Round 005 play: "let's do something better with the addon markers". In
+-- the map the minimap's furniture -- its ring and compass, the zoom
+-- buttons, the landing-page orb, every addon's button round the edge --
+-- stayed at corner size, scattered over the big map. While the map is out:
+-- the map is square (the panel's grid), the ring and zoom buttons go (the
+-- wheel zooms), and the buttons line up in a row in the footer, small, on
+-- the right. All of it goes back when the map closes.
+Map.BUTTON  = 18        -- a gathered button, square
+Map.SQUARE_MASK = "Interface\\Buttons\\WHITE8X8"
+Map.ROUND_MASK  = "Interface\\Masks\\CircleMaskScalable"
+
+--- The buttons to gather: every addon button on the minimap's edge, and
+-- Blizzard's landing-page orb. Not the zoom buttons (hidden instead).
+function Map.Buttons()
+    local mm = _G.Minimap
+    local out, seen = {}, {}
+    local skip = {}
+    if mm then skip[mm.ZoomIn or 0] = true; skip[mm.ZoomOut or 0] = true end
+    local function add(b)
+        if b and not seen[b] and not skip[b] and b.IsShown and b:IsShown() then
+            seen[b] = true
+            out[#out + 1] = b
+        end
+    end
+    for _, kid in ipairs({ mm and mm.GetChildren and mm:GetChildren() }) do
+        if kid.GetObjectType and kid:GetObjectType() == "Button" then add(kid) end
+    end
+    add(_G.ExpansionLandingPageMinimapButton)
+    return out
+end
+
+local function Keep(f)
+    local k = { frame = f, parent = f:GetParent(), w = f:GetWidth(), h = f:GetHeight(), points = {},
+                alpha = f.GetAlpha and f:GetAlpha() or 1, mouse = f.IsMouseEnabled and f:IsMouseEnabled() }
+    for i = 1, (f.GetNumPoints and f:GetNumPoints() or 0) do k.points[i] = { f:GetPoint(i) } end
+    return k
+end
+
+local function Put(k)
+    local f = k.frame
+    f:SetParent(k.parent)
+    f:ClearAllPoints()
+    for _, p in ipairs(k.points) do f:SetPoint(p[1], p[2], p[3], p[4], p[5]) end
+    f:SetSize(k.w, k.h)
+    if f.SetAlpha then f:SetAlpha(k.alpha or 1) end
+    if k.mouse ~= nil and f.EnableMouse then f:EnableMouse(k.mouse) end
+end
+
+--- Line the buttons up in the footer, right to left; remember where each was.
+function Map.Gather()
+    Map.kept = {}
+    local x = 0
+    for _, b in ipairs(Map.Buttons()) do
+        Map.kept[#Map.kept + 1] = Keep(b)
+        b:SetParent(panel)
+        b:ClearAllPoints()
+        b:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -U(ns.Summon.PAD) - x, U(6))
+        b:SetSize(U(Map.BUTTON), U(Map.BUTTON))
+        x = x + U(Map.BUTTON + 4)
+    end
+    -- The furniture that only fits the corner.
+    local mm = _G.Minimap
+    local furniture = { _G.MinimapBackdrop, mm and mm.ZoomIn, mm and mm.ZoomOut, mm and mm.ZoomHitArea }
+    for i = 1, 4 do   -- not ipairs: any of them may be missing
+        local f = furniture[i]
+        if f then
+            Map.kept[#Map.kept + 1] = Keep(f)
+            f:SetAlpha(0)
+            if f.EnableMouse then f:EnableMouse(false) end
+        end
+    end
+    if mm and mm.SetMaskTexture then mm:SetMaskTexture(Map.SQUARE_MASK) end
+    return #Map.kept
+end
+
+function Map.Scatter()
+    for i = #(Map.kept or {}), 1, -1 do Put(Map.kept[i]) end
+    Map.kept = nil
+    local mm = _G.Minimap
+    if mm and mm.SetMaskTexture then mm:SetMaskTexture(Map.ROUND_MASK) end
+end
+
 --- Where you are, as "Zone  41.2, 63.8"; the zone alone when the client
 -- will not say (instances).
 function Map.Where()
@@ -105,6 +187,7 @@ function Map.Show()
     mm:SetPoint("CENTER", panel.area, "CENTER", 0, 0)
     mm:SetSize(Size(), Size())
     if mm.SetZoom then mm:SetZoom(0) end
+    Map.Gather()
     Map.open = true
     -- The minimap is adopted at rest (Clear: hidden, hideAtZero); this
     -- channel holds it up while the map is out.
@@ -125,6 +208,7 @@ end
 function Map.Hide()
     Map.open = false
     ns.Reveal.Release("map")
+    Map.Scatter()
     local mm, home = _G.Minimap, Map.home
     if type(mm) == "table" and home then
         mm:SetParent(home.parent)

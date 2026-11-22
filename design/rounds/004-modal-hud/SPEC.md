@@ -703,7 +703,10 @@ addon buttons on its edge — up big and zoomed out in a summoned panel at the t
 the world showing through at 85%), and hands it back to its corner when it closes. Header: the
 zone and your coordinates (the zone alone where the client restricts position). Footer: "world
 map" opens Blizzard's (out of combat). Wheel zooms, click pings. Pin, ×, and going away by itself
-as the other panels do. Still to come: mount, hearthstone and the like on hover.
+as the other panels do. While it is out the map is square, the minimap's ring, compass and zoom
+buttons go (the wheel zooms), and every addon button from its edge plus Blizzard's landing-page orb
+line up small in the footer's right side — all put back when it closes. Still to come: mount,
+hearthstone and the like on hover.
 
 ## 23. Switches and the quest tracker (round 005)
 

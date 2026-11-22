@@ -4518,6 +4518,24 @@ do
         return not M.open and mm:GetParent() == corner and mm:GetWidth() == 140 and mm.zoom == 3
            and p == "CENTER" and rel == corner and not M.panel:IsShown()
     end)())
+    check("the minimap's buttons line up in the footer while it is out, and go home after", (function()
+        local btn = mock.frame({ name = "LibDBIcon10_BugSack", objectType = "Button", parent = mm, shown = true })
+        btn:SetSize(31, 31)
+        btn:SetPoint("CENTER", mm, "CENTER", 50, 50)
+        mm.GetChildren = function() return btn end
+        local zoom = mock.frame({ name = "ZoomInMock", objectType = "Button", parent = mm, shown = true })
+        mm.ZoomIn = zoom
+        M.Toggle()
+        local p, rel = btn:GetPoint(1)
+        local out = btn:GetParent() == M.panel and p == "BOTTOMRIGHT" and rel == M.panel
+                    and btn:GetWidth() < 31 and zoom:GetAlpha() == 0
+        M.Toggle()
+        local p2, rel2 = btn:GetPoint(1)
+        mm.GetChildren, mm.ZoomIn = nil, nil
+        return out and btn:GetParent() == mm and p2 == "CENTER" and rel2 == mm and btn:GetWidth() == 31
+           and zoom:GetAlpha() == 1, ("%s %s %s %s %s %s"):format(tostring(out), tostring(btn:GetParent() == mm),
+           tostring(p2), tostring(rel2 == mm), tostring(btn:GetWidth()), tostring(zoom:GetAlpha()))
+    end)())
     check("the header says where you are", (function()
         _G.GetMinimapZoneText = function() return "Dornogal" end
         _G.C_Map = { GetBestMapForUnit = function() return 1 end,
