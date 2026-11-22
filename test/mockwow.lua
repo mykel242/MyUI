@@ -812,6 +812,8 @@ function M.install()
         GetNumQuestWatches = function() return #M.watched end,
         GetQuestIDForQuestWatchIndex = function(i) return M.watched[i] end,
     }
+    M.progressBars = {}
+    _G.GetQuestProgressBarPercent = function(id) return M.progressBars[id] or 0 end
     _G.C_SuperTrack = {
         GetSuperTrackedQuestID = function() return M.superTracked end,
         SetSuperTrackedQuestID = function(id) M.superTracked = id end,

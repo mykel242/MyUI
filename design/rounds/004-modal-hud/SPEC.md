@@ -711,11 +711,14 @@ at 0; MyUI says what changes:
   finishing says "<title> -- ready to turn in" instead of its last objective; accepting and turning
   in say so too. The first read after login only records. `QUEST_LOG_UPDATE` is read once per burst.
 - **The list, on demand** — the MyUI → Show the quest list key, `/myui quests`, or peek. Right
-  edge, right-aligned, where the tracker was: tracked quests (or the log's first eight when none
-  are tracked), each title with what is left of it a step in. Amber title: the waypoint quest;
-  green: ready to turn in. Left-click a title: waypoint arrow on it (again: off). Right-click: open
-  it on the map (out of combat). Rows take clicks only while open; the pointer never wakes it;
-  combat closes it.
+  edge, where the tracker was, compact (round 005 play: "details called up rather than all
+  listed"): one line per quest — title, a status at the edge (`18/20` for one counted objective,
+  a percentage of the whole otherwise, `ready` in green) and a hairline progress bar under it,
+  filling from the screen edge. Order: the waypoint quest (amber, the only one showing what is
+  left of it), then ready to turn in, then the rest; eight at most, then "+N more". Hover a quest:
+  a card to its left with every objective, done ones green. Left-click: waypoint arrow on it
+  (again: off). Right-click: open it on the map (out of combat). Rows take clicks only while
+  open; the pointer never wakes it; combat closes it.
 
 ## § 6 amendment — Blizzard's own toasts
 

@@ -4104,28 +4104,63 @@ do
     check("a progress bar reads as a percentage", Q.ObjectiveText(
           { text = "", bar = true, have = 45 }, "Clear the camp") == "Clear the camp 45%")
 
-    -- The list.
-    mock.watched = { 101 }
+    -- The list: compact, one line a quest, details called up.
+    check("a quest's status: one counted objective reads as a count", (function()
+        local f, st = Q.Progress(Q.Read(102))
+        local q = { complete = false, objectives = { { have = 18, need = 20 } } }
+        local f2, st2 = Q.Progress(q)
+        return f == 1 and st == "ready" and st2 == "18/20" and math.abs(f2 - 0.9) < 1e-6
+    end)())
+    check("  several objectives read as a percentage of the whole", (function()
+        local f, st = Q.Progress(Q.Read(101))
+        return st == "36%" and math.abs(f - 4 / 11) < 1e-6, st
+    end)())
+    mock.quests[3] = { id = 103, title = "Hold the Line", objectives = {
+        { text = "Wave survived (40%)", type = "progressbar", numFulfilled = 0, numRequired = 1, finished = false } } }
+    mock.progressBars = { [103] = 40 }
+    check("a progress bar takes its percentage from the bar, and Blizzard's own text when it has one",
+          (function()
+              local q = Q.Read(103)
+              local _, st = Q.Progress(q)
+              return q.objectives[1].have == 40 and st == "40%"
+                 and Q.ObjectiveText(q.objectives[1], q.title) == "Wave survived (40%)"
+          end)())
+    mock.watched = { 101, 102, 103 }
     local lines = Q.Lines()
-    check("the list shows the tracked quests and what is left of each",
-          lines[1].text == "Boar Trouble" and lines[1].questID == 101
-          and lines[2].text == "Boars slain: 4/10" and lines[2].indent and lines[3].text == "Talk to the farmer"
-          and lines[4] == nil)
-    mock.watched = {}
+    check("the list: ready to turn in before the rest, one line each, nothing expanded",
+          lines[1].questID == 102 and lines[1].colour == "notifGreen" and lines[2].questID == 101
+          and not lines[2].expand and #lines == 3)
+    mock.superTracked = 101
     lines = Q.Lines()
-    check("with nothing tracked, the log's quests; a ready one says so", (function()
-        for i, l in ipairs(lines) do
-            if l.text == "Lost Letter" then
-                return l.colour == "notifGreen" and lines[i + 1].text == "ready to turn in"
-            end
+    check("  the waypoint quest goes first, in amber, with what is left of it",
+          lines[1].questID == 101 and lines[1].colour == "notifAmber" and lines[1].expand == true)
+    mock.superTracked = 0
+    check("past eight quests, the list says how many more", (function()
+        local was = mock.watched
+        mock.watched = {}
+        for i = 1, 11 do
+            mock.quests[#mock.quests + 1] = { id = 200 + i, title = "Q" .. i, objectives = {} }
+            mock.watched[i] = 200 + i
         end
-        return false
+        local l, more = Q.Lines()
+        for i = #mock.quests, 4, -1 do mock.quests[i] = nil end
+        mock.watched = was
+        return #l == 8 and more == 3, #l .. " " .. more
     end)())
     check("the list is closed until asked for, and the pointer never wakes it",
           not Q.open and Registry.Get("QuestList").target == 0)
     run("quests")
     check("/myui quests opens it", Q.open == true and Registry.Get("QuestList").target == 1)
     check("  and its quest rows take clicks only while open", Q.rows[1]:IsMouseEnabled() == true)
+    check("hovering a quest calls up its objectives, done ones green", (function()
+        local row
+        for _, r in ipairs(Q.rows) do if r.questID == 101 then row = r end end
+        local n = row and Q.ShowCard(row)
+        local ok = n == 3 and Q.card:IsShown() and Q.card.lines[1]:GetText() == "Boar Trouble"
+                   and Q.card.lines[2]:GetText() == "Boars slain: 4/10"
+        Q.HideCard()
+        return ok and not Q.card:IsShown()
+    end)())
     check("left-click points the waypoint arrow at a quest; again clears it", (function()
         local a = Q.Click(101, "LeftButton")
         local first = mock.superTracked == 101
