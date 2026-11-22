@@ -369,7 +369,28 @@ end
 
 function Actions.Apply()
     if InCombatLockdown() then return false end
-    return Actions.SetAssign(next(Actions.reasons) ~= nil)
+    local ok = Actions.SetAssign(next(Actions.reasons) ~= nil)
+    Actions.Strata()
+    return ok
+end
+
+-- What of MyUI's takes clicks at the bottom of the screen, above Blizzard's.
+Actions.CLICKABLE = { "MyUIActionHeader", "MyUISelfButton", "MyUIPetButton", "MyUIPetBar",
+                      "MyUITargetButton", "MyUIFocusButton" }
+
+--- Round 005 play ("I actually can't change specs"): the bar and the target
+-- strip sat over the talents window's Apply button and the middle spec's
+-- Activate, taking their clicks. While that window is on its talents or
+-- specialization page they go under it -- unless something is being placed,
+-- which needs the bar on top.
+function Actions.Strata()
+    if InCombatLockdown() then return false end
+    local under = Actions.covered and next(Actions.reasons) == nil
+    for _, name in ipairs(Actions.CLICKABLE) do
+        local f = _G[name]
+        if f and f.SetFrameStrata then f:SetFrameStrata(under and "LOW" or "HIGH") end
+    end
+    return true
 end
 
 function Actions.Arranging()
@@ -398,11 +419,22 @@ _G.BINDING_NAME_MYUI_ARRANGE = "Arrange the action bars"
 local BOOKS = { Blizzard_PlayerSpells = "PlayerSpellsFrame", Blizzard_MacroUI = "MacroFrame" }
 Actions.books = {}
 
+-- The spellbook is one page of PlayerSpellsFrame; talents and specialization
+-- are the others, and there is nothing to arrange on those. (A talent dragged
+-- to the bar is on the cursor, which arranges it anyway.)
+local function Arranges(f)
+    local page = f.SpellBookFrame
+    if not f:IsShown() then return false end
+    return page == nil or page:IsShown() == true
+end
+
 local function BookChanged()
-    local open = false
+    local open, covered = false, false
     for _, f in pairs(Actions.books) do
-        if f:IsShown() then open = true end
+        if Arranges(f) then open = true
+        elseif f:IsShown() then covered = true end
     end
+    Actions.covered = covered
     Actions.Want("book", open)
 end
 
@@ -413,6 +445,10 @@ function Actions.HookBooks()
             Actions.books[name] = f
             f:HookScript("OnShow", BookChanged)
             f:HookScript("OnHide", BookChanged)
+            if f.SpellBookFrame then
+                f.SpellBookFrame:HookScript("OnShow", BookChanged)
+                f.SpellBookFrame:HookScript("OnHide", BookChanged)
+            end
             if f:IsShown() then BookChanged() end
         end
     end

@@ -3625,6 +3625,32 @@ do
     check("  closing it folds it", hidden("a"))
     _G.PlayerSpellsFrame = nil
 
+    -- Round 005 play: "I actually can't change specs".
+    A.books.PlayerSpellsFrame = nil
+    local win, page = mock.frame({ name = "PlayerSpellsFrame" }), mock.frame({ name = "SpellBookMock" })
+    win.SpellBookFrame = page
+    win:Hide(); page:Hide()
+    _G.PlayerSpellsFrame = win
+    local realHeader = _G.MyUIActionHeader
+    _G.MyUIActionHeader = A.header
+    A.HookBooks()
+    win:Show(); win.scripts.OnShow(win)
+    check("the talents and specialization pages do not arrange the bar, and it goes under the window",
+          hidden("a") and A.header:GetFrameStrata() == "LOW", A.header:GetFrameStrata())
+    page:Show(); page.scripts.OnShow(page)
+    check("  the spellbook page does, on top", stacked() and A.header:GetFrameStrata() == "HIGH")
+    page:Hide(); page.scripts.OnHide(page)
+    check("  turning back to talents folds it under again", hidden("a") and A.header:GetFrameStrata() == "LOW")
+    A.events:Fire("ACTIONBAR_SHOWGRID")
+    check("  a talent on the cursor brings it up on top", stacked() and A.header:GetFrameStrata() == "HIGH")
+    A.events:Fire("ACTIONBAR_HIDEGRID")
+    check("  and it goes back under", hidden("a") and A.header:GetFrameStrata() == "LOW")
+    win:Hide(); win.scripts.OnHide(win)
+    check("  closing the window puts it back on top", A.header:GetFrameStrata() == "HIGH")
+    _G.MyUIActionHeader = realHeader
+    _G.PlayerSpellsFrame = nil
+    A.books.PlayerSpellsFrame = nil
+
     check("the pointer wakes only MyUI's own HUD, not Blizzard's adopted chrome", (function()
         local adopted
         for _, spec in ipairs(ns.Clear.ADOPT) do
