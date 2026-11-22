@@ -4580,6 +4580,40 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+section("Commands -- the trail kept on disk")
+-- ---------------------------------------------------------------------------
+do
+    local Trail = ns.Commands.Trail
+    ns.db.outputs = nil
+    run("version")
+    run("pct")
+    local list = ns.db.outputs
+    check("each command's output is kept, oldest first, with its time", #list == 2
+          and list[1].command == "version" and list[2].command == "pct"
+          and list[1].output ~= "" and list[1].at:match("^%d+%-%d+%-%d+ %d+:%d+:%d+$") ~= nil)
+    run("spacing gap 32")
+    check("  with what was typed after it", list[#list].args == "gap 32", list[#list].args)
+    ns.Print("printed later")
+    Trail.driver:Fire("PLAYER_LOGOUT")
+    check("  and what it went on to print, saved at a reload",
+          list[#list].output:find("printed later", 1, true) ~= nil)
+    run("version")
+    ns.ClearOutput()
+    ns.Print("someone else entirely, and at some length so it outgrows the entry it must not replace")
+    local before = list[#list].output
+    Trail.Finish()
+    check("  but never another output in its place", list[#list].output == before)
+    run("copy")
+    check("copy is not recorded over what it exists to show", list[#list].command ~= "copy")
+    for _ = 1, 60 do run("version") end
+    check("the trail keeps the last 50", #ns.db.outputs == 50, #ns.db.outputs)
+    ns.readOnlyDB = true
+    run("pct")
+    ns.readOnlyDB = nil
+    check("a newer build's saved data is not written to", ns.db.outputs[50].command == "version")
+end
+
+-- ---------------------------------------------------------------------------
 print("")
 print(("%d checks, %d failures"):format(checks, failures))
 os.exit(failures == 0 and 0 or 1)

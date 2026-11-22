@@ -743,7 +743,9 @@ function M.install()
     _G.GetPhysicalScreenSize = function() return M.physW or 5120, M.physH or 2880 end
     _G.STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
     -- Fixed, so a report's text is deterministic across runs.
-    _G.date = function() return "2026-08-27 12:00" end
+    _G.date = function(fmt)
+        return type(fmt) == "string" and fmt:find("%S", 1, true) and "2026-08-27 12:00:00" or "2026-08-27 12:00"
+    end
 
     -- -----------------------------------------------------------------------
     -- What feeds the rail (SPEC 6, Sources.lua)

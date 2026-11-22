@@ -980,7 +980,54 @@ SLASH_MYUI2 = "/mui"
 -- is only one.
 ns.Commands = ns.Commands or {}
 
+-- The last commands and what they printed, each with its time, so a session
+-- can be read off disk after a /reload or logout with nothing copied out of
+-- chat. lastOutput alone lost every command but the last.
+--
+-- This holds whatever was typed and printed, names included. It stays in the
+-- player's own saved variables; anything that shares it must filter it first.
+local Trail = { KEEP = 50, MAX_TEXT = 8000 }
+ns.Commands.Trail = Trail
+
+local function Clip(text)
+    if #text <= Trail.MAX_TEXT then return text end
+    return text:sub(1, Trail.MAX_TEXT) .. "\n... (cut)"
+end
+
+function Trail.Add(name, rest)
+    if not ns.db or ns.readOnlyDB then return nil end
+    ns.db.outputs = type(ns.db.outputs) == "table" and ns.db.outputs or {}
+    local list = ns.db.outputs
+    local e = { at = date("%Y-%m-%d %H:%M:%S"), command = name, output = Clip(ns.GetOutput()) }
+    if rest ~= nil and rest ~= "" then e.args = rest end
+    list[#list + 1] = e
+    while #list > Trail.KEEP do table.remove(list, 1) end
+    Trail.open = e
+    return e
+end
+
+--- Some commands go on printing (/myui mods, for 10 s). Before the buffer is
+-- cleared for the next command, and at logout, the entry takes what came
+-- after -- only if the buffer still continues it.
+function Trail.Finish()
+    local e = Trail.open
+    Trail.open = nil
+    if not e then return false end
+    local now = Clip(ns.GetOutput())
+    if #now > #e.output and now:sub(1, #e.output) == e.output then
+        e.output = now
+        return true
+    end
+    return false
+end
+
+local trailDriver = CreateFrame("Frame", "MyUITrailDriver")
+trailDriver:RegisterEvent("PLAYER_LOGOUT")   -- fires on /reload too, before the save
+trailDriver:SetScript("OnEvent", function() Trail.Finish() end)
+Trail.driver = trailDriver
+
 local function Run(input)
+    Trail.Finish()
     ns.ClearOutput()
     local word, rest = (input or ""):match("^%s*(%S*)%s*(.-)%s*$")
     if word == nil or word == "" then
@@ -1022,6 +1069,7 @@ local function Run(input)
     if ns.db and not ns.readOnlyDB and name ~= "copy" then
         ns.db.lastCommand = name
         ns.db.lastOutput  = ns.GetOutput()
+        Trail.Add(name, rest)
     end
 end
 
