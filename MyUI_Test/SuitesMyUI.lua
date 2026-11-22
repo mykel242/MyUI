@@ -519,12 +519,12 @@ T.Suite("myui-clear", {
               return #shown == 0, #shown == 0 and "all hidden" or ("shown: " .. table.concat(shown, ", "))
           end },
         { id = "layout-active", shot = false,
-          what = "The MyUI Edit Mode layout is active: action bars hidden, Cooldown Manager in combat.",
+          what = "The MyUI Edit Mode layout is active, or this spec keeps its own and MyUI left it alone.",
           check = function(api)
               local Clear = api.ns().Clear
               local name = Clear.ActiveLayoutName()
               local db = api.ns().db.clear or {}
-              return Clear.IsMyLayout(name), ("active %s; previous %s; %s"):format(
+              return Clear.IsMyLayout(name) or db.layoutResult == "not used on this spec", ("active %s; previous %s; %s"):format(
                   tostring(name), tostring(db.prevLayout), tostring(db.layoutResult))
           end },
         { id = "player-frame-probe", shot = false,

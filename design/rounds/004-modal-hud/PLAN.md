@@ -245,6 +245,10 @@ zoom. 4 Load gate (`enable`/`disable`, not-set-up). 5 Look. 6 Full: record, reco
 - Not answered: whether adding a layout shifts another character's active one (needs a write).
   A character whose active layout is of the character kind sits after MyUI's and is the one at risk.
 The record is therefore per character **and spec**; nothing is selected on a spec not set up.
+**Guard built 2026-11-22, ahead of the rest:** MyUI's layout is kept up only where it is already
+active; `/myui layout use` is the yes for one spec, choosing another in Edit Mode the no; the layout
+left is recorded per character and spec; `restore` never touches a spec on its own layout; the map
+leaves the zoom alone.
 
 **Done when:** in Look, the mock counts zero persistent calls through login, combat, every panel and
 every command; from every state a second run makes none and leaves identical data; stopping after

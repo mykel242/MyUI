@@ -249,7 +249,7 @@ local COMMANDS = {
     { "pages",        "the pages not in bar 1's place: mini (small, over it; default) | swap (hidden)" },
     { "taint",        "which Blizzard frames MyUI has tainted (Edit Mode, debuffs, cooldown viewers)" },
     { "map",          "the map on a key: toggles | calm (corner minimap up out of combat) | peek (only when summoned)" },
-    { "layout",       "preview where everything goes, even what isn't up (debuffs, zone button): toggles" },
+    { "layout",       "preview where everything goes: toggles | use (MyUI's Edit Mode layout, this spec only)" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
     { "move",         "nudge a part of the HUD: self | target | focus | bar | group | zone | timers <dx> <dy> (SPEC units)" },
     { "spacing",      "wing spacing: gap <n> (bar to wing) | padding <n> (between icons) | debuffs <n> (bar to debuffs)" },
@@ -375,7 +375,22 @@ local HANDLERS = {
             ns.Print(("minimap: %s -- calm | peek"):format(R.MapMode()))
         end
     end,
-    layout       = function()
+    layout       = function(arg)
+        arg = (arg or ""):lower():gsub("%s+$", "")
+        if arg == "use" then
+            ns.Clear.Defer("layout-use", function()
+                local ok, err = ns.Clear.ApplyLayout(true)
+                if not ok then
+                    ns.Print("layout: " .. tostring(err))
+                elseif ns.Clear.layoutUntouched then
+                    ns.Print("layout: this spec already uses MyUI's")
+                else
+                    ns.Print("layout: MyUI's, on this spec only -- |cffffd159/reload|r. "
+                             .. "To leave it, choose another in Edit Mode.")
+                end
+            end)
+            return
+        end
         local on = ns.Layout.Preview()
         ns.Print(on and "layout preview: boxes where each part goes; /myui move to adjust, /myui layout to hide"
                     or "layout preview off")

@@ -3150,7 +3150,17 @@ do
     -- The MyUI layout: bars in combat only, through C_EditMode alone.
     mock.layouts.activeLayout = 3
     Clear.queue = {}
-    local changed = Clear.ApplyLayout()
+    -- Layouts are the account's, on Blizzard's servers (probe, 2026-11-22).
+    check("a spec on its own layout is left alone: nothing saved, nothing selected, nothing recorded", (function()
+        mock.editMode.saved, mock.editMode.active = nil, nil
+        ns.db.clear.prevLayout = nil
+        local ok, err = Clear.ApplyLayout()
+        Clear.RestoreLayout()
+        return ok == nil and err == "not used on this spec" and mock.editMode.saved == nil
+           and mock.editMode.active == nil and #mock.layouts.layouts == 2 and ns.db.clear.prevLayout == nil
+           and Clear.layoutUntouched == true
+    end)())
+    local changed = Clear.ApplyLayout(true)
     local saved = mock.editMode.saved
     local mine
     for i, l in ipairs(saved.layouts) do if l.layoutName == "MyUI" then mine = i end end
@@ -3291,9 +3301,32 @@ do
         Clear.RestoreLayout()
         return mock.editMode.active == 3, mock.editMode.active
     end)())
+    check("each spec goes back to its own: what one left does not overwrite another's", (function()
+        local realGuid, realSpec = _G.UnitGUID, _G.GetSpecialization
+        local spec = 1
+        _G.UnitGUID = function() return "Player-1-0001" end
+        _G.GetSpecialization = function() return spec end
+        mock.layouts.activeLayout = 3
+        Clear.ApplyLayout(true)
+        local mineIdx = mock.editMode.active
+        spec = 2
+        mock.layouts.activeLayout = 1            -- spec 2 sits on a preset
+        local left = Clear.ApplyLayout() == nil and mock.layouts.activeLayout == 1
+        Clear.ApplyLayout(true)
+        spec = 1
+        mock.layouts.activeLayout = mineIdx
+        Clear.RestoreLayout()
+        local one = mock.editMode.active
+        spec = 2
+        mock.layouts.activeLayout = mineIdx
+        Clear.RestoreLayout()
+        local two = mock.editMode.active
+        _G.UnitGUID, _G.GetSpecialization = realGuid, realSpec
+        return left and one == 3 and two == 1, ("%s %s %s"):format(tostring(left), tostring(one), tostring(two))
+    end)())
     check("a preset is remembered and restored by index", (function()
         mock.layouts.activeLayout = 1
-        Clear.ApplyLayout()
+        Clear.ApplyLayout(true)
         local prev = ns.db.clear.prevLayout
         Clear.RestoreLayout()
         return prev == "preset:1" and mock.editMode.active == 1, prev
@@ -4039,7 +4072,7 @@ do
     check("/myui spacing padding sets the gap between wing icons", L.Value("iconPadding") == 8)
     check("  and the wings use it", (function()
         mock.layouts.activeLayout = 3
-        ns.Clear.ApplyLayout()
+        ns.Clear.ApplyLayout(true)
         for _, l in ipairs(mock.editMode.saved.layouts) do
             if l.layoutName == "MyUI" then
                 for _, sys in ipairs(l.systems) do
@@ -4535,13 +4568,13 @@ do
     mm:SetPoint("CENTER", corner, "CENTER", 0, 0)
     mm.zoom = 3
     mm.GetZoom = function() return mm.zoom end
-    mm.SetZoom = function(_, z) mm.zoom = z end
+    mm.SetZoom = function(_, z) mm.zoom, mm.zoomed = z, true end
     _G.Minimap = mm
     M.enabled = true
     M.Build()
-    check("the map key brings Blizzard's minimap up big, zoomed out, in a summoned panel", (function()
+    check("the map key brings Blizzard's minimap up big, in a summoned panel, at the zoom it had", (function()
         M.Toggle()
-        return M.open and mm:GetParent() == M.panel.area and mm:GetWidth() > 140 and mm.zoom == 0
+        return M.open and mm:GetParent() == M.panel.area and mm:GetWidth() > 140 and mm.zoom == 3 and not mm.zoomed
            and M.panel:IsShown()
     end)())
     check("  and the same key hands it back to its corner, as it was", (function()

@@ -804,14 +804,38 @@ function Clear.StyleExtra(on)
     return true
 end
 
-function Clear.ApplyLayout()
+-- Whose layout this is: the client keeps the active one per character AND
+-- spec (probe, 2026-11-22). The GUID stays in the player's own saved data.
+local function SpecKey()
+    local guid = _G.UnitGUID and _G.UnitGUID("player")
+    local get = _G.C_SpecializationInfo and _G.C_SpecializationInfo.GetSpecialization or _G.GetSpecialization
+    local spec = type(get) == "function" and get() or nil
+    if type(guid) ~= "string" then return nil end
+    return guid .. ":" .. tostring(spec or 0)
+end
+
+--- Bring MyUI's layout up to date -- but only where it is already the active
+-- one. Edit Mode layouts live on Blizzard's servers, so they follow the
+-- account everywhere, and MyUI used to select its own on every spec it met.
+-- `use` is the player saying yes on this spec (/myui layout use); choosing
+-- another layout in Edit Mode is the player saying no.
+function Clear.ApplyLayout(use)
     if not _G.C_EditMode or not _G.C_EditMode.GetLayouts then return nil, "no C_EditMode" end
     local E = _G.Enum
     local info = C_EditMode.GetLayouts()
     local presets = Presets()
     local current, activeIdx = Clear.ActiveLayoutName()
     if not Clear.IsMyLayout(current) then
+        if use ~= true then
+            Clear.layoutUntouched = true
+            return nil, "not used on this spec"
+        end
         DB().prevLayout = current
+        local key = SpecKey()
+        if key then
+            DB().prevBySpec = DB().prevBySpec or {}
+            DB().prevBySpec[key] = current
+        end
     end
 
     -- Find this screen's layout; else take over the old single "MyUI" one;
@@ -898,7 +922,10 @@ end
 
 function Clear.RestoreLayout()
     if not _G.C_EditMode or not _G.C_EditMode.GetLayouts then return nil, "no C_EditMode" end
-    local prev = DB().prevLayout
+    -- Only away from MyUI's: a spec on the player's own layout is left alone.
+    if not Clear.IsMyLayout((Clear.ActiveLayoutName())) then return nil, "not used on this spec" end
+    local key = SpecKey()
+    local prev = key and DB().prevBySpec and DB().prevBySpec[key] or DB().prevLayout
     if not prev then return nil, "no previous layout recorded" end
     local presets = Presets()
     local preset = prev:match("^preset:(%d+)$")
@@ -928,6 +955,10 @@ function Clear.Apply()
     Clear.Defer("units", Clear.HideUnits)
     Clear.Defer("layout", function()
         local ok, err = Clear.ApplyLayout()
+        if err == "not used on this spec" and not Clear.layoutHinted then
+            Clear.layoutHinted = true
+            ns.Print("|cffadb1b8this spec keeps its own Edit Mode layout -- /myui layout use for MyUI's|r")
+        end
         DB().layoutResult = ok and ("bars changed: " .. tostring(ok)) or tostring(err)
         Clear.StyleExtra(true)
         -- Saving the Edit Mode layout from MyUI taints what Edit Mode touches

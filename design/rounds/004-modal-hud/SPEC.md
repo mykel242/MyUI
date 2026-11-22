@@ -699,7 +699,7 @@ Mount, hearthstone and the like come up on hover.
 
 **Built, round 005 (`Map.lua`, the "minimap" switch).** The key (MyUI → Show the map, or
 `/myui map`) brings Blizzard's own minimap render — terrain, your arrow, quest blips, nodes, the
-addon buttons on its edge — up big and zoomed out in a summoned panel docked first in the right
+addon buttons on its edge — up big, at the zoom it had, in a summoned panel docked first in the right
 column, the panels' one width (the world showing through at 85%), and hands it back to its corner when it closes. Header: the
 zone and your coordinates (the zone alone where the client restricts position). Footer: "world
 map" opens Blizzard's (out of combat). Wheel zooms, click pings. Pin, ×, and going away by itself

@@ -6,7 +6,7 @@
 -- It is Blizzard's own minimap render -- the terrain, your arrow, the quest
 -- blips, the gathering nodes, the addon buttons on its edge -- moved into a
 -- summoned panel (Summon.lua: pin, close, gone by itself when you are done)
--- and zoomed out, then handed back to its corner when it closes. Nothing is
+-- at the zoom you left it, then handed back to its corner when it closes. Nothing is
 -- drawn by MyUI but the panel: the zone and where you are in the header, the
 -- world map one click away in the footer. The mouse wheel zooms, a click
 -- pings, as on the minimap.
@@ -262,13 +262,13 @@ function Map.Paint()
     panel.where:SetText(coords or "")
 end
 
---- Take Blizzard's minimap into the panel, big and zoomed out.
+--- Take Blizzard's minimap into the panel, big. Its zoom is the player's:
+-- the client saves it (minimapZoom), and a pinned map opened at every login.
 function Map.Show()
     local mm = _G.Minimap
     if type(mm) ~= "table" then return false end
     if not Map.home then
-        Map.home = { parent = mm:GetParent(), points = {}, w = mm:GetWidth(), h = mm:GetHeight(),
-                     zoom = mm.GetZoom and mm:GetZoom() or 0 }
+        Map.home = { parent = mm:GetParent(), points = {}, w = mm:GetWidth(), h = mm:GetHeight() }
         for i = 1, (mm.GetNumPoints and mm:GetNumPoints() or 0) do
             Map.home.points[i] = { mm:GetPoint(i) }
         end
@@ -278,7 +278,6 @@ function Map.Show()
     mm:ClearAllPoints()
     mm:SetPoint("CENTER", panel.area, "CENTER", 0, 0)
     mm:SetSize(Size(), Size())
-    if mm.SetZoom then mm:SetZoom(0) end
     Map.Gather()
     Map.open = true
     -- The minimap is adopted at rest (Clear: hidden, hideAtZero); this
@@ -307,7 +306,6 @@ function Map.Hide()
         mm:ClearAllPoints()
         for _, p in ipairs(home.points) do mm:SetPoint(p[1], p[2], p[3], p[4], p[5]) end
         mm:SetSize(home.w, home.h)
-        if mm.SetZoom then mm:SetZoom(home.zoom or 0) end
     end
     Map.home = nil
     ns.Summon.Mouse(panel, false)
