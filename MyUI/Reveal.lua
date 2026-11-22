@@ -128,9 +128,18 @@ local SCOPE = {
     -- the target when arranging starts or stops.
     -- The target strip itself follows SelfStack now (Frames.lua), so a
     -- target alone does not hold it at full.
-    target = { ActionBar = true, Debuffs = true,
-               WingCooldowns = true, WingUtility = true, WingBuffs = true,
-               StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
+    -- Round 005 play: a friendly NPC targeted (a vendor, a quest giver)
+    -- brought up the whole Cooldown Manager -- "a lot of screen". The bar
+    -- still comes for any target (healing, buffing); the wings, debuffs and
+    -- stances only for something you can attack.
+    target = { ActionBar = true,
+               Debuffs = function() return Reveal.TargetHostile() end,
+               WingCooldowns = function() return Reveal.TargetHostile() end,
+               WingUtility = function() return Reveal.TargetHostile() end,
+               WingBuffs = function() return Reveal.TargetHostile() end,
+               StanceBar = function()
+                   return Reveal.TargetHostile() and not (ns.Actions and ns.Actions.IsStacked())
+               end },
     lowhealth = { SelfStack = true },
     calm = { Minimap = true, MinimapMap = true },
     hold = { ActionBar = true },
@@ -541,12 +550,24 @@ end
 -- Everything except cursor proximity and the peek clock is event-driven, which
 -- RULES.md requires and which is also simply cheaper.
 
+--- Can you attack your target? Not a unit VALUE (RULES): a relation the
+-- client answers plainly -- but read defensively, and anything unreadable
+-- counts as friendly (less on screen).
+function Reveal.TargetHostile()
+    local can = _G.UnitCanAttack
+    if type(can) ~= "function" then return false end
+    local ok, v = pcall(can, "player", "target")
+    if not ok or Compat.IsSecret(v) then return false end
+    return v == true
+end
+
 local function OnTargetChanged()
     local exists = _G.UnitExists and _G.UnitExists("target")
+    -- Released first: the scope depends on WHAT is targeted, so switching
+    -- from a mob to a vendor must drop the wings the mob brought.
+    Reveal.Release("target")
     if exists then
         Reveal.Claim("target")
-    else
-        Reveal.Release("target")
     end
 end
 

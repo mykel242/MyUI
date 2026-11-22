@@ -3038,6 +3038,18 @@ do
     Reveal.Claim("combat")
     check("  unless pinned to hover", Registry.Get("Group").target == 0)
     Reveal.Release("combat")
+    mock.hostile = false
+    Reveal.Claim("target")
+    check("a friendly target (a vendor) brings the bar but not the wings, debuffs or stances",
+          Registry.Get("ActionBar").target == 1 and Registry.Get("WingCooldowns").target == 0
+          and Registry.Get("WingUtility").target == 0 and Registry.Get("Debuffs").target == 0
+          and Registry.Get("StanceBar").target == 0)
+    Reveal.Release("target")
+    mock.hostile = true
+    Reveal.Claim("target")
+    check("  something you can attack brings them all", Registry.Get("WingCooldowns").target == 1
+          and Registry.Get("Debuffs").target == 1)
+    Reveal.Release("target")
     run("group combat")
     _G.UnitGroupRolesAssigned = function() return "DAMAGER" end
     Reveal.Claim("combat")

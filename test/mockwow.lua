@@ -491,6 +491,8 @@ function M.install()
 
     M.units = {}
     _G.UnitExists = function(unit) return M.units[unit] == true end
+    M.hostile = true
+    _G.UnitCanAttack = function() return M.hostile == true end
 
     M.chat = {}
     _G.DEFAULT_CHAT_FRAME = {
