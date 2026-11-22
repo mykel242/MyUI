@@ -25,6 +25,11 @@ Social.ROW    = 20
 Social.ROWS   = 14
 Social.GATHER = 2.0     -- seconds online notices gather before one toast
 Social.NAMES  = 2       -- names spelled out in that toast
+Social.FILTER_H = 22
+-- The squares (round 005 play: "it could be color coordinated"): guild in
+-- the guild chat's green, friends in blue.
+Social.HUE = { guild = "notifGreen", friends = "notifBlue" }
+Social.DOT = 8
 
 local function API(path, ...) return ns.Sources.API(path, ...) end
 
@@ -143,14 +148,18 @@ local function Row(i)
     local r = CreateFrame("Button", nil, panel)
     r:SetHeight(U(Social.ROW))
     local pad = ns.Summon.PAD
-    r:SetPoint("TOPLEFT", panel, "TOPLEFT", U(pad), -U(ns.Summon.HEADER_H + 4 + (i - 1) * Social.ROW))
-    r:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -U(pad), -U(ns.Summon.HEADER_H + 4 + (i - 1) * Social.ROW))
+    local top = ns.Summon.HEADER_H + Social.FILTER_H + 4 + (i - 1) * Social.ROW
+    r:SetPoint("TOPLEFT", panel, "TOPLEFT", U(pad), -U(top))
+    r:SetPoint("TOPRIGHT", panel, "TOPRIGHT", -U(pad), -U(top))
+    r.dot = r:CreateTexture(nil, "ARTWORK")
+    r.dot:SetSize(U(Social.DOT), U(Social.DOT))
+    r.dot:SetPoint("LEFT")
     r.zone = ns.Frames.Text(r, 10, "textDim", "RIGHT")
     r.zone:SetPoint("RIGHT")
     r.zone:SetWidth(U(120))
     r.zone:SetWordWrap(false)
     r.name = ns.Frames.Text(r, 11, "textPrimary", "LEFT")
-    r.name:SetPoint("LEFT")
+    r.name:SetPoint("LEFT", r.dot, "RIGHT", U(6), 0)
     r.name:SetPoint("RIGHT", r.zone, "LEFT", -U(8), 0)
     r.name:SetWordWrap(false)
     r:SetScript("OnClick", function(self) if self.who then Social.Whisper(self.who) end end)
@@ -166,6 +175,7 @@ local function SetMouse(on)
     h.pin:EnableMouse(on)
     h.close:EnableMouse(on)
     for _, r in ipairs(rows) do r:EnableMouse(on and r.who ~= nil) end
+    for _, c in ipairs(panel.chips or {}) do c:EnableMouse(on) end
 end
 
 function Social.Build()
@@ -177,6 +187,33 @@ function Social.Build()
     local d = ns.Summon.DOCK.right
     panel:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
     local header = ns.Summon.Chrome(panel, "Online")
+    -- Filters, as in the other panels: all, guild, friends.
+    panel.chips = {}
+    local x = ns.Summon.PAD
+    for i, group in ipairs({ "all", "guild", "friends" }) do
+        local w = ({ 40, 66, 76 })[i]
+        local c = CreateFrame("Button", nil, panel)
+        c:SetSize(U(w), U(Social.FILTER_H - 4))
+        c:SetPoint("TOPLEFT", panel, "TOPLEFT", U(x), -U(ns.Summon.HEADER_H + 3))
+        x = x + w + 6
+        c.group = group ~= "all" and group or nil
+        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
+        if c.group then
+            c.dot = c:CreateTexture(nil, "ARTWORK")
+            c.dot:SetSize(U(Social.DOT), U(Social.DOT))
+            c.dot:SetPoint("LEFT")
+            c.dot:SetColorTexture(Palette.Get(Social.HUE[c.group]))
+            c.text:SetPoint("LEFT", c.dot, "RIGHT", U(5), 0)
+            c.text:SetPoint("RIGHT")
+        else
+            c.text:SetAllPoints()
+        end
+        c:SetScript("OnClick", function(self) Social.Filter(self.group) end)
+        panel.chips[i] = c
+    end
+    local under = ns.Summon.Hairline(panel, "trough")
+    under:SetPoint("TOPLEFT", panel, "TOPLEFT", 0, -U(ns.Summon.HEADER_H + Social.FILTER_H))
+    under:SetPoint("TOPRIGHT", panel, "TOPRIGHT", 0, -U(ns.Summon.HEADER_H + Social.FILTER_H))
     for i = 1, Social.ROWS do rows[i] = Row(i) end
     panel:Hide()
     Social.panel, Social.rows = panel, rows
@@ -192,6 +229,7 @@ function Social.Build()
         end,
         hide = function()
             Social.open = false
+            Social.filter = nil
             SetMouse(false)
             panel:Hide()
         end,
@@ -200,55 +238,63 @@ function Social.Build()
     return panel
 end
 
---- Guild first, then friends; a heading line for each that has anyone.
+--- Guild first, then friends, each marked with its group; the filter
+-- keeps one. Returns the lines, how many are online in all, and the counts.
 function Social.Lines()
     local lines = {}
     local guild, friends = Social.Guild(), Social.Friends()
-    if #guild > 0 then
-        lines[#lines + 1] = { heading = ("guild %d"):format(#guild) }
-        for _, g in ipairs(guild) do lines[#lines + 1] = g end
+    local counts = { all = #guild + #friends, guild = #guild, friends = #friends }
+    if Social.filter ~= "friends" then
+        for _, g in ipairs(guild) do g.group = "guild"; lines[#lines + 1] = g end
     end
-    if #friends > 0 then
-        lines[#lines + 1] = { heading = ("friends %d"):format(#friends) }
-        for _, f in ipairs(friends) do lines[#lines + 1] = f end
+    if Social.filter ~= "guild" then
+        for _, f in ipairs(friends) do f.group = "friends"; lines[#lines + 1] = f end
     end
-    return lines, #guild + #friends
+    return lines, counts.all, counts
+end
+
+function Social.Filter(group)
+    Social.filter = group
+    Social.Refresh()
+    return Social.filter
 end
 
 function Social.Refresh()
     if not panel then return end
-    local lines, n = Social.Lines()
-    panel.__header.title:SetText(("Online  %d"):format(n))
+    local lines, n, counts = Social.Lines()
+    panel.__header.title:SetText("Online")
+    for _, c in ipairs(panel.chips) do
+        c.text:SetText(("%s %d"):format(c.group or "all", counts[c.group or "all"] or 0))
+        local lit = Social.filter == c.group
+        c.text:SetTextColor(Palette.Get(lit and "textPrimary" or "textDim"))
+        c:SetAlpha((Social.filter == nil or lit) and 1 or 0.45)
+    end
     local shown = math.min(#lines, Social.ROWS)
     for i, r in ipairs(rows) do
         local l = lines[i]
         if l and i <= shown then
-            if l.heading then
-                r.name:SetText(l.heading)
-                r.name:SetTextColor(Palette.Get("textDim"))
-                r.zone:SetText("")
-                r.who = nil
-            else
-                ns.Guard.Send(r.name, "SetText", l.name)
-                r.name:SetTextColor(Palette.Get(l.bnet and "notifBlue" or "textPrimary"))
-                ns.Guard.Send(r.zone, "SetText", l.zone or "")
-                r.who = l
-            end
+            ns.Guard.Send(r.name, "SetText", l.name)
+            r.name:SetTextColor(Palette.Get("textPrimary"))
+            ns.Guard.Send(r.zone, "SetText", l.zone or "")
+            r.dot:SetColorTexture(Palette.Get(Social.HUE[l.group]))
+            r.dot:Show()
+            r.who = l
             r:Show()
         else
             r.who = nil
             r:Hide()
         end
     end
-    if n == 0 then
-        rows[1].name:SetText("nobody online")
+    if #lines == 0 then
+        rows[1].name:SetText(n == 0 and "nobody online" or "nobody here")
         rows[1].name:SetTextColor(Palette.Get("textDim"))
         rows[1].zone:SetText("")
+        rows[1].dot:Hide()
         rows[1]:Show()
         shown = 1
     end
     SetMouse(Social.open == true)
-    panel:SetHeight(U(ns.Summon.HEADER_H + 4 + shown * Social.ROW + ns.Summon.PAD))
+    panel:SetHeight(U(ns.Summon.HEADER_H + Social.FILTER_H + 4 + shown * Social.ROW + ns.Summon.PAD))
     if Social.summon and Social.summon.open then ns.Summon.Layout() end
 end
 

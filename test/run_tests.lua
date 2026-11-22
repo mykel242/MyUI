@@ -4369,9 +4369,13 @@ do
     mock.guild = { { name = "Aria-Realm", zone = "Dornogal", online = true },
                    { name = "Bren-Realm", zone = "", online = false } }
     mock.friends = { { name = "Cato", connected = true, area = "Stormwind" } }
-    local lines, n = So.Lines()
-    check("who's online: guild then friends, offline left out", n == 2 and lines[1].heading == "guild 1"
-          and lines[2].name == "Aria" and lines[3].heading == "friends 1" and lines[4].name == "Cato")
+    local lines, n, counts = So.Lines()
+    check("who's online: guild then friends, offline left out, each marked with its group",
+          n == 2 and lines[1].name == "Aria" and lines[1].group == "guild"
+          and lines[2].name == "Cato" and lines[2].group == "friends" and counts.guild == 1)
+    So.Filter("friends")
+    check("  a filter keeps one group", #So.Lines() == 1 and So.Lines()[1].name == "Cato")
+    So.Filter(nil)
     Feed.Clear()
     So.OnSystem("|Hplayer:Aria-Realm|h[Aria-Realm]|h has come online.")
     So.OnSystem("|Hplayer:Bren-Realm|h[Bren-Realm]|h has come online.")
