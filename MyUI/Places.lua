@@ -154,8 +154,7 @@ function Places.Pos(key)
     local place = Places.Of(part)
     if place == Places.BY_KEY[part].places[1].key then return nil end
     local corner = place == "left" and "BOTTOMLEFT" or "BOTTOMRIGHT"
-    local y = part == "tooltip" and Places.EDGE or Places.LOW
-    return corner, corner, place == "left" and Places.EDGE or -Places.EDGE, y
+    return corner, corner, place == "left" and Places.EDGE or -Places.EDGE, Places.LOW
 end
 
 --- The place a drag ending at x (0 left, 1 right) means; nil for none there.

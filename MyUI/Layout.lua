@@ -58,8 +58,9 @@ Layout.PRESETS = {
         -- /myui move zone and baked in here.
         ZoneAbility = { "BOTTOM", "BOTTOM", 250, 39 },
         -- Round 005 play: Blizzard's tooltip out of the middle of the fight,
-        -- into the bottom-right corner, growing up.
-        Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 16 },
+        -- into the bottom-right corner, growing up -- from over the debuff
+        -- row, which on the laptop reaches under it.
+        Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 144 },
         -- The debuffs on bar 1's row start past the zone button.
         debuffGap   = 128,
         wingGap     = 32,
@@ -75,7 +76,7 @@ Layout.PRESETS = {
         StatusBars  = { "TOP", "TOP", 0, 0 },
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 0 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
-        Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 16 },
+        Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 144 },
         debuffGap   = 32,
         wingGap     = 32,
         iconPadding = 2,

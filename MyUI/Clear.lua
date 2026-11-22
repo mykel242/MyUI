@@ -809,7 +809,21 @@ function Clear.PlaceWings(layout)
             -- vertical viewer grows up only with direction Right
             -- (CooldownViewer.lua: layoutFramesGoingUp) -- round 004 play:
             -- they grew down over the other trackers.
-            At(sys, "BuffBars")
+            if not ns.Places or ns.Places.Of("timers") == "cooldowns" then
+                -- On the chosen buffs' viewer, whatever the rows under it
+                -- wrap to (laptop: utility took two, and the chosen buffs
+                -- rose into bars placed for one).
+                local _, _, _, rowGap = ns.Actions.Extent()
+                local _, _, _, lift = ns.Layout.Pos("BuffBars")
+                local edge = Clear.WingsAtEdge() and "LEFT" or "RIGHT"
+                sys.isInDefaultPosition = false
+                sys.anchorInfo = { point = "BOTTOM" .. edge, relativeTo = Clear.VIEWERS.BuffIcon,
+                                   relativePoint = "TOP" .. edge, offsetX = 0,
+                                   offsetY = rowGap + ns.Scale.U(lift or 0) }
+                n = n + 1
+            else
+                At(sys, "BuffBars")
+            end
             sys.settings = sys.settings or {}
             SetSetting(sys, cdm.Orientation, E.CooldownViewerOrientation.Vertical)
             SetSetting(sys, cdm.IconDirection, E.CooldownViewerIconDirection.Right)

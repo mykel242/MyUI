@@ -3194,11 +3194,11 @@ do
            and b.point == "BOTTOMRIGHT" and b.relativeTo == "UtilityCooldownViewer" and b.relativePoint == "TOPRIGHT"
            and near(b.offsetY, gap) and setting(sys(7), 2) == 0
     end)())
-    check("  the tracked buff bars just over the chosen buffs' row, growing up (vertical, direction Right)", (function()
+    check("  the tracked buff bars on the chosen buffs' viewer, whatever is under it, growing up (vertical, direction Right)", (function()
         local a = sys(8).anchorInfo
-        local _, _, under = Clear.Anchor("BuffIcon")
         local _, _, _, gap = ns.Actions.Extent()
-        return a and a.point == "BOTTOMRIGHT" and near(a.offsetX, Scale.U(-224)) and near(a.offsetY, under + 32 + gap)
+        return a and a.point == "BOTTOMRIGHT" and a.relativeTo == "BuffIconCooldownViewer"
+           and a.relativePoint == "TOPRIGHT" and near(a.offsetX, 0) and near(a.offsetY, gap)
            and setting(sys(8), 0) == 1 and setting(sys(8), 2) == 1
     end)())
     check("  debuffs on you: past the zone button's place, on UIParent (never a MyUI frame: taint), dispel types shown", (function()
@@ -3245,7 +3245,8 @@ do
     check("  Blizzard's tooltip corner in the bottom right, growing up (the tooltip itself untouched)", (function()
         local a = sys(14).anchorInfo
         return a and a.point == "BOTTOMRIGHT" and a.relativePoint == "BOTTOMRIGHT" and a.relativeTo == "UIParent"
-           and near(a.offsetX, Scale.U(-16)) and near(a.offsetY, Scale.U(16))
+           and near(a.offsetX, Scale.U(-16)) and near(a.offsetY, Scale.U(144))
+           and a.offsetY > (select(2, ns.Actions.Extent())) + 44   -- clear of the debuff row
     end)())
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
