@@ -734,6 +734,28 @@ same surface.
 the MyUI layout moves that system (profile key `Tooltip`, bottom-right, growing up; `/myui move
 tooltip`). Nothing of MyUI's touches the tooltip itself — it carries secret values.
 
+**Quest kinds and filters** (round 005 play: "toast style filters ... tracked quests, events,
+achievements ... world quests and temporary events"). The list holds tracked quests (or the log's
+first twelve when none are tracked), tracked world quests, the events where you are (bonus
+objectives and other area tasks), and tracked achievements (their criteria as objectives). A filter
+row under the header — all · quests · world · events · achieve, each with its count — shows one
+kind. Achievements: left-click opens it in the achievements window, right-click stops tracking.
+
+**Chat panel** (`Talk.lua`, the "chat" switch). Chat as a summoned panel in the same style: the
+last 200 messages kept by MyUI from the CHAT_MSG_ events (Blizzard's log stays hidden, untouched),
+filters all · whispers · group · guild · say with what came in while it was closed, rows of who,
+what (up to two lines) and age, oldest at the top. Click a message to answer on its channel; the
+"type..." row opens Blizzard's box on the filter's channel — Blizzard does the sending. Toasts
+(violet, people): whispers (Sources), party and instance chat outside a raid, guild and raid only
+when they name you; nothing secret toasts. Secret senders and messages are forwarded to SetText via
+Guard.Send, never joined or searched. A whisper no longer brings Blizzard's log back. Key: MyUI →
+Show chat; `/myui chat`.
+
+**Who's online** (`Social.lua`). Guild then friends (character and Battle.net), name and zone,
+beside the chat panel; "online N" in the chat header, MyUI → Show who's online, `/myui social`.
+Click a name to whisper. Logins (guild mates and friends) toast, gathered for 2 s: "Online: Aria,
+Bren +3"; clicking that toast opens the list.
+
 ## § 6 amendment — Blizzard's own toasts
 
 Blizzard's Battle.net toast (friend online, and the like) and alert toasts are old, bordered and

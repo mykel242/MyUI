@@ -306,6 +306,19 @@ end
 -- hue.
 function Toast.Activate(item)
     Toast.Dismiss(item, true)
+    -- Round 005: with MyUI's chat panel, a people toast opens it -- at the
+    -- whispers for a whisper -- and a whisper's box is already addressed.
+    if item.kind == "violet" and ns.Talk and ns.Talk.Active() then
+        if item.sub then
+            ns.Talk.Open("whisper")
+            ns.Chat.Open(("/w %s "):format(item.sub))
+        elseif item.name and item.name:find("^Online:") and ns.Social then
+            ns.Social.Toggle()
+        else
+            ns.Talk.Open()
+        end
+        return "chat"
+    end
     if item.kind == "violet" and ns.Chat and ns.Chat.Open then
         -- A character name answers with /w; a Battle.net or secret sender
         -- carries none, and /r answers whoever spoke last.

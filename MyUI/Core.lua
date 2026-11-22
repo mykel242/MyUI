@@ -247,6 +247,9 @@ loader:SetScript("OnEvent", function(self, event, addon)
             -- Last: the box borrows Frames' font and the palette,
             -- and nothing else depends on it existing.
             { "chat override", ns.Chat   },
+            -- Round 005: MyUI's chat panel, then who's online beside it.
+            { "chat panel",   ns.Talk     },
+            { "who's online", ns.Social   },
             -- After chat: adopting the log frees the edit box first.
             { "clearing",     ns.Clear    },
             -- After clearing: MyUI's bar takes bar 1's place in the registry.

@@ -30,6 +30,8 @@ Panel.lua
 Sources.lua
 Quests.lua
 Chat.lua
+Talk.lua
+Social.lua
 Clear.lua
 Actions.lua
 Group.lua

@@ -18,10 +18,10 @@ ns.Switches = Switches
 
 -- In the order /myui override lists them. Your pet peeves first.
 Switches.LIST = {
-    { key = "quests", label = "Quest tracker", mine = "progress as toasts; the list on a key",
+    { key = "quests", label = "Quest tracker", mine = "progress as toasts; the list on a key, by kind",
       frames = { "Tracker" } },
-    { key = "chat", label = "Chat", mine = "hidden; whispers bring it up",
-      frames = { "Chat", "ChatDock", "ChatButtons", "ChatSocial" } },
+    { key = "chat", label = "Chat", mine = "MyUI's chat panel and who's online; toasts for people",
+      frames = { "Chat", "ChatDock", "ChatButtons", "ChatSocial" }, reload = true },
     { key = "minimap", label = "Minimap", mine = "hidden; /myui map sets when it shows",
       frames = { "Minimap", "MinimapMap" } },
     { key = "buffs", label = "Buffs and debuffs", mine = "buffs on peek; debuffs beside the bar",

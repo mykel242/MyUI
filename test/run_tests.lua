@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 29, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 31, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -1154,6 +1154,9 @@ do
     local realOpen = ns.Chat.Open
     ns.Chat.Open = function(prefill) opened = prefill end
     Toast.Clear()
+    -- These are the legacy paths (the chat switch off, no chat panel).
+    local talkWas = ns.Talk.enabled
+    ns.Talk.enabled = false
     check("clicking a whisper opens chat at /w and the sender", (function()
         local it = Toast.Add("violet", "Friend-Realm", 1, "Friend-Realm")
         Toast.Activate(it)
@@ -1164,6 +1167,7 @@ do
         Toast.Activate(it)
         return opened == "/r ", opened
     end)())
+    ns.Talk.enabled = talkWas
     ns.Chat.Open = realOpen
 end
 check("clicking anything else opens the history at its hue", (function()
@@ -2284,7 +2288,7 @@ check("the status names the cause when it fails", (function()
     _G.CHAT_FOCUS_OVERRIDE = nil
     Chat.Enable()
     ns.ClearOutput()
-    run("chat")
+    run("chat probe")
     local out = ns.GetOutput()
     util.SetChatFocusOverride = set
     Chat.Enable()
@@ -2398,7 +2402,7 @@ check("  and on reinstalls it", (function()
 end)())
 check("  status reports the state and the way out", (function()
     ns.ClearOutput()
-    run("chat")
+    run("chat probe")
     local out = ns.GetOutput()
     return out:find("installed", 1, true) ~= nil
        and out:find("/myui chat off", 1, true) ~= nil, out
@@ -3058,6 +3062,15 @@ do
     _G.UnitGroupRolesAssigned = nil
     Reveal.Release("combat")
 
+    -- Blizzard's log on a whisper is the legacy path: with MyUI's chat panel
+    -- (Talk.lua) a whisper toasts instead.
+    local talkWas = ns.Talk.enabled
+    check("with MyUI's chat panel, a whisper leaves Blizzard's log hidden", (function()
+        ns.Talk.enabled = true
+        Clear.OnWhisper()
+        return Registry.Get("Chat").target == 0
+    end)())
+    ns.Talk.enabled = false
     Clear.OnWhisper()
     check("a whisper reveals chat", Registry.Get("Chat").target == 1
           and Registry.Get("ChatDock").target == 1)
@@ -3070,6 +3083,7 @@ do
     check("  a second whisper restarts the hold", Registry.Get("Chat").target == 1)
     mock.advance(ns, 2)
     check("  then lets go", Registry.Get("Chat").target == 0)
+    ns.Talk.enabled = talkWas
 
     run("restore")
     check("/myui restore unregisters them", Registry.Count() == before, Registry.Count())
@@ -4253,7 +4267,122 @@ do
         ns.Sources.Handle("QUEST_ACCEPTED", 101)
         return #Feed.items == 1 and Feed.items[1].name == "Accepted: Boar Trouble", #Feed.items
     end)())
-    mock.quests, mock.watched = {}, {}
+    -- Kinds and filters.
+    mock.quests = {
+        { id = 301, title = "Main Story", objectives = { { text = "a", numFulfilled = 0, numRequired = 1 } } },
+        { id = 302, title = "Rare Hunt", world = true, objectives = { { text = "b", numFulfilled = 0, numRequired = 1 } } },
+        { id = 303, title = "Bonus: Clear the Camp", task = true, objectives = { { text = "c", numFulfilled = 0, numRequired = 1 } } },
+    }
+    mock.watched, mock.watchedWorld = { 301 }, { 302 }
+    mock.trackedAch = { 9001 }
+    mock.achievements[9001] = "Explorer"
+    mock.achCriteria[9001] = { { "Visit the lake", true, 1, 1 }, { "Bears", false, 3, 10 } }
+    local realInfo = _G.C_QuestLog.GetInfo
+    _G.C_QuestLog.GetInfo = function(i)
+        local q = mock.quests[i]
+        return q and { questID = q.id, title = q.title, isTask = q.task == true }
+    end
+    local items = Q.Items()
+    local kinds = {}
+    for _, it in ipairs(items) do kinds[it.kind] = (kinds[it.kind] or 0) + 1 end
+    check("the list knows each kind: a quest, a world quest, an event here, a tracked achievement",
+          kinds.quest == 1 and kinds.world == 1 and kinds.event == 1 and kinds.achievement == 1)
+    local ach = Q.ReadAchievement(9001)
+    check("  an achievement reads as its criteria, counted ones with their count",
+          ach.title == "Explorer" and ach.objectives[1].done and ach.objectives[2].text == "3/10 Bears")
+    Q.Build()
+    Q.Filter("world")
+    local l = Q.Lines()
+    check("a filter shows one kind", #l == 1 and l[1].kind == "world" and l[1].text == "Rare Hunt")
+    check("  and every chip carries its count", (function()
+        local t = {}
+        for _, c in ipairs(Q.frame.chips) do t[#t + 1] = c.text:GetText() end
+        return t[1] == "all 4" and t[2] == "quests 1" and t[3] == "world 1" and t[4] == "events 1"
+           and t[5] == "achieve 1", table.concat(t, ",")
+    end)())
+    Q.Filter("achievement")
+    l = Q.Lines()
+    check("achievements: right-click stops tracking one", l[1] and l[1].achievementID == 9001
+          and Q.ClickAchievement(9001, "RightButton") == "untracked" and #mock.trackedAch == 0)
+    Q.Filter(nil)
+    _G.C_QuestLog.GetInfo = realInfo
+    mock.quests, mock.watched, mock.watchedWorld = {}, {}, {}
+end
+
+-- ---------------------------------------------------------------------------
+section("Round 005 -- chat panel and who's online")
+-- ---------------------------------------------------------------------------
+do
+    local T, So = ns.Talk, ns.Social
+    T.enabled = true
+    T.log, T.unread = {}, {}
+    Feed.Clear()
+    T.Add("CHAT_MSG_GUILD", "anyone for a dungeon?", "Bren-Realm")
+    check("a message is kept, newest first, with its group", T.log[1].group == "guild"
+          and T.log[1].who == "Bren-Realm" and (T.unread.guild or 0) == 1)
+    check("  guild chat that does not name you does not toast", #Feed.items == 0)
+    _G.UnitName = function() return "Nimbus" end
+    T.Add("CHAT_MSG_GUILD", "nimbus you around?", "Bren-Realm")
+    check("  guild chat that names you does", Feed.items[1] and Feed.items[1].kind == "violet"
+          and Feed.items[1].name == "Bren: nimbus you around?")
+    Feed.Clear()
+    T.Add("CHAT_MSG_PARTY", "pull in 5", "Aria")
+    check("party chat toasts outside a raid", Feed.items[1] and Feed.items[1].name == "Aria: pull in 5")
+    Feed.Clear()
+    _G.IsInRaid = function() return true end
+    T.Add("CHAT_MSG_RAID", "pull in 5", "Aria")
+    check("  raid chat does not, unless it names you", #Feed.items == 0)
+    _G.IsInRaid = nil
+    local secret = mock.secret and mock.secret("hidden") or nil
+    if secret then
+        Feed.Clear()
+        T.Add("CHAT_MSG_PARTY", secret, "Aria")
+        check("a secret message is kept but never toasted", T.log[1].text == secret and #Feed.items == 0)
+    end
+    T.Build()
+    T.Open()
+    check("the chat panel opens, rows filled, and reading clears the unread counts on close", (function()
+        local shown = 0
+        for _, r in ipairs(T.rows) do if r:IsShown() then shown = shown + 1 end end
+        local before = T.unread.guild
+        T.summon:Close("asked")
+        return shown >= 3 and before ~= nil and next(T.unread) == nil and T.filter == nil
+    end)())
+    local opened
+    local realOpen = ns.Chat.Open
+    ns.Chat.Open = function(prefill) opened = prefill end
+    check("clicking a message answers on its channel", T.Reply(T.log[#T.log]) == "/g " and opened == "/g ")
+    T.Add("CHAT_MSG_WHISPER", "hey", "Cato-Realm")
+    check("  a whisper answers its sender", T.Reply(T.log[1]) == "/w Cato-Realm ")
+    T.Filter("guild")
+    check("the type row speaks on the filter's channel", T.Type() == "/g ")
+    T.Filter(nil)
+    ns.Chat.Open = realOpen
+
+    -- Who's online.
+    mock.guild = { { name = "Aria-Realm", zone = "Dornogal", online = true },
+                   { name = "Bren-Realm", zone = "", online = false } }
+    mock.friends = { { name = "Cato", connected = true, area = "Stormwind" } }
+    local lines, n = So.Lines()
+    check("who's online: guild then friends, offline left out", n == 2 and lines[1].heading == "guild 1"
+          and lines[2].name == "Aria" and lines[3].heading == "friends 1" and lines[4].name == "Cato")
+    Feed.Clear()
+    So.OnSystem("|Hplayer:Aria-Realm|h[Aria-Realm]|h has come online.")
+    So.OnSystem("|Hplayer:Bren-Realm|h[Bren-Realm]|h has come online.")
+    So.OnSystem("|Hplayer:Cato|h[Cato]|h has come online.")
+    check("logins gather a moment, then one toast", #Feed.items == 0)
+    mock.advance(ns, So.GATHER + 0.1, 2)
+    check("  \"Online: Aria, Bren +1\"", Feed.items[1] and Feed.items[1].name == "Online: Aria, Bren +1",
+          Feed.items[1] and Feed.items[1].name)
+    check("a name in the list whispers them", (function()
+        local got
+        ns.Chat.Open = function(p) got = p end
+        local how = So.Whisper({ name = "Aria", full = "Aria-Realm" })
+        ns.Chat.Open = realOpen
+        return how == "whisper" and got == "/w Aria-Realm "
+    end)())
+    mock.guild, mock.friends = {}, {}
+    _G.UnitName = nil
 end
 
 -- ---------------------------------------------------------------------------

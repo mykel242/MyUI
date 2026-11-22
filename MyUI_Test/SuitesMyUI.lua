@@ -448,10 +448,15 @@ T.Suite("myui-clear", {
           end,
           teardown = function(api) api.ns().Reveal.Release("peek") end },
         { id = "whisper-reveals-chat", shot = false,
-          what = "A whisper summons chat, and only chat.",
+          what = "A whisper summons chat, and only chat -- or, with MyUI's chat panel (round 005), "
+              .. "leaves Blizzard's log hidden and toasts instead.",
           setup = function(api) api.ns().Clear.OnWhisper() end,
           check = function(api)
-              local calm = api.ns().Reveal.MapMode and api.ns().Reveal.MapMode() == "calm"
+              local ns = api.ns()
+              if ns.Talk and ns.Talk.Active() then
+                  return Target(api, "Chat") == 0, ("chat %s (MyUI's panel on)"):format(tostring(Target(api, "Chat")))
+              end
+              local calm = ns.Reveal.MapMode and ns.Reveal.MapMode() == "calm"
               return Target(api, "Chat") == 1 and (calm or Target(api, "Minimap") == 0),
                      ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
           end,

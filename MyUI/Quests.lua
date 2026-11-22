@@ -36,6 +36,16 @@ local function API(path, ...)
     return ns.Sources.API(path, ...)
 end
 
+-- Sources.API keeps three returns; these readers need all of them
+-- (GetGuildRosterInfo, GetAchievementCriteriaInfo).
+local function APIN(name, ...)
+    local fn = _G[name]
+    if type(fn) ~= "function" then return nil end
+    local r = { pcall(fn, ...) }
+    if not r[1] then return nil end
+    return unpack(r, 2, table.maxn(r))
+end
+
 -- ---------------------------------------------------------------------------
 -- Reading the quest log
 -- ---------------------------------------------------------------------------
@@ -91,6 +101,96 @@ function Quests.Shown()
         for i = 1, math.min(#order, Quests.MAX_ALL) do ids[i] = order[i] end
     end
     return ids
+end
+
+-- ---------------------------------------------------------------------------
+-- Kinds (round 005 play: "toast style filters for the quest tracker -- so I
+-- can see the various types of tracked quests, events, achievements ...
+-- world quests and temporary events")
+-- ---------------------------------------------------------------------------
+
+Quests.KINDS = { "quest", "world", "event", "achievement" }
+Quests.KIND_LABEL = { quest = "quests", world = "world", event = "events", achievement = "achievements" }
+
+--- A quest's kind: a world quest, an event (a bonus objective or other
+-- area task -- here while you are), or an ordinary quest.
+function Quests.Kind(questID, info)
+    if API("C_QuestLog.IsWorldQuest", questID) == true then return "world" end
+    if info and info.isTask then return "event" end
+    if API("C_QuestLog.IsQuestTask", questID) == true then return "event" end
+    return "quest"
+end
+
+--- The achievements you track.
+function Quests.TrackedAchievements()
+    local E = _G.Enum and _G.Enum.ContentTrackingType
+    local ids = E and E.Achievement and API("C_ContentTracking.GetTrackedIDs", E.Achievement)
+    if type(ids) ~= "table" then
+        local a, b, c, d, e = API("GetTrackedAchievements")
+        ids = { a, b, c, d, e }
+    end
+    local out = {}
+    for _, id in ipairs(ids) do if type(id) == "number" then out[#out + 1] = id end end
+    return out
+end
+
+--- An achievement in a quest's shape: its name and its criteria.
+function Quests.ReadAchievement(id)
+    local _, name, _, completed = APIN("GetAchievementInfo", id)
+    local q = { id = id, achievement = true, title = type(name) == "string" and name or ("Achievement " .. id),
+                complete = completed == true, objectives = {} }
+    local n = API("GetAchievementNumCriteria", id) or 0
+    for i = 1, n do
+        local text, _, done, have, need = APIN("GetAchievementCriteriaInfo", id, i)
+        have, need = tonumber(have) or 0, tonumber(need) or 0
+        if need > 1 and type(text) == "string" then text = ("%d/%d %s"):format(have, need, text) end
+        q.objectives[i] = { text = type(text) == "string" and text or "", done = done == true,
+                            have = done and math.max(need, 1) or have, need = math.max(need, 1) }
+    end
+    return q
+end
+
+--- Everything the list can show, each with its kind: tracked quests (or the
+-- log's first few when none are), tracked world quests, the events where
+-- you are, and tracked achievements.
+function Quests.Items()
+    local items, seen = {}, {}
+    local function add(kind, id, info)
+        local key = kind == "achievement" and ("a" .. id) or id
+        if seen[key] then return end
+        seen[key] = true
+        items[#items + 1] = { kind = kind, id = id }
+    end
+    local info = {}
+    local n = API("C_QuestLog.GetNumQuestLogEntries") or 0
+    for i = 1, n do
+        local e = API("C_QuestLog.GetInfo", i)
+        if type(e) == "table" and e.questID then info[e.questID] = e end
+    end
+    local watched = 0
+    for i = 1, API("C_QuestLog.GetNumQuestWatches") or 0 do
+        local id = API("C_QuestLog.GetQuestIDForQuestWatchIndex", i)
+        if id then add(Quests.Kind(id, info[id]), id); watched = watched + 1 end
+    end
+    for i = 1, API("C_QuestLog.GetNumWorldQuestWatches") or 0 do
+        local id = API("C_QuestLog.GetQuestIDForWorldQuestWatchIndex", i)
+        if id then add("world", id) end
+    end
+    -- Events are here while you are: every area task in the log.
+    for id, e in pairs(info) do
+        if e.isTask and not e.isHidden then add(Quests.Kind(id, e), id, e) end
+    end
+    if watched == 0 then
+        local _, order = Quests.All()
+        local shown = 0
+        for _, id in ipairs(order) do
+            if shown >= Quests.MAX_ALL then break end
+            local kind = Quests.Kind(id, info[id])
+            if kind == "quest" then add(kind, id); shown = shown + 1 end
+        end
+    end
+    for _, id in ipairs(Quests.TrackedAchievements()) do add("achievement", id) end
+    return items
 end
 
 --- An objective as one line. Progress bars carry a percentage and often no
@@ -190,6 +290,8 @@ Quests.MAX_QUESTS = 8
 Quests.MAX_ALL_ROWS = 30 -- the whole list, opened
 Quests.CARD_W   = 300
 Quests.CARD_LINES = 10
+Quests.FILTER_H = 22
+Quests.CHIP_W   = { 34, 58, 52, 56, 84 }
 
 local frame, rows, details, card = nil, {}, {}, nil
 
@@ -235,9 +337,10 @@ local function Row()
     r.fill:SetPoint("BOTTOMLEFT", r.trough, "BOTTOMLEFT", 0, 0)
     r:SetScript("OnClick", function(self, button)
         if self.more then Quests.SetExpanded(not Quests.expanded)
+        elseif self.achievementID then Quests.ClickAchievement(self.achievementID, button)
         elseif self.questID then Quests.Click(self.questID, button) end
     end)
-    r:SetScript("OnEnter", function(self) if self.questID then Quests.ShowCard(self) end end)
+    r:SetScript("OnEnter", function(self) if self.line then Quests.ShowCard(self) end end)
     r:SetScript("OnLeave", function() Quests.HideCard() end)
     ns.Frames.HoverEdge(r, 3)
     r:EnableMouse(false)
@@ -282,7 +385,8 @@ local function SetMouse(on)
         h.pin:EnableMouse(on)
         h.close:EnableMouse(on)
     end
-    for _, r in ipairs(rows) do r:EnableMouse(on and (r.questID ~= nil or r.more == true)) end
+    for _, r in ipairs(rows) do r:EnableMouse(on and (r.line ~= nil or r.more == true)) end
+    for _, c in ipairs(frame and frame.chips or {}) do c:EnableMouse(on) end
 end
 
 local function Build()
@@ -297,6 +401,24 @@ local function Build()
     local a = Quests.ANCHOR
     frame:SetPoint(a.point, UIParent, a.point, U(a.x), U(a.y))
     local header = ns.Summon.Chrome(frame, "Quests")
+    -- The filters, a row of their own under the header: all, then each kind
+    -- with its count; the chosen one lit, like the history's hues.
+    frame.chips = {}
+    local x = ns.Summon.PAD
+    for i, kind in ipairs({ "all", "quest", "world", "event", "achievement" }) do
+        local c = CreateFrame("Button", nil, frame)
+        c:SetSize(U(Quests.CHIP_W[i]), U(Quests.FILTER_H - 4))
+        c:SetPoint("TOPLEFT", frame, "TOPLEFT", U(x), -U(ns.Summon.HEADER_H + 3))
+        x = x + Quests.CHIP_W[i] + 4
+        c.text = ns.Frames.Text(c, 10, "textPrimary", "LEFT")
+        c.text:SetAllPoints()
+        c.kind = kind ~= "all" and kind or nil
+        c:SetScript("OnClick", function(self) Quests.Filter(self.kind) end)
+        frame.chips[i] = c
+    end
+    local under = ns.Summon.Hairline(frame, "trough")
+    under:SetPoint("TOPLEFT", frame, "TOPLEFT", 0, -U(ns.Summon.HEADER_H + Quests.FILTER_H))
+    under:SetPoint("TOPRIGHT", frame, "TOPRIGHT", 0, -U(ns.Summon.HEADER_H + Quests.FILTER_H))
     for i = 1, Quests.MAX_QUESTS + 1 do RowAt(i) end
     for i = 1, 8 do details[i] = Detail() end
     BuildCard()
@@ -327,11 +449,20 @@ end
 function Quests.Lines()
     local tracked = API("C_SuperTrack.GetSuperTrackedQuestID")
     local first, ready, rest = {}, {}, {}
-    for _, id in ipairs(Quests.Shown()) do
-        local q = Quests.Read(id)
+    Quests.counts = { all = 0 }
+    for _, item in ipairs(Quests.Items()) do
+        Quests.counts[item.kind] = (Quests.counts[item.kind] or 0) + 1
+        Quests.counts.all = Quests.counts.all + 1
+    end
+    for _, item in ipairs(Quests.Items()) do
+      if Quests.filter == nil or Quests.filter == item.kind then
+        local id = item.id
+        local q = item.kind == "achievement" and Quests.ReadAchievement(id) or Quests.Read(id)
         local frac, status = Quests.Progress(q)
-        local line = { q = q, questID = id, text = q.title, frac = frac, status = status }
-        if id == tracked then
+        local line = { q = q, kind = item.kind, text = q.title, frac = frac, status = status,
+                       questID = item.kind ~= "achievement" and id or nil,
+                       achievementID = item.kind == "achievement" and id or nil }
+        if item.kind ~= "achievement" and id == tracked then
             line.colour, line.pinned, line.expand = "notifAmber", true, not q.complete
             first[#first + 1] = line
         elseif q.complete then
@@ -341,6 +472,7 @@ function Quests.Lines()
             line.colour = "textPrimary"
             rest[#rest + 1] = line
         end
+      end
     end
     local lines = {}
     for _, group in ipairs({ first, ready, rest }) do
@@ -351,6 +483,26 @@ function Quests.Lines()
     local more = math.max(0, #lines - cap)
     for i = #lines, cap + 1, -1 do lines[i] = nil end
     return lines, more, total
+end
+
+--- Show one kind only (nil: everything).
+function Quests.Filter(kind)
+    Quests.filter = kind
+    Quests.HideCard()
+    Quests.Refresh()
+    return Quests.filter
+end
+
+function Quests.PaintChips()
+    local counts = Quests.counts or {}
+    for _, c in ipairs(frame and frame.chips or {}) do
+        local label = c.kind and Quests.KIND_LABEL[c.kind] or "all"
+        if c.kind == "achievement" then label = "achieve" end
+        c.text:SetText(("%s %d"):format(label, counts[c.kind or "all"] or 0))
+        local lit = Quests.filter == c.kind
+        c.text:SetTextColor(Palette.Get(lit and "textPrimary" or "textDim"))
+        c:SetAlpha(lit and 1 or 0.6)
+    end
 end
 
 --- "+N more" opens the whole list; "fewer" closes it.
@@ -382,8 +534,9 @@ function Quests.Refresh()
     if not frame then return end
     local lines, more, total = Quests.Lines()
     local pad = ns.Summon.PAD
-    frame.__header.title:SetText(total > 0 and ("Quests  %d"):format(total) or "Quests")
-    local y, d = U(ns.Summon.HEADER_H + 4), 0
+    frame.__header.title:SetText("Quests")
+    Quests.PaintChips()
+    local y, d = U(ns.Summon.HEADER_H + Quests.FILTER_H + 4), 0
     local function Place(r)
         r:ClearAllPoints()
         r:SetPoint("TOPLEFT", frame, "TOPLEFT", U(pad), -y)
@@ -399,7 +552,7 @@ function Quests.Refresh()
         r.fill:SetWidth(math.max(Inner() * l.frac, 0.01))
         r.fill:Show()
         r.trough:Show()
-        r.questID, r.line, r.more = l.questID, l, nil
+        r.questID, r.achievementID, r.line, r.more = l.questID, l.achievementID, l, nil
         Place(r)
         if l.expand then
             for _, o in ipairs(l.q.objectives) do
@@ -424,20 +577,21 @@ function Quests.Refresh()
         Paint(r, { text = more > 0 and ("+%d more"):format(more) or "fewer", colour = "textDim" })
         r.trough:Hide()
         r.fill:Hide()
-        r.questID, r.line, r.more = nil, nil, true
+        r.questID, r.achievementID, r.line, r.more = nil, nil, nil, true
         Place(r)
     end
     if #lines == 0 then
         used = 1
         local r = RowAt(1)
-        Paint(r, { text = "no quests", colour = "textDim" })
+        Paint(r, { text = Quests.filter and ("no " .. Quests.KIND_LABEL[Quests.filter]) or "no quests",
+                   colour = "textDim" })
         r.trough:Hide()
         r.fill:Hide()
-        r.questID, r.line, r.more = nil, nil, nil
+        r.questID, r.achievementID, r.line, r.more = nil, nil, nil, nil
         Place(r)
     end
     for i = used + 1, #rows do
-        rows[i].questID, rows[i].line, rows[i].more = nil, nil, nil
+        rows[i].questID, rows[i].achievementID, rows[i].line, rows[i].more = nil, nil, nil, nil
         rows[i]:Hide()
     end
     for i = d + 1, #details do details[i]:Hide() end
@@ -509,6 +663,31 @@ function Quests.Click(questID, button)
     return now == questID and "untracked" or "tracked"
 end
 
+--- A tracked achievement. Left: open it in the achievements window (out
+-- of combat). Right: stop tracking it.
+function Quests.ClickAchievement(id, button)
+    if button == "RightButton" then
+        local E = _G.Enum
+        local ct, stop = E and E.ContentTrackingType, E and E.ContentTrackingStopType
+        if ct and ct.Achievement then
+            API("C_ContentTracking.StopTracking", ct.Achievement, id, stop and stop.Manual or 0)
+        else
+            API("RemoveTrackedAchievement", id)
+        end
+        Quests.Refresh()
+        return "untracked"
+    end
+    if InCombatLockdown() then return "combat" end
+    if type(_G.OpenAchievementFrameToAchievement) ~= "function" then
+        API("C_AddOns.LoadAddOn", "Blizzard_AchievementUI")
+    end
+    if type(_G.OpenAchievementFrameToAchievement) == "function" then
+        pcall(_G.OpenAchievementFrameToAchievement, id)
+        return "opened"
+    end
+    return nil
+end
+
 Quests.Build = Build
 
 function Quests.Open()
@@ -537,8 +716,11 @@ end
 
 Quests.EVENTS = {
     QUEST_LOG_UPDATE = function() Soon() end,
-    QUEST_WATCH_LIST_CHANGED = function() if Quests.open then Quests.Refresh() end end,
-    SUPER_TRACKING_CHANGED = function() if Quests.open then Quests.Refresh() end end,
+    QUEST_WATCH_LIST_CHANGED = function() Quests.Refresh() end,
+    SUPER_TRACKING_CHANGED = function() Quests.Refresh() end,
+    CONTENT_TRACKING_UPDATE = function() Quests.Refresh() end,
+    TRACKED_ACHIEVEMENT_UPDATE = function() Quests.Refresh() end,
+    TRACKED_ACHIEVEMENT_LIST_CHANGED = function() Quests.Refresh() end,
     QUEST_ACCEPTED = function(questID)
         local title = API("C_QuestLog.GetTitleForQuestID", questID)
         Say(("Accepted: %s"):format(title or "a quest"))
@@ -563,7 +745,8 @@ function Quests.Enable()
             if fn and Quests.enabled then fn(...) end
         end)
     end
-    for event in pairs(Quests.EVENTS) do Quests.driver:RegisterEvent(event) end
+    -- pcall: an event this client does not have must not stop the rest.
+    for event in pairs(Quests.EVENTS) do pcall(Quests.driver.RegisterEvent, Quests.driver, event) end
     -- Record where everything stands, quietly, so the first toast is real.
     Quests.primed = false
     Quests.snapshot = {}

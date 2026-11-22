@@ -235,7 +235,8 @@ local COMMANDS = {
     { "notify",       "send a toast: <hue> [name] [count] | demo | clear | dismiss" },
     { "sources",      "what feeds the toasts: thresholds, readings, latches" },
     { "log",          "the notification record: <hue> to filter | clear" },
-    { "chat",         "our edit box instead of Blizzard's: on | off | hide | show" },
+    { "chat",         "the chat panel: toggles | probe | on | off (our edit box) | hide | show" },
+    { "social",       "who's online: guild and friends; click a name to whisper" },
     { "center",       "the notification centre: <hue> to open filtered | close" },
     { "what",         "name whatever is under the cursor; bind MyUI -> Name what" },
     { "stow",         "take Blizzard furniture off the screen: raid | show raid" },
@@ -297,6 +298,13 @@ local HANDLERS = {
                    s.key, s.label, on and s.mine or "Blizzard's", s.reload and " (on /reload)" or ""))
         end
         ns.Raw("  /myui override <name> on|off")
+    end,
+    social       = function()
+        if not ns.Social or not ns.Social.panel then
+            ns.Print("who's online is off with the chat switch -- /myui override chat on")
+            return
+        end
+        ns.Print(ns.Social.Toggle() and "online: open" or "online: closed")
     end,
     quests       = function()
         local Q = ns.Quests
@@ -758,6 +766,12 @@ local HANDLERS = {
             return
         end
 
+        -- Round 005: plain /myui chat opens MyUI's chat panel (Talk.lua);
+        -- /myui chat probe is the old override report.
+        if arg == "" and ns.Talk and ns.Talk.Active() then
+            ns.Print(ns.Talk.Toggle() and "chat: open (click a message to answer it)" or "chat: closed")
+            return
+        end
         local p = Chat.Probe()
         ns.Print(("chat override %s"):format(Chat.IsOverriding() and "installed" or "NOT installed"))
         if Chat.lastError then

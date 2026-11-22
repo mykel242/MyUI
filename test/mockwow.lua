@@ -150,7 +150,7 @@ function M.frame(spec)
         "SetClampedToScreen", "SetMultiLine", "SetAutoFocus", "SetFontObject",
         "SetCursorPosition", "SetFocus", "HighlightText", "SetScrollChild",
         "SetAllPoints", "SetColorTexture", "SetText", "StartMoving",
-        "StopMovingOrSizing", "SetJustifyH", "SetMinMaxValues", "SetFont",
+        "StopMovingOrSizing", "SetJustifyH", "SetJustifyV", "SetMinMaxValues", "SetFont",
         "SetTextColor", "SetStatusBarTexture", "SetDrawLayer",
         "SetDuration", "SetFromAlpha", "SetToAlpha", "SetOffset", "SetOrder",
         "SetShadowColor", "SetShadowOffset",
@@ -820,7 +820,44 @@ function M.install()
         ReadyForTurnIn = function(id) local q = quest(id); return q ~= nil and q.complete == true end,
         GetNumQuestWatches = function() return #M.watched end,
         GetQuestIDForQuestWatchIndex = function(i) return M.watched[i] end,
+        IsWorldQuest = function(id) local q = quest(id); return q ~= nil and q.world == true end,
+        GetNumWorldQuestWatches = function() return #M.watchedWorld end,
+        GetQuestIDForWorldQuestWatchIndex = function(i) return M.watchedWorld[i] end,
     }
+    M.watchedWorld = {}
+    -- Tracked achievements: M.trackedAch = { id, ... }; M.achCriteria[id] =
+    -- { { text, done, have, need } }.
+    M.trackedAch, M.achCriteria = {}, {}
+    _G.Enum.ContentTrackingType = { Appearance = 0, Mount = 1, Achievement = 2 }
+    _G.Enum.ContentTrackingStopType = { Invalidated = 0, Collected = 1, Manual = 2 }
+    _G.C_ContentTracking = {
+        GetTrackedIDs = function(t) if t == 2 then return M.trackedAch end return {} end,
+        StopTracking = function(t, id)
+            for i, a in ipairs(M.trackedAch) do if a == id then table.remove(M.trackedAch, i) end end
+        end,
+    }
+    _G.GetAchievementNumCriteria = function(id) return #(M.achCriteria[id] or {}) end
+    _G.GetAchievementCriteriaInfo = function(id, i)
+        local c = (M.achCriteria[id] or {})[i]
+        if c then return c[1], 0, c[2], c[3], c[4] end
+    end
+    -- The guild roster and friends: M.guild = { { name, zone, level, online } }.
+    M.guild, M.friends = {}, {}
+    _G.GetNumGuildMembers = function()
+        local on = 0
+        for _, g in ipairs(M.guild) do if g.online then on = on + 1 end end
+        return #M.guild, on
+    end
+    _G.GetGuildRosterInfo = function(i)
+        local g = M.guild[i]
+        if g then return g.name, "Member", 1, g.level or 90, "Hunter", g.zone, "", "", g.online end
+    end
+    _G.C_GuildInfo = { GuildRoster = function() end }
+    _G.C_FriendList = {
+        GetNumFriends = function() return #M.friends end,
+        GetFriendInfoByIndex = function(i) return M.friends[i] end,
+    }
+    _G.ERR_FRIEND_ONLINE_SS = "|Hplayer:%s|h[%s]|h has come online."
     M.progressBars = {}
     _G.GetQuestProgressBarPercent = function(id) return M.progressBars[id] or 0 end
     _G.C_SuperTrack = {

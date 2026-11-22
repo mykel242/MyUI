@@ -282,6 +282,9 @@ local whisperToken = 0
 
 function Clear.OnWhisper()
     if not Clear.adopted.Chat then return end
+    -- Round 005: with MyUI's chat panel, a whisper is a toast that opens it;
+    -- Blizzard's log stays hidden.
+    if ns.Talk and ns.Talk.Active() then return end
     ns.Reveal.Claim("whisper")
     whisperToken = whisperToken + 1
     local mine = whisperToken

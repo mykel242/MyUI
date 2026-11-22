@@ -55,4 +55,12 @@
     <Binding name="MYUI_QUESTS" category="MyUI">
         MyUI_Quests()
     </Binding>
+
+    <!-- Round 005: the chat panel, and who is online beside it. -->
+    <Binding name="MYUI_TALK" category="MyUI">
+        MyUI_Talk()
+    </Binding>
+    <Binding name="MYUI_SOCIAL" category="MyUI">
+        MyUI_Social()
+    </Binding>
 </Bindings>
