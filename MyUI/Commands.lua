@@ -248,7 +248,7 @@ local COMMANDS = {
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
     { "pages",        "the pages not in bar 1's place: mini (small, over it; default) | swap (hidden)" },
     { "taint",        "which Blizzard frames MyUI has tainted (Edit Mode, debuffs, cooldown viewers)" },
-    { "map",          "the minimap: calm (up out of combat, default) | peek (only when summoned)" },
+    { "map",          "the map on a key: toggles | calm (corner minimap up out of combat) | peek (only when summoned)" },
     { "layout",       "preview where everything goes, even what isn't up (debuffs, zone button): toggles" },
     { "profile",      "layout profiles: list | <name> to switch | save <name> | delete <name>" },
     { "move",         "nudge a part of the HUD: self | target | focus | bar | group | zone | timers <dx> <dy> (SPEC units)" },
@@ -368,6 +368,9 @@ local HANDLERS = {
             ns.db.map = arg
             R.Calm()
             ns.Print(arg == "calm" and "minimap: up out of combat" or "minimap: only when summoned (peek)")
+        elseif not arg and ns.Map and ns.Map.Active() then
+            -- Round 005: plain /myui map brings the map up (Map.lua).
+            ns.Print(ns.Map.Toggle() and "map: open (wheel zooms; the world map is in its footer)" or "map: closed")
         else
             ns.Print(("minimap: %s -- calm | peek"):format(R.MapMode()))
         end

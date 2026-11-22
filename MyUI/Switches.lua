@@ -22,7 +22,7 @@ Switches.LIST = {
       frames = { "Tracker" } },
     { key = "chat", label = "Chat", mine = "MyUI's chat panel and who's online; toasts for people",
       frames = { "Chat", "ChatDock", "ChatButtons", "ChatSocial" }, reload = true },
-    { key = "minimap", label = "Minimap", mine = "hidden; /myui map sets when it shows",
+    { key = "minimap", label = "Minimap", mine = "out of the corner; the map on a key",
       frames = { "Minimap", "MinimapMap" } },
     { key = "buffs", label = "Buffs and debuffs", mine = "buffs on peek; debuffs beside the bar",
       frames = { "Buffs", "Debuffs" } },

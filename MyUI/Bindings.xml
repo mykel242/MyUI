@@ -63,4 +63,9 @@
     <Binding name="MYUI_SOCIAL" category="MyUI">
         MyUI_Social()
     </Binding>
+
+    <!-- Round 005: the map on a key (the minimap, big, over the world). -->
+    <Binding name="MYUI_MAP" category="MyUI">
+        MyUI_Map()
+    </Binding>
 </Bindings>

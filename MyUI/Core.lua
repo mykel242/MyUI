@@ -250,6 +250,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             -- Round 005: MyUI's chat panel, then who's online beside it.
             { "chat panel",   ns.Talk     },
             { "who's online", ns.Social   },
+            -- Round 005: the map on a key.
+            { "map",          ns.Map      },
             -- After chat: adopting the log frees the edit box first.
             { "clearing",     ns.Clear    },
             -- After clearing: MyUI's bar takes bar 1's place in the registry.

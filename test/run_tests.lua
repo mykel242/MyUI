@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 31, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 32, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -4489,6 +4489,50 @@ do
     end)())
     mock.guild, mock.friends = {}, {}
     _G.UnitName = nil
+end
+
+-- ---------------------------------------------------------------------------
+section("Round 005 -- the map on a key")
+-- ---------------------------------------------------------------------------
+do
+    local M = ns.Map
+    local wasMM = _G.Minimap
+    local corner = mock.frame({ name = "MinimapCornerMock" })
+    local mm = mock.frame({ name = "Minimap", parent = corner })
+    mm:SetSize(140, 140)
+    mm:SetPoint("CENTER", corner, "CENTER", 0, 0)
+    mm.zoom = 3
+    mm.GetZoom = function() return mm.zoom end
+    mm.SetZoom = function(_, z) mm.zoom = z end
+    _G.Minimap = mm
+    M.enabled = true
+    M.Build()
+    check("the map key brings Blizzard's minimap up big, zoomed out, in a summoned panel", (function()
+        M.Toggle()
+        return M.open and mm:GetParent() == M.panel.area and mm:GetWidth() > 140 and mm.zoom == 0
+           and M.panel:IsShown()
+    end)())
+    check("  and the same key hands it back to its corner, as it was", (function()
+        M.Toggle()
+        local p, rel = mm:GetPoint(1)
+        return not M.open and mm:GetParent() == corner and mm:GetWidth() == 140 and mm.zoom == 3
+           and p == "CENTER" and rel == corner and not M.panel:IsShown()
+    end)())
+    check("the header says where you are", (function()
+        _G.GetMinimapZoneText = function() return "Dornogal" end
+        _G.C_Map = { GetBestMapForUnit = function() return 1 end,
+                     GetPlayerMapPosition = function() return { GetXY = function() return 0.412, 0.638 end } end }
+        local zone, at = M.Where()
+        _G.C_Map.GetPlayerMapPosition = function() return nil end
+        local z2, at2 = M.Where()
+        return zone == "Dornogal" and at == "41.2, 63.8" and z2 == "Dornogal" and at2 == nil
+    end)())
+    check("combat puts it away unless pinned", (function()
+        M.Toggle()
+        ns.Summon.driver:Fire("PLAYER_REGEN_DISABLED")
+        return not M.open and mm:GetParent() == corner
+    end)())
+    _G.Minimap = wasMM
 end
 
 -- ---------------------------------------------------------------------------

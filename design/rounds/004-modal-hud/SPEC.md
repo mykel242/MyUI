@@ -697,6 +697,14 @@ restyled after probe P4 — MyUI never predicts a boss.
 In travel, a key (M) calls up Blizzard's world map translucent over the world, and closes it.
 Mount, hearthstone and the like come up on hover.
 
+**Built, round 005 (`Map.lua`, the "minimap" switch).** The key (MyUI → Show the map, or
+`/myui map`) brings Blizzard's own minimap render — terrain, your arrow, quest blips, nodes, the
+addon buttons on its edge — up big and zoomed out in a summoned panel at the top centre (420 wide,
+the world showing through at 85%), and hands it back to its corner when it closes. Header: the
+zone and your coordinates (the zone alone where the client restricts position). Footer: "world
+map" opens Blizzard's (out of combat). Wheel zooms, click pings. Pin, ×, and going away by itself
+as the other panels do. Still to come: mount, hearthstone and the like on hover.
+
 ## 23. Switches and the quest tracker (round 005)
 
 **Switches.** Every place MyUI replaces or hides Blizzard chrome is one player switch

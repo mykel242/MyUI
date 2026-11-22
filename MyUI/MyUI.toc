@@ -32,6 +32,7 @@ Quests.lua
 Chat.lua
 Talk.lua
 Social.lua
+Map.lua
 Clear.lua
 Actions.lua
 Group.lua
