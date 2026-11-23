@@ -51,7 +51,8 @@ Layout.PRESETS = {
         -- Manager's tracked buff bars, over the left wing's rows, growing up.
         -- Only x is a position: y is how far above the chosen buffs' row
         -- (the preview showed a fixed height overlapping it).
-        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -224, 0 },
+        -- Mirrors the party (Mykel: "I do like the grid to be tidy").
+        BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -248, 0 },
         -- On bar 1's row, past button 8 (Mykel: "line it up with the action
         -- bars"). Its container lays the button out off-centre (~39 right of
         -- this anchor); the height is Mykel's own, set in game with

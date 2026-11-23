@@ -4060,6 +4060,11 @@ do
         local _, _, _, fy = L.Pos("Focus")
         return by < sy and sy + 33 <= ty and ty + 49 <= fy and near(fb:GetWidth(), Scale.U(400))
     end)())
+    check("  the tracked buff bars mirror the party", (function()
+        local _, _, gx = ns.Layout.Pos("Group")
+        local _, _, bx = ns.Layout.Pos("BuffBars")
+        return bx == -gx
+    end)())
     check("  the party starts well clear of the focus's clear x (Charon play: 2 apart)", (function()
         local _, _, gx = ns.Layout.Pos("Group")
         local xRight = ns.Frames.UNIT_W / 2 + 8 + 14     -- the x: 8 past the bar, 14 wide

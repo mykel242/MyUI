@@ -557,7 +557,7 @@ the group frames sit, plus the wing gap and icon padding, in SPEC units. Built i
   set `focusFixed` instead) — **all three 400 wide**
   (the target's width; the pet split still halves yours, to be sorted later), each labelled in
   amber at its left like FOCUS was: PLAYER, TARGET, FOCUS. The group list right of the target
-  (248, 170 — clear of the focus's × by 26). Earlier: SelfStack (24), the bar (76), the target strip just over
+  (248, 170 — clear of the focus's × by 26), the tracked buff bars mirroring it (-248). Earlier: SelfStack (24), the bar (76), the target strip just over
   the bar (132); stance under the left wing and pet under the right (Mykel: "stances belong below
   the CDs"); Blizzard's zone / extra ability button with its frame art hidden, on bar 1's row past button 8,
   with the debuffs starting beyond it (`debuffGap`); the group list right
