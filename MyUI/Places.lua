@@ -34,7 +34,7 @@ Places.PARTS = {
     { key = "timers", label = "Buff bars", layout = true,
       places = { { key = "cooldowns", label = "above the cooldowns", side = "middle" }, LEFT, RIGHT } },
     { key = "group", label = "Group frames",
-      places = { { key = "target", label = "beside the target", side = "middle" }, LEFT, RIGHT } },
+      places = { { key = "target", label = "beside you", side = "middle" }, LEFT, RIGHT } },
     { key = "zone", label = "Zone button", layout = true,
       places = { { key = "bar", label = "on the bar row", side = "middle" }, RIGHT } },
     { key = "tooltip", label = "Tooltip", layout = true, places = { RIGHT, LEFT } },

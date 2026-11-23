@@ -557,8 +557,11 @@ the group frames sit, plus the wing gap and icon padding, in SPEC units. Built i
   set `focusFixed` instead) — **all three 400 wide**
   (the target's width; the pet split still halves yours, to be sorted later), each labelled in
   amber — PLAYER, TARGET, FOCUS — leading its text row, inside the column (outside it, left of
-  the bar, they sat on the Cooldown Manager's left wing; Charon play). The group list right of the target
-  (248, 170 — clear of the focus's × by 26), the tracked buff bars mirroring it (-248). Earlier: SelfStack (24), the bar (76), the target strip just over
+  the bar, they sat on the Cooldown Manager's left wing; Charon play). The party **lined up with you**
+  (Mykel: "always lined up with the PLAYER | PET frame" — `groupBeside`: its y follows SelfStack's,
+  a row centred on it, a list level with its foot), x 248, the tracked buff bars mirroring it
+  (-248). The zone / extra ability button on bar 1's row right of the bar (250, -23; its button
+  sits ~69 over the anchor). Earlier: SelfStack (24), the bar (76), the target strip just over
   the bar (132); stance under the left wing and pet under the right (Mykel: "stances belong below
   the CDs"); Blizzard's zone / extra ability button with its frame art hidden, on bar 1's row past button 8,
   with the debuffs starting beyond it (`debuffGap`); the group list right

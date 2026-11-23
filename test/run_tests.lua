@@ -3253,9 +3253,9 @@ do
         return a and b and a.point == "TOP" and a.relativePoint == "TOP" and near(a.offsetY, 0)
            and near(b.offsetY, -Scale.U(12))
     end)())
-    check("  the zone / extra ability button on bar 1's row, past button 8", (function()
+    check("  the zone / extra ability button on bar 1's row, right of the bar (2026-11-23)", (function()
         local a = sys(11).anchorInfo
-        return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(250)) and near(a.offsetY, Scale.U(39))
+        return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(250)) and near(a.offsetY, Scale.U(-23))
     end)())
     check("  Blizzard's tooltip corner in the bottom right, growing up (the tooltip itself untouched)", (function()
         local a = sys(14).anchorInfo
@@ -3878,11 +3878,12 @@ do
         end
         return ok
     end)())
-    check("right of the target strip, clear of the right wing, growing up; in the registry", (function()
+    check("lined up with you (Mykel: \"always lined up with the PLAYER | PET frame\"), right of the stack; in the registry", (function()
         local p, rel, rp, x, y = G.frame:GetPoint(1)
         local pp = party:GetPoint(1)
+        local _, _, _, sy = ns.Layout.Pos("SelfStack")
         return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(248))
-           and near(y, Scale.U(170)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
+           and near(y, Scale.U(sy + G.BesideOffset())) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
     end)())
     check("a DPS gets five tiny icons in a row by default", ns.Clear.GroupLook() == "icons"
           and party:GetAttribute("point") == "LEFT" and near(party:GetAttribute("xOffset"), Scale.U(G.ROWS.icons.gap))
@@ -4172,7 +4173,23 @@ do
     run("move group -10 5")
     check("  and moves the group frames too", (function()
         local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
-        return near(x, Scale.U(238)) and near(yy, Scale.U(175))
+        local _, _, _, sy = L.Pos("SelfStack")
+        return near(x, Scale.U(238)) and near(yy, Scale.U(sy + ns.Group.BesideOffset() + 5))
+    end)())
+    run("move self 0 10")
+    check("  moving you takes the party with you", (function()
+        local _, _, _, _, yy = ns.Group.frame:GetPoint(1)
+        local _, _, _, sy = L.Pos("SelfStack")
+        return near(yy, Scale.U(sy + ns.Group.BesideOffset() + 5)) and sy == 120
+    end)())
+    check("  a row of icons centred on you, a list level with your foot", (function()
+        local was = ns.db.clear.groupLook
+        ns.db.clear.groupLook = { DAMAGER = "icons" }
+        local icons = ns.Group.BesideOffset()
+        ns.db.clear.groupLook = { DAMAGER = "list" }
+        local list = ns.Group.BesideOffset()
+        ns.db.clear.groupLook = was
+        return near(icons, (33 - ns.Group.SIZES.icon.h) / 2) and list == 0
     end)())
     run("spacing padding 8")
     check("/myui spacing padding sets the gap between wing icons", L.Value("iconPadding") == 8)

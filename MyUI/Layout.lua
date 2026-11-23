@@ -41,9 +41,13 @@ Layout.PRESETS = {
         SelfStack   = { "BOTTOM", "BOTTOM", 0, 110 },
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 157 },
         Focus       = { "BOTTOM", "BOTTOM", 0, 220 },
-        -- Charon play: at 224 the party icons sat 2 past the focus's clear
-        -- x (focus edge 200, the x 208-222). 26 clear of it now.
-        Group       = { "BOTTOMLEFT", "BOTTOM", 248, 170 },
+        -- Mykel: "the Party row should always be lined up with the PLAYER |
+        -- PET frame". groupBeside: the party's y follows SelfStack's, centred
+        -- on it for a row of icons or boxes, level with its foot for a list
+        -- (Group.BesideOffset); this y is a nudge on top. x is 48 clear of
+        -- the stack's edge (200), past where the focus's x used to crowd it.
+        Group       = { "BOTTOMLEFT", "BOTTOM", 248, 0 },
+        groupBeside = "SelfStack",
         -- Blizzard's experience and second status bars, out of the way at
         -- the top edge (round 004 play).
         StatusBars  = { "TOP", "TOP", 0, 0 },
@@ -53,11 +57,12 @@ Layout.PRESETS = {
         -- (the preview showed a fixed height overlapping it).
         -- Mirrors the party (Mykel: "I do like the grid to be tidy").
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -248, 0 },
-        -- On bar 1's row, past button 8 (Mykel: "line it up with the action
-        -- bars"). Its container lays the button out off-centre (~39 right of
-        -- this anchor); the height is Mykel's own, set in game with
-        -- /myui move zone and baked in here.
-        ZoneAbility = { "BOTTOM", "BOTTOM", 250, 39 },
+        -- On bar 1's row, right of the bar's end and short of the debuffs
+        -- (Mykel, 2026-11-23: "we need a different place for the Zone
+        -- button" -- at 39 it sat beside PLAYER once the bar moved down).
+        -- Charon's screenshot: the button's centre sits ~69 over this
+        -- anchor, so -23 puts it level with the bar (24-68).
+        ZoneAbility = { "BOTTOM", "BOTTOM", 250, -23 },
         -- Round 005 play: Blizzard's tooltip out of the middle of the fight,
         -- into the bottom-right corner, growing up -- from over the debuff
         -- row, which on the laptop reaches under it.
@@ -153,7 +158,14 @@ function Layout.Pos(key)
         local p, rel, x, y = ns.Places.Pos(key)
         if p then return p, rel, x, y end
     end
-    local a = Layout.Get()[key]
+    local profile = Layout.Get()
+    local a = profile[key]
+    -- The party lined up with you (groupBeside), wherever you are.
+    if key == "Group" and profile.groupBeside and profile[profile.groupBeside] then
+        local _, _, _, by = Layout.Pos(profile.groupBeside)
+        local dy = ns.Group and ns.Group.BesideOffset and ns.Group.BesideOffset() or 0
+        return a[1], a[2], a[3], by + dy + a[4]
+    end
     return a[1], a[2], a[3], a[4]
 end
 

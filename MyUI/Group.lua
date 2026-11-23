@@ -88,6 +88,15 @@ function Group.PartySize()
     return Group.Kind()
 end
 
+--- How far over SelfStack's foot the party sits when lined up with it
+-- (Layout groupBeside): a row centred on its 33, a list level with its foot.
+Group.SELF_STACK_H = 33
+function Group.BesideOffset()
+    local row = Group.ROWS[Group.Look()]
+    if not row then return 0 end
+    return (Group.SELF_STACK_H - Group.SIZES[row.size].h) / 2
+end
+
 --- The party header's layout attributes for a look: a row grows right, a
 -- list grows up.
 function Group.PartyAttrs(look)
@@ -523,6 +532,8 @@ end
 -- always claim reaches the group frames now.
 function Group.Apply()
     local done = Group.Resize()
+    -- A row and a list sit differently beside you (BesideOffset).
+    Group.Place()
     Group.Refresh()
     if ns.Reveal and ns.Reveal.Always then ns.Reveal.Always() end
     return done
