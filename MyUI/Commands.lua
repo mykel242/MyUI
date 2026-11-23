@@ -264,6 +264,7 @@ local COMMANDS = {
     { "guard",        "strict | warn | reset -- how violations are reported" },
     { "conditionals", "probe which macro conditionals the client's parser knows" },
     { "version",      "build and schema" },
+    { "report",       "write a debug report to MyUIDB.report; bind MyUI -> Write a debug report, which also reloads" },
 }
 
 local function Help()
@@ -1001,6 +1002,124 @@ local HANDLERS = {
                  :format(ns.version, ns.phase, tostring(ns.db and ns.db.schema), Guard.mode))
     end,
 }
+
+-- ---------------------------------------------------------------------------
+-- report: one key, everything a reader on another machine needs
+-- ---------------------------------------------------------------------------
+-- Round 005, on Windows: typing five commands and carrying their output to
+-- another machine does not work. One key writes everything to MyUIDB.report
+-- and reloads, because a reload is what puts saved variables on disk.
+--
+-- Built to leave the machine: it holds no chat, no names and no log text, only
+-- what MyUI itself is doing. Every section but the first three is a report
+-- MyUI already prints, run quietly.
+
+local Report = { SCHEMA = 1, MAX_TEXT = 60000, RECENT = 15 }
+ns.Commands = ns.Commands or {}
+ns.Commands.Report = Report
+
+Report.SECTIONS = { "version", "override", "audit", "claims", "sources", "taint" }
+
+-- Every binding in Bindings.xml; a test keeps the two in step.
+Report.BINDINGS = { "MYUI_PEEK", "MYUI_REPLY", "MYUI_CENTER", "MYUI_WHAT", "MYUI_ARRANGE",
+                    "MYUI_QUESTS", "MYUI_TALK", "MYUI_SOCIAL", "MYUI_MAP", "MYUI_REPORT" }
+
+local function Call(fn, ...)
+    if type(fn) ~= "function" then return nil end
+    local ok, a, b, c, d = pcall(fn, ...)
+    if not ok then return nil end
+    return a, b, c, d
+end
+
+local function Environment()
+    local version, build, date_, toc = Call(_G.GetBuildInfo)
+    ns.Raw(("client %s (%s, %s), interface %s"):format(tostring(version), tostring(build),
+           tostring(date_), tostring(toc)))
+    local pw, ph = Call(_G.GetPhysicalScreenSize)
+    local ui = _G.UIParent
+    ns.Raw(("screen %sx%s physical, UI %sx%s at scale %s"):format(tostring(pw), tostring(ph),
+           tostring(Call(_G.GetScreenWidth)), tostring(Call(_G.GetScreenHeight)),
+           tostring(ui and Call(ui.GetEffectiveScale, ui))))
+    local layout = ns.Clear and Call(ns.Clear.ActiveLayoutName)
+    ns.Raw(("edit mode layout %s, group frames %s, role %s"):format(tostring(layout),
+           tostring(ns.Clear and Call(ns.Clear.GroupMode)), tostring(ns.Clear and Call(ns.Clear.Role))))
+    ns.Raw(("extras %s -- off means no history window and toasts for whispers only")
+           :format(ns.Extras() and "on" or "off"))
+    local inInstance, kind = Call(_G.IsInInstance)
+    ns.Raw(("in group %s, raid %s, instance %s (%s), combat %s"):format(
+        tostring(Call(_G.IsInGroup)), tostring(Call(_G.IsInRaid)), tostring(inInstance),
+        tostring(kind), tostring(Call(_G.InCombatLockdown))))
+end
+
+local function Bindings()
+    for _, cmd in ipairs(Report.BINDINGS) do
+        local keys = { Call(_G.GetBindingKey, cmd) }
+        ns.Raw(("%-14s %s"):format(cmd, #keys > 0 and table.concat(keys, ", ") or "unbound"))
+    end
+end
+
+-- Kinds, counts and ages only: a name in the log is a person.
+local function Notifications()
+    local db = ns.Log and ns.Log.db
+    local entries = db and db.entries or {}
+    local now, byKind, hour = ns.Log.Now(), {}, 0
+    for _, e in ipairs(entries) do
+        if now - (e.at or 0) <= 3600 then
+            hour = hour + 1
+            byKind[e.kind or "?"] = (byKind[e.kind or "?"] or 0) + 1
+        end
+    end
+    local kinds = {}
+    for k, n in pairs(byKind) do kinds[#kinds + 1] = ("%s %d"):format(k, n) end
+    table.sort(kinds)
+    ns.Raw(("%d in the log, %d in the last hour%s"):format(#entries, hour,
+           #kinds > 0 and (": " .. table.concat(kinds, ", ")) or ""))
+    for i = 1, math.min(Report.RECENT, #entries) do
+        local e = entries[i]
+        ns.Raw(("  -%ds  %s x%s"):format(now - (e.at or now), tostring(e.kind), tostring(e.count)))
+    end
+end
+
+function Report.Write(handlers)
+    local parts = {}
+    local function take(title, fn)
+        ns.ClearOutput()
+        local ok, err = pcall(fn)
+        local text = ns.GetOutput()
+        if not ok then text = text .. "\nerror: " .. tostring(err) end
+        parts[#parts + 1] = "## " .. title .. "\n" .. text
+    end
+    ns.quiet = true
+    take("environment", Environment)
+    take("bindings", Bindings)
+    take("notifications", Notifications)
+    for _, name in ipairs(Report.SECTIONS) do
+        take(name, function() handlers[name]() end)
+    end
+    ns.quiet = nil
+    local text = table.concat(parts, "\n\n")
+    if #text > Report.MAX_TEXT then
+        text = text:sub(1, Report.MAX_TEXT) .. "\n... (cut)"
+    end
+    if ns.db and not ns.readOnlyDB then
+        ns.db.report = { schema = Report.SCHEMA, at = date("%Y-%m-%d %H:%M:%S"),
+                         version = ns.version, text = text }
+    end
+    ns.ClearOutput()
+    ns.Print(("debug report written: %d sections -- a /reload saves it to disk"):format(#parts))
+    return text
+end
+
+HANDLERS.report = function() Report.Write(HANDLERS) end
+
+-- The key: write, then reload, which is the only way to flush it. A key press
+-- is a hardware event, so the reload is allowed where a timer's is not.
+function MyUI_Report()
+    ns.Commands.Run("report")
+    if type(_G.ReloadUI) == "function" then _G.ReloadUI() end
+end
+
+_G.BINDING_NAME_MYUI_REPORT = "Write a debug report (reloads)"
 
 --- Resolve a prefix to exactly one command name, or nil plus the ambiguity.
 local function Resolve(word)

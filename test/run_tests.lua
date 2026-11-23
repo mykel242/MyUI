@@ -4833,6 +4833,60 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+section("Commands -- the debug report")
+-- ---------------------------------------------------------------------------
+do
+    local Report = ns.Commands.Report
+    local xml = assert(io.open("../MyUI/Bindings.xml")):read("*a")
+    local declared = {}
+    for name in xml:gmatch('<Binding name="(MYUI_[%w_]+)"') do declared[#declared + 1] = name end
+    local listed = {}
+    for _, b in ipairs(Report.BINDINGS) do listed[b] = true end
+    local same = #declared == #Report.BINDINGS
+    for _, b in ipairs(declared) do same = same and listed[b] == true end
+    check("the report names every binding Bindings.xml declares", same, #declared)
+    check("  and the report key has a name in the key bindings list",
+          _G.BINDING_NAME_MYUI_REPORT ~= nil and type(_G.MyUI_Report) == "function")
+
+    ns.db.report = nil
+    ns.Log.Add("whisper", "Somebody Secret", 1, "a private message")
+    local chatty = 0
+    local frame = _G.DEFAULT_CHAT_FRAME
+    local add = frame and frame.AddMessage
+    if frame then frame.AddMessage = function(self, ...) chatty = chatty + 1 end end
+    run("report")
+    if frame then frame.AddMessage = add end
+    local r = ns.db.report
+    check("/myui report writes the report to saved variables", type(r) == "table"
+          and r.schema == Report.SCHEMA and type(r.text) == "string" and r.version == ns.version)
+    for _, title in ipairs({ "environment", "bindings", "notifications", "override", "audit",
+                             "claims", "sources", "taint" }) do
+        check("  with a section for " .. title, r.text:find("## " .. title, 1, true) ~= nil)
+    end
+    check("  and the notification log as kinds only, never names or text",
+          r.text:find("whisper", 1, true) ~= nil and r.text:find("Somebody", 1, true) == nil
+          and r.text:find("private", 1, true) == nil)
+    check("  without colour codes", r.text:find("|cff", 1, true) == nil)
+    check("  printing one line to chat, not every section", chatty == 1, chatty)
+    check("  and printing to chat again afterwards", ns.quiet == nil)
+
+    local reloaded = 0
+    local was = _G.ReloadUI
+    _G.ReloadUI = function() reloaded = reloaded + 1 end
+    ns.db.report = nil
+    _G.MyUI_Report()
+    _G.ReloadUI = was
+    check("the report key writes the report, then reloads",
+          type(ns.db.report) == "table" and reloaded == 1)
+
+    ns.readOnlyDB = true
+    ns.db.report = nil
+    run("report")
+    ns.readOnlyDB = nil
+    check("a newer build's saved data is not written to", ns.db.report == nil)
+end
+
+-- ---------------------------------------------------------------------------
 print("")
 print(("%d checks, %d failures"):format(checks, failures))
 os.exit(failures == 0 and 0 or 1)

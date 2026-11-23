@@ -68,4 +68,10 @@
     <Binding name="MYUI_MAP" category="MyUI">
         MyUI_Map()
     </Binding>
+
+    <!-- Writes a debug report and reloads, which saves it to disk. For reading
+         on another machine without typing or copying anything. -->
+    <Binding name="MYUI_REPORT" category="MyUI">
+        MyUI_Report()
+    </Binding>
 </Bindings>

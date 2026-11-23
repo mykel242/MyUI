@@ -149,6 +149,7 @@ function ns.Print(...)
     end
     local line = PREFIX .. table.concat(parts, " ")
     Capture(line)
+    if ns.quiet then return end
     local frame = _G.DEFAULT_CHAT_FRAME
     if frame then
         frame:AddMessage(line)
@@ -160,6 +161,7 @@ end
 --- Print without the prefix, for indented report bodies.
 function ns.Raw(text)
     Capture(text)
+    if ns.quiet then return end
     local frame = _G.DEFAULT_CHAT_FRAME
     if frame then
         frame:AddMessage(text)
