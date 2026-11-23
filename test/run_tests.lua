@@ -4059,16 +4059,7 @@ do
         local _, _, _, ty = L.Pos("TargetStrip")
         local _, _, _, fy = L.Pos("Focus")
         return by < sy and sy + 33 <= ty and ty + 49 <= fy and near(fb:GetWidth(), Scale.U(400))
-           and L.Value("focusFixed") == true
     end)())
-    check("  the focus stays in its own place: no slot driver", G.FocusSlots() == nil and (function()
-        for _, d in ipairs(mock.drivers) do if d.frame == fb and d.state == "slot" then return false end end
-        local p, rel, rp, _, y = fb:GetPoint(1)
-        return p == "BOTTOM" and rel == UIParent and near(y, Scale.U(220))
-    end)())
-    -- The round 004 slots, for a profile that still uses them.
-    ns.Layout.PRESETS.focus.focusFixed = nil
-    G.PlaceFocus()
     check("an x after the focus bar clears it (/clearfocus, a secure macro)", fb.__clear ~= nil
           and fb.__clear:GetAttribute("type") == "macro" and fb.__clear:GetAttribute("macrotext") == "/clearfocus")
     check("the focus drops into the target strip's place with no target, and rises above it with one", (function()
@@ -4078,14 +4069,8 @@ do
         return x == 0 and near(low, Scale.U(ty + 15 - by)) and high > low
            and fb:GetAttribute("_onstate-slot") ~= nil and fb:GetFrameRef("anchor") == ns.Actions.header
     end)())
-    check("  out of combat with no target it rests lower still, in the faded bar's row", (function()
-        local chunk = assert(loadstring("local newstate = 'rest'\n" .. fb:GetAttribute("_onstate-slot")))
-        setfenv(chunk, { self = fb })
-        chunk()
-        local _, rel, _, _, y = fb:GetPoint(1)
-        return G.FOCUS_SLOT_DRIVER == "[@target,exists] high; [combat] low; rest"
-           and rel == ns.Actions.header and near(y, Scale.U(10)) and y < fb:GetAttribute("ylow")
-    end)())
+    check("  no gaps (Mykel, 2026-11-23): with no target, in or out of combat, it takes the target's place",
+          G.FOCUS_SLOT_DRIVER == "[@target,exists] high; low")
     check("one hover edge everywhere: pet, focus, target, pet buttons", G.petButton.__hoverEdge ~= nil
           and fb.__hoverEdge ~= nil and G.targetButton.__hoverEdge ~= nil
           and G.petBar.buttons[1].__hoverEdge ~= nil and (function()
@@ -4108,10 +4093,13 @@ do
           and select(2, G.FocusSlots()) > select(3, G.FocusSlots()))
     ns.Layout.PRESETS.focus.focusFixed = true
     G.PlaceFocus()
-    check("going back to a fixed place lets the slot driver go", (function()
+    check("a profile can still fix the focus in place, and the slot driver lets go", (function()
         for _, d in ipairs(mock.drivers) do if d.frame == fb and d.state == "slot" then return false end end
-        return G.focusSlotDriver == false
+        local p, rel, _, _, y = fb:GetPoint(1)
+        return G.focusSlotDriver == false and G.FocusSlots() == nil and rel == UIParent and near(y, Scale.U(220))
     end)())
+    ns.Layout.PRESETS.focus.focusFixed = nil
+    G.PlaceFocus()
     mock.units.focus = true
     Guard.Reset()
     G.events:Fire("PLAYER_FOCUS_CHANGED")
@@ -5192,6 +5180,14 @@ do
     check("  even over a frame whose GetName is not a name", (function()
         local ok, text = pcall(Dev.Under)
         return ok and text:find("DamageMeter.Row1", 1, true) ~= nil
+    end)())
+    -- Charon play: a party member's GetName can be a secret string.
+    local member = mock.frame({ name = "MemberRow" })
+    member.GetName = function() return mock.secret() end
+    mock.mouseFoci = { member }
+    check("  and never compares a secret name", (function()
+        local ok, text = pcall(Dev.Under)
+        return ok and text:find("<secret>", 1, true) ~= nil
     end)())
     mock.mouseFoci = {}
     check("  or that it is the world", Dev.Under():find("the world", 1, true) ~= nil)

@@ -147,8 +147,11 @@ local function Named(region)
     -- Some of Blizzard's frames override GetName with their own meaning (a
     -- damage meter row returns its name FontString), so only a string counts;
     -- otherwise the debug name, which every region has.
+    -- Charon play: a party member's GetName can be a secret string, and
+    -- comparing one errors -- it is checked before anything looks at it.
     for _, method in ipairs({ "GetName", "GetDebugName" }) do
         local ok, name = pcall(function() return region[method](region) end)
+        if ok and ns.Compat.IsSecret(name) then return "<secret>" end
         if ok and type(name) == "string" and name ~= "" then return name end
     end
     return nil

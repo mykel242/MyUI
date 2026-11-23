@@ -874,7 +874,11 @@ local FOCUS_W, FOCUS_H = ns.Frames.UNIT_W, 16   -- a 3 px bar under an 11pt text
 -- Round 004 play (Mykel, option 1): out of combat with no target the action
 -- bar is faded, so the focus drops further, into the bar's row just over
 -- your own bar ("rest"); combat or a target lifts it again.
-Group.FOCUS_SLOT_DRIVER = "[@target,exists] high; [combat] low; rest"
+-- 2026-11-23 (Mykel: "the frames need to move down to avoid leaving
+-- gaps"): one stack, no gaps -- with a target the focus sits above it, with
+-- none it takes the target's place. The "rest" slot (down into the faded
+-- bar's row) went with the bar moving under the stack.
+Group.FOCUS_SLOT_DRIVER = "[@target,exists] high; low"
 Group.FOCUS_REST = 10   -- SPEC units above the action bar's bottom
 local FOCUS_SLOT = [[
     local a = self:GetFrameRef("anchor")

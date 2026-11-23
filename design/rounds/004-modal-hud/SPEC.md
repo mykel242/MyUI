@@ -552,7 +552,9 @@ the group frames sit, plus the wing gap and icon padding, in SPEC units. Built i
 
 - **focus** (default) — **2026-11-23** (Mykel: "All the unit frames above the action bars which
   move down"): the bar at the foot (24), then one stack that never overlaps — you (110), your
-  target (157), your focus (220, fixed: `focusFixed`, no slot driver) — **all three 400 wide**
+  target (157), your focus (220; with no target it drops into the target's place, in combat
+  too — "[@target,exists] high; low", Mykel: "move down to avoid leaving gaps"; a profile may
+  set `focusFixed` instead) — **all three 400 wide**
   (the target's width; the pet split still halves yours, to be sorted later), each labelled in
   amber at its left like FOCUS was: PLAYER, TARGET, FOCUS. The group list right of the target
   (224, 170). Earlier: SelfStack (24), the bar (76), the target strip just over

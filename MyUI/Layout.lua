@@ -29,8 +29,9 @@ Layout.PRESETS = {
     -- stance, chosen buffs), then the unit frames in one stack that never
     -- overlaps -- you, your target, your focus -- each the target's width,
     -- each labelled. The group list sits right of the target strip.
-    -- Round 004 had you under the bar and the focus dropping into the
-    -- target's place; both gone (focusFixed).
+    -- Mykel: "the frames need to move down to avoid leaving gaps (focus w/o
+    -- target)": with no target the focus drops into the target's place
+    -- (Group.FOCUS_SLOT_DRIVER), in combat too.
     -- The zone / extra ability button, shrunk, sits right of the bar's end
     -- (Mykel's own height from round 004, when it sat under button 8).
     focus = {
@@ -40,7 +41,6 @@ Layout.PRESETS = {
         SelfStack   = { "BOTTOM", "BOTTOM", 0, 110 },
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 157 },
         Focus       = { "BOTTOM", "BOTTOM", 0, 220 },
-        focusFixed  = true,
         Group       = { "BOTTOMLEFT", "BOTTOM", 224, 170 },
         -- Blizzard's experience and second status bars, out of the way at
         -- the top edge (round 004 play).
