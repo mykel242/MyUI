@@ -70,9 +70,11 @@
     </Binding>
 
     <!-- Writes a debug report and reloads, which saves it to disk. For reading
-         on another machine without typing or copying anything. -->
-    <Binding name="MYUI_REPORT" category="MyUI">
-        MyUI_Report()
+         on another machine without typing or copying anything. Both edges:
+         the press writes it and takes a screenshot, the release reloads,
+         by which time the screenshot is saved. -->
+    <Binding name="MYUI_REPORT" category="MyUI" runOnUp="true">
+        MyUI_Report(keystate)
     </Binding>
 
     <!-- The debug log, a summoned panel like the others; on with /myui dev on. -->

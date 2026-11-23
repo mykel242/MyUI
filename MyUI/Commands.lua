@@ -1161,10 +1161,59 @@ end
 HANDLERS.report = function() Report.Write(HANDLERS) end
 
 -- The key: write, then reload, which is the only way to flush it. A key press
--- is a hardware event, so the reload is allowed where a timer's is not.
-function MyUI_Report()
-    ns.Commands.Run("report")
+-- is a hardware event, so the reload is allowed where a timer's is not (on
+-- 12.1.5 ReloadUI is blocked otherwise -- MyUI_Test/Harness.lua).
+--
+-- 2026-11-23 (Mykel: "can i automate screenshots?"): the press also takes a
+-- screenshot of what you were looking at, and the release reloads. A
+-- screenshot is saved at the end of the frame it was asked in, and a reload
+-- in that same frame would lose it -- so the two edges of one key press.
+-- The report records the shot's time (WoW names the file by it) so the
+-- watcher can pair them. If the release comes before the client has said the
+-- shot is saved, the reload waits for the next press.
+Report.shot = nil      -- { at, result } for the report being written
+
+local shotDriver = CreateFrame("Frame", "MyUIReportShot")
+shotDriver:RegisterEvent("SCREENSHOT_SUCCEEDED")
+shotDriver:RegisterEvent("SCREENSHOT_FAILED")
+shotDriver:SetScript("OnEvent", function(_, event)
+    local shot = Report.shot
+    if not shot or shot.result ~= "pending" then return end
+    shot.result = event == "SCREENSHOT_SUCCEEDED" and "ok" or "failed"
+end)
+Report.shotDriver = shotDriver
+
+local function Reload()
     if type(_G.ReloadUI) == "function" then _G.ReloadUI() end
+end
+
+--- keystate "down": write and take the screenshot; "up": reload once the
+-- screenshot is saved. nil (a command, a test): write and reload, no shot.
+function MyUI_Report(keystate)
+    if keystate == nil then
+        ns.Commands.Run("report")
+        return Reload()
+    end
+    if keystate == "down" then
+        if Report.shot and Report.shot.result ~= "pending" and Report.waiting then
+            return   -- a second press to finish the first: the release reloads
+        end
+        Report.waiting = nil
+        ns.Commands.Run("report")
+        if type(_G.Screenshot) == "function" and ns.db and type(ns.db.report) == "table" then
+            Report.shot = { at = date("%m%d%y_%H%M%S"), result = "pending" }
+            ns.db.report.shot = Report.shot
+            pcall(_G.Screenshot)
+        end
+        return
+    end
+    -- The release.
+    if Report.shot and Report.shot.result == "pending" then
+        Report.waiting = true
+        ns.Print("the screenshot is still saving -- press the report key again to reload")
+        return
+    end
+    Reload()
 end
 
 _G.BINDING_NAME_MYUI_REPORT = "Write a debug report (reloads)"

@@ -4898,6 +4898,39 @@ do
     check("the report key writes the report, then reloads",
           type(ns.db.report) == "table" and reloaded == 1)
 
+    -- The key's two edges: the press writes and screenshots, the release reloads.
+    local R = ns.Commands.Report
+    local shots, wasShot = 0, _G.Screenshot
+    _G.Screenshot = function() shots = shots + 1 end
+    _G.ReloadUI = function() reloaded = reloaded + 1 end
+    reloaded = 0
+    ns.db.report = nil
+    _G.MyUI_Report("down")
+    check("the press writes the report and takes a screenshot, named by its time",
+          type(ns.db.report) == "table" and shots == 1 and reloaded == 0
+          and ns.db.report.shot and ns.db.report.shot.result == "pending"
+          and ns.db.report.shot.at:match("^%d%d%d%d%d%d_%d%d%d%d%d%d$") ~= nil)
+    R.shotDriver:Fire("SCREENSHOT_SUCCEEDED")
+    _G.MyUI_Report("up")
+    check("  the release reloads once the client says it is saved",
+          reloaded == 1 and ns.db.report.shot.result == "ok")
+    reloaded, shots = 0, 0
+    _G.MyUI_Report("down")
+    ns.ClearOutput()
+    _G.MyUI_Report("up")
+    check("  a release before it is saved does not reload, and says so",
+          reloaded == 0 and ns.GetOutput():find("still saving", 1, true) ~= nil)
+    R.shotDriver:Fire("SCREENSHOT_SUCCEEDED")
+    local at = ns.db.report.at
+    _G.MyUI_Report("down")
+    _G.MyUI_Report("up")
+    check("  and the next press only finishes it: no second report or screenshot",
+          reloaded == 1 and shots == 1 and ns.db.report.at == at)
+    R.shotDriver:Fire("SCREENSHOT_FAILED")
+    check("  a shot already settled is not changed by a later event", ns.db.report.shot.result == "ok")
+    R.shot, R.waiting = nil, nil
+    _G.Screenshot, _G.ReloadUI = wasShot, was
+
     ns.readOnlyDB = true
     ns.db.report = nil
     run("report")

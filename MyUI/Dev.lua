@@ -246,9 +246,16 @@ function Dev.Build()
     S.Footer(panel, {
         { "copy", function() Dev.Copy() end },
         { "clear", function() Dev.ClearShown() end },
-        -- A click is a hardware event, so the reload that saves it is allowed.
-        { "report", function() if _G.MyUI_Report then _G.MyUI_Report() end end },
+        -- A click is a hardware event, so the reload that saves it is
+        -- allowed. Both edges, like the key: down writes and takes the
+        -- screenshot, up reloads (wired below).
+        { "report", function() end },
     }, nil, function() Dev.expanded = not Dev.expanded; Dev.Refresh() end)
+    local report = panel.__footer.actions[3]
+    report:RegisterForClicks("LeftButtonDown", "LeftButtonUp")
+    report:SetScript("OnClick", function(_, _, down)
+        if _G.MyUI_Report then _G.MyUI_Report(down and "down" or "up") end
+    end)
 
     panel:Hide()
     local special = _G.UISpecialFrames

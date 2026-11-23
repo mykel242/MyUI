@@ -748,6 +748,7 @@ function M.install()
     _G.STANDARD_TEXT_FONT = "Fonts\\FRIZQT__.TTF"
     -- Fixed, so a report's text is deterministic across runs.
     _G.date = function(fmt)
+        if fmt == "%m%d%y_%H%M%S" then return "082726_120000" end   -- WoW's screenshot names
         return type(fmt) == "string" and fmt:find("%S", 1, true) and "2026-08-27 12:00:00" or "2026-08-27 12:00"
     end
 

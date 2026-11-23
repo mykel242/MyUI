@@ -103,7 +103,7 @@ STATUS.md             where things stand; read this first when resuming
 /myui guard           strict | warn | reset
 /myui conditionals    which macro conditionals the client's parser knows
 /myui version         build and schema
-/myui report          a debug report into MyUIDB.report; its key also reloads
+/myui report          a debug report into MyUIDB.report; its key also takes a screenshot and reloads
 ```
 
 Any unambiguous prefix works. `/mui` is an alias.
