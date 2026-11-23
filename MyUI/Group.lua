@@ -956,7 +956,7 @@ function Group.BuildFocus()
     F.HoverEdge(b, Group.SELF_PAD)
     -- Labelled like the ALT and CTRL pages (round 004 play, Mykel); now
     -- PLAYER and TARGET are too, in the same place on each.
-    b.__label = F.UnitLabel(b, health, "FOCUS")
+    b.__label = F.UnitLabel(b, health, "FOCUS", name)
 
     -- An x after the bar clears the focus (round 004 play). A secure macro
     -- button (/clearfocus is a protected action), drawn as two thin strokes

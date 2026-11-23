@@ -202,12 +202,23 @@ end
 
 Frames.PCT_STYLES = { pill = true, above = true }
 
---- The amber label left of a unit frame, as the focus first had (round 004
--- play): PLAYER, TARGET, FOCUS. Level with the frame's text row and bar.
-function Frames.UnitLabel(frame, bar, text)
-    local label = Frames.Text(frame, 10, "notifAmber", "RIGHT")
+--- The amber label on a unit frame: PLAYER, TARGET, FOCUS.
+-- Charon play: outside the frame, left of the bar, the labels sat on the
+-- Cooldown Manager's left wing, which reaches the bar's column now that the
+-- bar is under the stack. So they lead the text row instead, inside the
+-- column, and the name follows them.
+Frames.LABEL_W = 44
+
+function Frames.UnitLabel(frame, bar, text, name)
+    local label = Frames.Text(frame, 10, "notifAmber", "LEFT")
     label:SetText(text)
-    label:SetPoint("RIGHT", bar, "LEFT", -U(8), U(5))
+    label:SetPoint("BOTTOMLEFT", bar, "TOPLEFT", 0, U(Frames.ROW_GAP))
+    label:SetWidth(U(Frames.LABEL_W))
+    if name then
+        name:ClearAllPoints()
+        name:SetPoint("BOTTOMLEFT", label, "BOTTOMRIGHT", U(4), 0)
+        name:SetPoint("BOTTOMRIGHT", bar, "TOP", -U(Frames.NAME_CLEAR), U(Frames.ROW_GAP))
+    end
     frame.label = label
     return label
 end
@@ -453,7 +464,7 @@ local function BuildSelfStack()
 
     group.health, group.resource, group.cast, group.xp = health, resource, cast, xp
     group.name, group.level = name, level
-    Frames.UnitLabel(group, health, "PLAYER")
+    Frames.UnitLabel(group, health, "PLAYER", name)
     group.number, group.pill, group.tick20, group.tick40 = number, pill, tick20, tick40
     return group
 end
@@ -503,7 +514,7 @@ local function BuildTargetStrip()
 
     group.name, group.level, group.health, group.cast = name, level, health, cast
     group.number, group.pill = number, pill
-    Frames.UnitLabel(group, health, "TARGET")
+    Frames.UnitLabel(group, health, "TARGET", name)
     return group
 end
 

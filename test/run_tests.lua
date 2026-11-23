@@ -371,7 +371,10 @@ check("health number sits just above the middle of the health bar, no pill (roun
 end)())
 check("name, percentage and level on one row, bottoms 2 above the bar -- self and target", (function()
     for _, g in ipairs({ stack, Registry.Get("TargetStrip").frame }) do
-        local np, nrel, nrp, _, ny = g.name:GetPoint(1)
+        -- 2026-11-23: the row leads with the frame's label, the name after it.
+        local np, nrel, nrp, _, ny = g.label:GetPoint(1)
+        local fp, frel, frp = g.name:GetPoint(1)
+        if not (fp == "BOTTOMLEFT" and frel == g.label and frp == "BOTTOMRIGHT") then return false end
         local lp, lrel, lrp, _, ly = g.level:GetPoint(1)
         local pp, prel, prp, _, py = g.pill:GetPoint(1)
         local _, ph = g.pill:GetSize()
@@ -4046,10 +4049,12 @@ do
     local fb = G.focusButton
     G.PlaceFocus()   -- the Actions section rebuilt the bar's header since login
     check("the focus strip is labelled FOCUS, like the ALT and CTRL pages", fb.__label:GetText() == "FOCUS")
-    check("  and you and your target are labelled the same way (2026-11-23)",
+    check("  and you and your target the same way, inside the column so the wings stay clear (Charon play)",
           stack.label and stack.label:GetText() == "PLAYER"
           and Registry.Get("TargetStrip").frame.label:GetText() == "TARGET"
           and select(2, stack.label:GetPoint(1)) == stack.health
+          and select(1, stack.label:GetPoint(1)) == "BOTTOMLEFT"
+          and select(3, stack.label:GetPoint(1)) == "TOPLEFT" and select(4, stack.label:GetPoint(1)) == 0
           and select(2, fb.__label:GetPoint(1)) == fb.__health)
     check("the default profile is one stack that never overlaps: bar, you, target, focus, each 400 wide",
           (function()
