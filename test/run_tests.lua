@@ -3880,9 +3880,9 @@ do
         return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(224))
            and near(y, Scale.U(176)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
     end)())
-    check("a DPS gets five boxes in a row by default (the experiment)", ns.Clear.GroupLook() == "boxes"
-          and party:GetAttribute("point") == "LEFT" and near(party:GetAttribute("xOffset"), Scale.U(G.BOX_GAP))
-          and near(party:GetAttribute("unitWidth"), Scale.U(G.SIZES.box.w)))
+    check("a DPS gets five tiny icons in a row by default", ns.Clear.GroupLook() == "icons"
+          and party:GetAttribute("point") == "LEFT" and near(party:GetAttribute("xOffset"), Scale.U(G.ROWS.icons.gap))
+          and near(party:GetAttribute("unitWidth"), Scale.U(G.SIZES.icon.w)))
 
     -- The engine making a unit button: CONFIG in the restricted environment,
     -- then the child attribute the header sets.
@@ -4919,8 +4919,8 @@ do
     db.groupBy, db.groupLook = nil, nil
     check("  and with nothing saved, every role is combat", Clear.GroupMode("TANK") == "combat"
           and Clear.GroupMode("HEALER") == "combat" and Clear.GroupMode("DAMAGER") == "combat")
-    check("  healers get the list, tanks and DPS the boxes", Clear.GroupLook("HEALER") == "list"
-          and Clear.GroupLook("TANK") == "boxes" and Clear.GroupLook("DAMAGER") == "boxes")
+    check("  healers get the list, tanks and DPS the icons", Clear.GroupLook("HEALER") == "list"
+          and Clear.GroupLook("TANK") == "icons" and Clear.GroupLook("DAMAGER") == "icons")
     check("no role reads as DPS", Clear.SettingRole("NONE") == "DAMAGER")
 
     run("group tank always")
@@ -4981,6 +4981,32 @@ do
         local r = ns.Palette.Get("fill")
         return c and near(c[1], r)
     end)())
+    run("group healer icons")
+    check("icons: no name, the health fills the square, in the class colour", (function()
+        local c = lastColour(b.__fill)
+        return not b.__name:IsShown() and near(b:GetWidth(), Scale.U(G.SIZES.icon.w))
+           and near(b:GetHeight(), Scale.U(G.SIZES.icon.h)) and c and near(c[1], 0.9)
+    end)())
+    check("  the role drawn over the health", b.__role:GetParent() == b.__top)
+    check("  and the group area is five icons wide",
+          near(G.frame:GetWidth(), Scale.U(G.SIZES.icon.w * 5 + G.ROWS.icons.gap * 4)))
+    check("switching look clears each button's anchors before the header lays them out again "
+          .. "(Charon play: a descending stair)", (function()
+        local cleared, pointAt
+        for i, c in ipairs(b.__calls) do if c.method == "ClearAllPoints" then cleared = i end end
+        for i = #party.__calls, 1, -1 do
+            local c = party.__calls[i]
+            if c.method == "SetAttribute" and c[1] == "point" then pointAt = i break end
+        end
+        local lastAttr
+        for i = #party.__calls, 1, -1 do
+            if party.__calls[i].method == "SetAttribute" then lastAttr = party.__calls[i][1] break end
+        end
+        return cleared ~= nil and pointAt ~= nil and lastAttr == "point"
+    end)())
+    run("group healer list")
+    check("  and back to the list, the name returns", b.__name:IsShown())
+    run("group healer boxes")
     _G.UnitClass = function() return nil, mock.secret and mock.secret("x") or nil end
     run("group healer boxes")
     check("  and an unreadable class falls back to the palette", (function()

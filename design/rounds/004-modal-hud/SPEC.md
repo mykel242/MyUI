@@ -660,7 +660,8 @@ and raid frames are hidden outright. Not yet: shift-click pinning, cards, alt-cl
 | `hover` | never by combat; hover or peek only |
 | `always` | up all the time (the `always` reveal channel, asked again on a role or spec change) |
 | `list` | a column of rows — the healer's default |
-| `boxes` | **five small boxes in a row**, role icon in the corner, name, health in the **class colour** — the tank and DPS default, **an experiment** (Mykel) |
+| `icons` | **five tiny squares in a row, no names** (Mykel: "5 tiny icons that act"): health fills the square from the bottom in the **class colour**, the role in its corner; the same click map — the tank and DPS default |
+| `boxes` | five small boxes in a row, role icon in the corner, name, health in the class colour — a choice |
 
 `/myui group` shows all three; `/myui group [tank|healer|dps] <mode or look>` sets one (no role:
 the current one). The old single setting migrates (`auto` was combat for healers only, hover for

@@ -244,7 +244,7 @@ local COMMANDS = {
     { "panel",        "the dev panel: the toggles as switches (an extra)" },
     { "clear",        "clear the screen (SPEC 11): on | probe -- tests the player-frame filter" },
     { "restore",      "put back everything clearing took" },
-    { "group",        "group frames per role: [tank|healer|dps] combat (default) | hover | always | list | boxes" },
+    { "group",        "group frames per role: [tank|healer|dps] combat (default) | hover | always | list | boxes | icons" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
     { "pages",        "the pages not in bar 1's place: mini (small, over it; default) | swap (hidden)" },
     { "taint",        "which Blizzard frames MyUI has tainted (Edit Mode, debuffs, cooldown viewers)" },
@@ -755,7 +755,7 @@ local HANDLERS = {
             if Clear.GROUP_LOOKS[word] then
                 Clear.SetGroupLook(word, role)
             elseif not Clear.SetGroupMode(word, role) then
-                ns.Print(("unknown %q -- combat, hover, always, or list, boxes"):format(word))
+                ns.Print(("unknown %q -- combat, hover, always, or list, boxes, icons"):format(word))
                 return
             end
             if ns.Group and ns.Group.Apply and not ns.Group.Apply() and InCombatLockdown() then
@@ -769,7 +769,7 @@ local HANDLERS = {
             ns.Raw(("  %s %-7s %-7s %s"):format(r == now and ">" or " ", LABEL[r],
                 Clear.GroupMode(r), Clear.GroupLook(r)))
         end
-        ns.Raw("  /myui group [tank|healer|dps] combat|hover|always|list|boxes")
+        ns.Raw("  /myui group [tank|healer|dps] combat|hover|always|list|boxes|icons")
     end,
     restore      = function()
         local n, needsReload = ns.Clear.Restore()

@@ -504,16 +504,18 @@ end
 --          "hover": never by combat, only on hover or peek.
 --          "always": up all the time.
 --   look   "list": a column of rows (the healer's default, SPEC 19).
---          "boxes": five small boxes in a row, role icon and class colour
---          (tank and DPS default; Mykel: "worth an experiment").
+--          "icons": five tiny squares in a row, no names: health fills the
+--          square in the class colour, the role in its corner (tank and
+--          DPS default; Mykel: "5 tiny icons that act").
+--          "boxes": five small boxes with names -- a choice.
 -- The old single setting migrates: "auto" meant combat for healers only.
 
 Clear.GROUP_MODES = { combat = true, hover = true, always = true }
-Clear.GROUP_LOOKS = { list = true, boxes = true }
+Clear.GROUP_LOOKS = { list = true, boxes = true, icons = true }
 Clear.GROUP_ROLES = { "TANK", "HEALER", "DAMAGER" }
 Clear.GROUP_ROLE_WORDS = { tank = "TANK", healer = "HEALER", heal = "HEALER",
                            dps = "DAMAGER", damage = "DAMAGER", damager = "DAMAGER" }
-Clear.GROUP_DEFAULT_LOOK = { TANK = "boxes", HEALER = "list", DAMAGER = "boxes" }
+Clear.GROUP_DEFAULT_LOOK = { TANK = "icons", HEALER = "list", DAMAGER = "icons" }
 
 function Clear.IsHunter()
     if not _G.UnitClass then return false end

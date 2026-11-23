@@ -33,13 +33,20 @@ Group.SIZES = {
     healer = { w = 200, h = 34, font = 12, bar = 6 },
     raid   = { w = 56,  h = 28, font = 9,  bar = 3 },
     -- 2026-11-23 (Mykel): five small boxes in a row, role icon and class
-    -- colour -- the tank and DPS default, as an experiment.
+    -- colour -- a choice.
     box    = { w = 64,  h = 40, font = 10, bar = 5 },
+    -- Mykel: "5 tiny icons that act -- no names". The whole square is the
+    -- health, in the class colour, with the role in the corner. The tank
+    -- and DPS default.
+    icon   = { w = 24,  h = 24, font = 8,  bar = 24 },
 }
 -- Round 004 play: 4 between rows read as one block ("too tight").
 Group.GAP = 8
 Group.RAID_GAP = 4
 Group.BOX_GAP = 6
+Group.ICON_GAP = 4
+-- The looks that are a row (grow right), with their size and gap.
+Group.ROWS = { boxes = { size = "box", gap = 6 }, icons = { size = "icon", gap = 4 } }
 Group.PARTY_MAX = 5
 Group.RAID_MAX = 40
 
@@ -68,22 +75,24 @@ function Group.Kind()
     return role == "HEALER" and "healer" or "party"
 end
 
---- The party's look for the current role: "list" or "boxes" (Clear).
+--- The party's look for the current role: "list", "boxes" or "icons" (Clear).
 function Group.Look()
     return ns.Clear and ns.Clear.GroupLook and ns.Clear.GroupLook() or "list"
 end
 
 --- Which SIZES entry the party uses now.
 function Group.PartySize()
-    if Group.Look() == "boxes" then return "box" end
+    local row = Group.ROWS[Group.Look()]
+    if row then return row.size end
     return Group.Kind()
 end
 
 --- The party header's layout attributes for a look: a row grows right, a
 -- list grows up.
 function Group.PartyAttrs(look)
-    if look == "boxes" then
-        return { point = "LEFT", xOffset = U(Group.BOX_GAP), yOffset = 0 }
+    local row = Group.ROWS[look]
+    if row then
+        return { point = "LEFT", xOffset = U(row.gap), yOffset = 0 }
     end
     return { point = "TOP", xOffset = 0, yOffset = -U(Group.GAP) }
 end
@@ -115,12 +124,36 @@ local function IsBox(b)
     return b.__myuiKind ~= "raid" and Group.Look() == "boxes"
 end
 
+local function IsIcon(b)
+    return b.__myuiKind ~= "raid" and Group.Look() == "icons"
+end
+
+--- Class colour on boxes and icons; lists and raid cells keep the palette.
+local function Coloured(b)
+    return IsBox(b) or IsIcon(b)
+end
+
 --- Lay out the inside of one button for its size.
 local function Dress(b)
     local sz = SizeOf(b)
     b.__name:SetFont(ns.Frames.FONT, U(sz.font), "")
     b.__name:ClearAllPoints()
+    b.__role:ClearAllPoints()
     b.__health:ClearAllPoints()
+    b.__name:Show()
+    if b.__health.SetOrientation then b.__health:SetOrientation("HORIZONTAL") end
+    if IsIcon(b) then
+        -- The whole square fills from the bottom, inside a hairline so the
+        -- hover and target edges still show; no name, the role on top.
+        local px = Scale.Hairline()
+        b.__health:SetPoint("TOPLEFT", b, "TOPLEFT", px, -px)
+        b.__health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -px, px)
+        if b.__health.SetOrientation then b.__health:SetOrientation("VERTICAL") end
+        b.__name:Hide()
+        b.__role:SetSize(U(10), U(10))
+        b.__role:SetPoint("TOPLEFT", b, "TOPLEFT", U(1), -U(1))
+        return
+    end
     b.__health:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
     b.__health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", 0, 0)
     b.__health:SetHeight(U(sz.bar))
@@ -181,8 +214,14 @@ function Group.Style(b, kind)
     b:HookScript("OnEnter", function(self) self.__hovered = true; Group.PaintBorder(self) end)
     b:HookScript("OnLeave", function(self) self.__hovered = false; Group.PaintBorder(self) end)
 
-    b.__role = b:CreateTexture(nil, "ARTWORK")
-    b.__name = ns.Frames.Text(b, 11, "textPrimary", "LEFT")
+    -- Role and name on a layer over the health: an icon's health fills the
+    -- whole square, and a child frame draws over its parent's textures.
+    local top = CreateFrame("Frame", nil, b)
+    top:SetAllPoints(b)
+    if top.SetFrameLevel and health.GetFrameLevel then top:SetFrameLevel((health:GetFrameLevel() or 0) + 1) end
+    b.__top = top
+    b.__role = top:CreateTexture(nil, "ARTWORK")
+    b.__name = ns.Frames.Text(top, 11, "textPrimary", "LEFT")
     if b.__name.SetWordWrap then b.__name:SetWordWrap(false) end
 
     Dress(b)
@@ -211,7 +250,7 @@ end
 function Group.PaintClass(b)
     if not b.__fill then return end
     local r, g, bb
-    if IsBox(b) then r, g, bb = Group.ClassColour(b:GetAttribute("unit")) end
+    if Coloured(b) then r, g, bb = Group.ClassColour(b:GetAttribute("unit")) end
     if r then
         b.__fill:SetColorTexture(r, g, bb)
     else
@@ -379,9 +418,10 @@ end
 -- so hover finds it where the party is.
 function Group.FrameSize()
     if not Group.frame then return end
-    if Group.Look() == "boxes" then
-        local sz = Group.SIZES.box
-        Group.frame:SetSize(U(sz.w * 5 + Group.BOX_GAP * 4), U(sz.h))
+    local row = Group.ROWS[Group.Look()]
+    if row then
+        local sz = Group.SIZES[row.size]
+        Group.frame:SetSize(U(sz.w * 5 + row.gap * 4), U(sz.h))
     else
         local sz = Group.SIZES.healer
         Group.frame:SetSize(U(sz.w), U(sz.h * 5 + Group.GAP * 4))
@@ -396,16 +436,24 @@ function Group.Resize()
     Group.resizePending = false
     Group.FrameSize()
     local pw, ph = SizeAttrs(Group.SIZES[Group.PartySize()])
-    Group.party:SetAttribute("unitWidth", pw)
-    Group.party:SetAttribute("unitHeight", ph)
-    for k, v in pairs(Group.PartyAttrs(Group.Look())) do Group.party:SetAttribute(k, v) end
+    -- Charon play: list to boxes drew a descending stair until /reload. The
+    -- header anchors each button by the new point but leaves the old one in
+    -- place, so every button is cleared first, and the point set last: the
+    -- header lays its buttons out again on each attribute it is given.
     for _, b in ipairs(Group.buttons) do
         if b.__myuiKind == "party" then
+            b:ClearAllPoints()
             b:SetSize(pw, ph)
             Dress(b)
             Group.PaintClass(b)
         end
     end
+    Group.party:SetAttribute("unitWidth", pw)
+    Group.party:SetAttribute("unitHeight", ph)
+    local attrs = Group.PartyAttrs(Group.Look())
+    Group.party:SetAttribute("xOffset", attrs.xOffset)
+    Group.party:SetAttribute("yOffset", attrs.yOffset)
+    Group.party:SetAttribute("point", attrs.point)
     return true
 end
 

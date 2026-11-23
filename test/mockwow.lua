@@ -199,7 +199,11 @@ function M.frame(spec)
         return group
     end
 
-    f.CreateTexture    = function(...) return M.frame({ objectType = "Texture" }) end
+    f.CreateTexture    = function(...)
+        local t = M.frame({ objectType = "Texture" })
+        t.__parent = f
+        return t
+    end
     f.CreateMaskTexture = function(...) return M.frame({ objectType = "MaskTexture" }) end
     f.CreateFontString = function(...) return M.frame({ objectType = "FontString" }) end
 
