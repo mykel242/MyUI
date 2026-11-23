@@ -5234,6 +5234,17 @@ do
         local ok, text = pcall(Dev.Under)
         return ok and text:find("<secret>", 1, true) ~= nil
     end)())
+    -- Charon play: asking a forbidden frame for its parent errors.
+    local inner = mock.frame({ name = "InnerRegion" })
+    local locked = mock.frame({ name = "LockedFrame" })
+    locked.IsForbidden = function() return true end
+    locked.GetParent = function() error("Attempt to access forbidden object") end
+    inner.GetParent = function() return locked end
+    mock.mouseFoci = { inner }
+    check("  and stops at a forbidden frame instead of asking it for its parent", (function()
+        local ok, text = pcall(Dev.Under)
+        return ok and text:find("not MyUI's", 1, true) ~= nil
+    end)())
     mock.mouseFoci = {}
     check("  or that it is the world", Dev.Under():find("the world", 1, true) ~= nil)
 

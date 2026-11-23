@@ -170,8 +170,13 @@ function Dev.Under()
     local owner, cur, depth = nil, top, 0
     while cur and depth < 10 do
         if byFrame[cur] then owner = byFrame[cur] break end
-        if type(cur.GetParent) ~= "function" then break end
-        cur = cur:GetParent()
+        -- Charon play: some of Blizzard's frames are forbidden to addon
+        -- code, and asking one for its parent errors. Stop there.
+        local okF, forbidden = pcall(function() return cur:IsForbidden() end)
+        if okF and forbidden then break end
+        local ok, parent = pcall(function() return cur:GetParent() end)
+        if not ok then break end
+        cur = parent
         depth = depth + 1
     end
     local name = Named(top) or (owner and "part of " .. owner.name) or "<unnamed>"
