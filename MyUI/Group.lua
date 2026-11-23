@@ -436,23 +436,33 @@ function Group.Resize()
     Group.resizePending = false
     Group.FrameSize()
     local pw, ph = SizeAttrs(Group.SIZES[Group.PartySize()])
-    -- Charon play: list to boxes drew a descending stair until /reload. The
-    -- header anchors each button by the new point but leaves the old one in
-    -- place, so every button is cleared first, and the point set last: the
-    -- header lays its buttons out again on each attribute it is given.
+    -- Charon play: list to boxes (and to icons) drew a descending stair
+    -- until /reload. The header lays its buttons out again on every
+    -- attribute it is given and never clears their anchors -- so each
+    -- attribute set before the point re-anchored them the OLD way (top to
+    -- bottom), and the new point added left-to-right on top: down and right.
+    -- Everything but the point first, then clear every button, then the
+    -- point, whose layout is the only one left standing.
     for _, b in ipairs(Group.buttons) do
         if b.__myuiKind == "party" then
-            b:ClearAllPoints()
             b:SetSize(pw, ph)
             Dress(b)
             Group.PaintClass(b)
         end
     end
+    local attrs = Group.PartyAttrs(Group.Look())
     Group.party:SetAttribute("unitWidth", pw)
     Group.party:SetAttribute("unitHeight", ph)
-    local attrs = Group.PartyAttrs(Group.Look())
     Group.party:SetAttribute("xOffset", attrs.xOffset)
     Group.party:SetAttribute("yOffset", attrs.yOffset)
+    -- Only when the point changes: with the same point every layout
+    -- replaces the same anchors, and clearing would leave the buttons with
+    -- none if setting an unchanged attribute did not lay them out again.
+    if Group.party:GetAttribute("point") ~= attrs.point then
+        for _, b in ipairs(Group.buttons) do
+            if b.__myuiKind == "party" then b:ClearAllPoints() end
+        end
+    end
     Group.party:SetAttribute("point", attrs.point)
     return true
 end

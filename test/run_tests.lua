@@ -5023,19 +5023,35 @@ do
     check("  the role drawn over the health", b.__role:GetParent() == b.__top)
     check("  and the group area is five icons wide",
           near(G.frame:GetWidth(), Scale.U(G.SIZES.icon.w * 5 + G.ROWS.icons.gap * 4)))
-    check("switching look clears each button's anchors before the header lays them out again "
-          .. "(Charon play: a descending stair)", (function()
-        local cleared, pointAt
-        for i, c in ipairs(b.__calls) do if c.method == "ClearAllPoints" then cleared = i end end
-        for i = #party.__calls, 1, -1 do
-            local c = party.__calls[i]
-            if c.method == "SetAttribute" and c[1] == "point" then pointAt = i break end
+    -- Charon play (twice): a descending stair. The header lays out on every
+    -- attribute, so the buttons must be cleared after every attribute but
+    -- the point, and the point set last.
+    run("group healer list")      -- from a column to a row: the point changes
+    local order = {}
+    local setAttr, clear = party.SetAttribute, b.ClearAllPoints
+    party.SetAttribute = function(self, k, v) order[#order + 1] = "attr:" .. tostring(k); return setAttr(self, k, v) end
+    b.ClearAllPoints = function(self) order[#order + 1] = "clear"; return clear(self) end
+    run("group healer boxes")
+    party.SetAttribute, b.ClearAllPoints = setAttr, clear
+    check("switching look: every attribute, then the buttons cleared, then the point (no stair)", (function()
+        local n = #order
+        if order[n] ~= "attr:point" or order[n - 1] ~= "clear" then return false, table.concat(order, " ") end
+        for i = 1, n - 2 do
+            if order[i]:find("^attr:") and order[i] ~= "attr:point" then
+                for j = i + 1, n - 1 do if order[j] == "clear" then return true end end
+                return false, table.concat(order, " ")
+            end
         end
-        local lastAttr
-        for i = #party.__calls, 1, -1 do
-            if party.__calls[i].method == "SetAttribute" then lastAttr = party.__calls[i][1] break end
-        end
-        return cleared ~= nil and pointAt ~= nil and lastAttr == "point"
+        return true
+    end)())
+    order = {}
+    party.SetAttribute = function(self, k, v) order[#order + 1] = "attr:" .. tostring(k); return setAttr(self, k, v) end
+    b.ClearAllPoints = function(self) order[#order + 1] = "clear"; return clear(self) end
+    run("group healer icons")
+    party.SetAttribute, b.ClearAllPoints = setAttr, clear
+    check("  and a row to a row keeps the anchors (nothing to clear)", (function()
+        for _, o in ipairs(order) do if o == "clear" then return false end end
+        return order[#order] == "attr:point"
     end)())
     run("group healer list")
     check("  and back to the list, the name returns", b.__name:IsShown())
