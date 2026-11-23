@@ -4920,6 +4920,12 @@ do
     _G.MyUI_Report("up")
     check("  a release before it is saved does not reload, and says so",
           reloaded == 0 and ns.GetOutput():find("still saving", 1, true) ~= nil)
+    check("  as a notification too: chat is hidden behind MyUI's panel", (function()
+        for _, e in ipairs(ns.Log.db.entries) do
+            if tostring(e.name):find("report key again", 1, true) then return true end
+        end
+        return false
+    end)())
     R.shotDriver:Fire("SCREENSHOT_SUCCEEDED")
     local at = ns.db.report.at
     _G.MyUI_Report("down")

@@ -1211,6 +1211,12 @@ function MyUI_Report(keystate)
     if Report.shot and Report.shot.result == "pending" then
         Report.waiting = true
         ns.Print("the screenshot is still saving -- press the report key again to reload")
+        -- Charon play: chat is hidden behind MyUI's panel, so the line above
+        -- went unseen and the report never reached the disk. Said as a
+        -- notification: a toast, or a row in the history while it is open.
+        if ns.Toast and ns.Toast.Add then
+            pcall(ns.Toast.Add, "orange", "Report: press the report key again to save it")
+        end
         return
     end
     Reload()
