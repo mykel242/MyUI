@@ -450,7 +450,7 @@ be summoned. Never for a protected frame.
 | Objective tracker, damage meter, XP bar | **Adopted** (Phase 4 play). Tracker: alpha on its frame only, never the manager |
 | Micro menu; the chat panel's social button | **Adopted** (the social button also answers whispers) |
 | The minimap's own map | **Adopted, and hidden once it settles at 0** — its arrow and blips draw regardless of alpha. Shown again before it fades in |
-| Party and raid frames | **Adopted**; in combat **by role or preference** — `/myui group auto` (healers), `combat`, `hover` |
+| Party and raid frames | **Adopted**; **per role** (tank, healer, DPS): `combat` (default), `hover` or `always` — `/myui group [role] <mode>` (§ 19) |
 | Chat log, tabs, dock, buttons | Adopted now; **stowed** once MyUI's chat view exists. The edit box is freed first |
 | Raid manager tab (`CompactRaidFrameManager`) | **Stowed**, queued out of combat |
 | Minimap, bags | Adopted until replaced; decided when built |
@@ -651,6 +651,22 @@ healer, resized on a spec change out of combat) and the raid grid, on `SecureGro
 with every button made out of combat; click / ctrl-click / right-click as below. Blizzard's party
 and raid frames are hidden outright. Not yet: shift-click pinning, cards, alt-click, dispel dot.
 
+**Per role (2026-11-23).** Each role — tank, healer, DPS (no role reads as DPS) — keeps its own
+**mode** and **look**, per machine (`MyUIDB.clear.groupBy`, `groupLook`):
+
+| | |
+|---|---|
+| `combat` (default) | back in every fight, and on hover or peek |
+| `hover` | never by combat; hover or peek only |
+| `always` | up all the time (the `always` reveal channel, asked again on a role or spec change) |
+| `list` | a column of rows — the healer's default |
+| `boxes` | **five small boxes in a row**, role icon in the corner, name, health in the **class colour** — the tank and DPS default, **an experiment** (Mykel) |
+
+`/myui group` shows all three; `/myui group [tank|healer|dps] <mode or look>` sets one (no role:
+the current one). The old single setting migrates (`auto` was combat for healers only, hover for
+the rest). The class colour is the one place group frames leave the palette; an unreadable class
+falls back to it.
+
 **Click map** — on every frame and every card, shown as a legend on a card:
 
 | Click | Does |
@@ -741,6 +757,24 @@ leaves it, 10 s after opening if the pointer never came, and when combat starts.
 "pinned"), it stays through all of that and comes back open after `/reload`. × always closes and
 unpins. The quest list's rows are left-aligned like the history's; its hover card wears the
 same surface.
+
+**Which chat box, and peek (2026-11-23).** With extras off, Enter opens Blizzard's box. With
+extras on, Enter opens MyUI's box and `/` opens Blizzard's (which runs every slash command — MyUI
+never routes them); Blizzard's box sits at the bottom left, or in the chat panel's footer while the
+panel is open. With the chat panel on, Blizzard's chat window stays down on **peek** as well as on
+whispers (Mykel: "peeking to the blizz chat window is annoying") — `Reveal.UNLESS.peek`.
+
+**The debug log (2026-11-23, `Dev.lua`).** For testers, off unless `/myui dev on`. A left-docked
+panel on the same grid: filters by kind — command (blue), error (orange), reveal (violet), layout
+(green) — newest first, each with its clock time; under the filters, a line naming what is under
+the pointer, the MyUI part that owns it, its alpha and the channels holding it up. Footer: **copy**
+(the shown entries, oldest first, selected in the copy window for Ctrl+C — an addon cannot write
+the clipboard), **clear** (what the filter shows), **report** (the debug report, then a reload);
+left-click a row to copy it whole, right-click clears it. Errors are a command or module that
+failed, a compliance violation, and an action Blizzard blocked for MyUI; while closed, an error
+speaks one toast at most every 30 s and the title counts them. Reveals are claims and releases,
+never the pointer's. Kept (200) in `MyUIDB.devlog` across reloads; it holds what commands printed,
+names included, so the debug report never carries it. MyUI → Show the debug log; `/myui dev`.
 
 **Tooltip.** Blizzard anchors its default tooltip to the HUD Tooltip Edit Mode system's corner, so
 the MyUI layout moves that system (profile key `Tooltip`, bottom-right, growing up; `/myui move

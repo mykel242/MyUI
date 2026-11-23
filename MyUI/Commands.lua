@@ -244,7 +244,7 @@ local COMMANDS = {
     { "panel",        "the dev panel: the toggles as switches (an extra)" },
     { "clear",        "clear the screen (SPEC 11): on | probe -- tests the player-frame filter" },
     { "restore",      "put back everything clearing took" },
-    { "group",        "group frames in combat: combat (default) | auto (healers only) | hover" },
+    { "group",        "group frames per role: [tank|healer|dps] combat (default) | hover | always | list | boxes" },
     { "actions",      "the action bar (probe P5): what each modifier pages to, and the driver" },
     { "pages",        "the pages not in bar 1's place: mini (small, over it; default) | swap (hidden)" },
     { "taint",        "which Blizzard frames MyUI has tainted (Edit Mode, debuffs, cooldown viewers)" },
@@ -265,6 +265,7 @@ local COMMANDS = {
     { "conditionals", "probe which macro conditionals the client's parser knows" },
     { "version",      "build and schema" },
     { "report",       "write a debug report to MyUIDB.report; bind MyUI -> Write a debug report, which also reloads" },
+    { "dev",          "the debug log: toggles | on | off | copy | clear" },
 }
 
 local function Help()
@@ -745,13 +746,30 @@ local HANDLERS = {
     end,
     group        = function(arg)
         local Clear = ns.Clear
-        arg = (arg or ""):lower():gsub("%s+$", "")
-        if arg ~= "" and not Clear.SetGroupMode(arg) then
-            ns.Print(("unknown mode %q -- auto, combat or hover"):format(arg))
-            return
+        local words = {}
+        for w in (arg or ""):lower():gmatch("%S+") do words[#words + 1] = w end
+        local role = Clear.GROUP_ROLE_WORDS[words[1] or ""]
+        if role then table.remove(words, 1) end
+        local word = words[1]
+        if word then
+            if Clear.GROUP_LOOKS[word] then
+                Clear.SetGroupLook(word, role)
+            elseif not Clear.SetGroupMode(word, role) then
+                ns.Print(("unknown %q -- combat, hover, always, or list, boxes"):format(word))
+                return
+            end
+            if ns.Group and ns.Group.Apply and not ns.Group.Apply() and InCombatLockdown() then
+                ns.Print("the new look waits for combat to end")
+            end
         end
-        ns.Print(("group frames: %s -- %s in combat (role %s)"):format(Clear.GroupMode(),
-            Clear.GroupInCombat() and "shown" or "not shown", Clear.Role()))
+        local LABEL = { TANK = "tank", HEALER = "healer", DAMAGER = "dps" }
+        local now = Clear.SettingRole()
+        ns.Print(("group frames, per role (you are %s):"):format(LABEL[now]))
+        for _, r in ipairs(Clear.GROUP_ROLES) do
+            ns.Raw(("  %s %-7s %-7s %s"):format(r == now and ">" or " ", LABEL[r],
+                Clear.GroupMode(r), Clear.GroupLook(r)))
+        end
+        ns.Raw("  /myui group [tank|healer|dps] combat|hover|always|list|boxes")
     end,
     restore      = function()
         local n, needsReload = ns.Clear.Restore()
@@ -988,6 +1006,32 @@ local HANDLERS = {
         end
         ns.Testing.Show(tonumber(arg))
     end,
+    dev          = function(arg)
+        local Dev = ns.Dev
+        arg = (arg or ""):lower():gsub("%s+$", "")
+        if arg == "on" or arg == "off" then
+            ns.db.dev = arg == "on" or nil
+            if arg == "on" then Dev.Build() elseif Dev.IsOpen() then Dev.Close() end
+            ns.Print(("debug log %s"):format(arg))
+            if arg == "on" then ns.Raw("  bind MyUI -> Show the debug log, or /myui dev to open it") end
+            return
+        elseif arg == "copy" then
+            Dev.Copy()
+            return
+        elseif arg == "clear" then
+            local was = Dev.filter
+            Dev.filter = nil
+            local n = Dev.ClearShown()
+            Dev.filter = was
+            ns.Print(("debug log cleared: %d entries"):format(n))
+            return
+        elseif arg ~= "" then
+            ns.Print(("unknown %q -- on, off, copy or clear"):format(arg))
+            return
+        end
+        local ok, err = Dev.Toggle()
+        if ok == false and err then ns.Print(err) end
+    end,
     copy         = function()
         -- Deliberately shows what was captured BEFORE this command ran --
         -- otherwise /myui copy would only ever show itself.
@@ -1022,7 +1066,8 @@ Report.SECTIONS = { "version", "override", "audit", "claims", "sources", "taint"
 
 -- Every binding in Bindings.xml; a test keeps the two in step.
 Report.BINDINGS = { "MYUI_PEEK", "MYUI_REPLY", "MYUI_CENTER", "MYUI_WHAT", "MYUI_ARRANGE",
-                    "MYUI_QUESTS", "MYUI_TALK", "MYUI_SOCIAL", "MYUI_MAP", "MYUI_REPORT" }
+                    "MYUI_QUESTS", "MYUI_TALK", "MYUI_SOCIAL", "MYUI_MAP", "MYUI_REPORT",
+                    "MYUI_DEVLOG" }
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end
@@ -1041,10 +1086,13 @@ local function Environment()
            tostring(Call(_G.GetScreenWidth)), tostring(Call(_G.GetScreenHeight)),
            tostring(ui and Call(ui.GetEffectiveScale, ui))))
     local layout = ns.Clear and Call(ns.Clear.ActiveLayoutName)
-    ns.Raw(("edit mode layout %s, group frames %s, role %s"):format(tostring(layout),
-           tostring(ns.Clear and Call(ns.Clear.GroupMode)), tostring(ns.Clear and Call(ns.Clear.Role))))
+    ns.Raw(("edit mode layout %s, group frames %s %s, role %s"):format(tostring(layout),
+           tostring(ns.Clear and Call(ns.Clear.GroupMode)), tostring(ns.Clear and Call(ns.Clear.GroupLook)),
+           tostring(ns.Clear and Call(ns.Clear.Role))))
     ns.Raw(("extras %s -- off means no history window and toasts for whispers only")
            :format(ns.Extras() and "on" or "off"))
+    ns.Raw(("debug log %s, map %s"):format(ns.Dev and ns.Dev.On() and "on" or "off",
+           tostring(ns.Reveal and Call(ns.Reveal.MapMode))))
     local inInstance, kind = Call(_G.IsInInstance)
     ns.Raw(("in group %s, raid %s, instance %s (%s), combat %s"):format(
         tostring(Call(_G.IsInGroup)), tostring(Call(_G.IsInRaid)), tostring(inInstance),
@@ -1217,6 +1265,9 @@ local function Run(input)
     local ok, err = pcall(HANDLERS[name], rest ~= "" and rest or nil)
     if not ok then
         ns.Print("|cfff26b61" .. tostring(err) .. "|r")
+    end
+    if ns.Dev and ns.Dev.Command then
+        pcall(ns.Dev.Command, name, rest, ns.GetOutput(), not ok and err or nil)
     end
 
     -- Every command is noted, so acceptance steps can wait on the one that

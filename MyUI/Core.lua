@@ -260,6 +260,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             { "action bar",   ns.Actions  },
             -- After clearing: it hides Blizzard's party and raid frames.
             { "group frames", ns.Group    },
+            -- The debug log, a summoned panel like the others (dev only).
+            { "debug log",    ns.Dev      },
             -- Last: brings back any summoned panel left pinned.
             { "summoned panels", ns.Summon },
         }) do
@@ -268,6 +270,7 @@ loader:SetScript("OnEvent", function(self, event, addon)
                 local ok, err = pcall(module.OnLogin)
                 if not ok then
                     ns.Print(label .. " failed to start: " .. tostring(err))
+                    if ns.Dev then ns.Dev.Add("error", label .. " failed to start: " .. tostring(err)) end
                 end
             end
         end

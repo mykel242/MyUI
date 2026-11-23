@@ -74,4 +74,9 @@
     <Binding name="MYUI_REPORT" category="MyUI">
         MyUI_Report()
     </Binding>
+
+    <!-- The debug log, a summoned panel like the others; on with /myui dev on. -->
+    <Binding name="MYUI_DEVLOG" category="MyUI">
+        MyUI_DevLog()
+    </Binding>
 </Bindings>

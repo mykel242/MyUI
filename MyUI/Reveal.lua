@@ -84,6 +84,8 @@ Reveal.CHANNELS = {
     quests  = 1.0,
     -- Round 005: the map on a key (Map.lua) -- the world shows through.
     map     = 0.85,
+    -- 2026-11-23: group frames set to "always" for the current role.
+    always  = 1.0,
 }
 
 -- SPEC.md 4 says "highest claim wins" and says nothing about ties -- but every
@@ -105,7 +107,7 @@ Reveal.CHANNELS = {
 -- debug leads because it is not a SPEC channel at all but a diagnostic
 -- override, and an audit that hid it would be lying about why a frame is lit.
 -- lowhealth slots in directly after it in Phase 4.
-Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "hold", "assign", "quests", "map", "peek", "calm", "cursor" }
+Reveal.PRECEDENCE = { "debug", "lowhealth", "combat", "target", "whisper", "hold", "assign", "quests", "map", "peek", "always", "calm", "cursor" }
 
 -- Which frames a channel may claim. SPEC 4 tabulates triggers but never says
 -- which frames each one reveals; cursor proximity is per-frame by definition
@@ -150,6 +152,7 @@ local SCOPE = {
     -- Round 005: the quest list, opened by its key (Quests.lua).
     quests = { QuestList = true },
     map = { MinimapMap = true },
+    always = { Group = function() return ns.Clear and ns.Clear.GroupAlways() end },
 }
 
 -- ---------------------------------------------------------------------------
@@ -189,6 +192,7 @@ local function Record(entry)
     local log = Reveal.log
     entry.at = Reveal.Now()
     log[#log + 1] = entry
+    if ns.Dev and ns.Dev.On() then ns.Dev.Reveal(entry) end
     if #log > MAX_LOG then
         table.remove(log, 1)
     end
@@ -217,7 +221,19 @@ Reveal.UNLESS = {
         -- The quest list comes on its key or peek, never by passing near it.
         QuestList = function() return true end,
     },
+    -- 2026-11-23 (Mykel: "peeking to the blizz chat window is annoying"):
+    -- with MyUI's chat panel on, peek leaves Blizzard's chat window alone.
+    peek = {
+        Chat = function() return Reveal.TalkActive() end,
+        ChatDock = function() return Reveal.TalkActive() end,
+        ChatButtons = function() return Reveal.TalkActive() end,
+        ChatSocial = function() return Reveal.TalkActive() end,
+    },
 }
+
+function Reveal.TalkActive()
+    return ns.Talk ~= nil and ns.Talk.Active() == true
+end
 
 local function InScope(channel, name)
     local scope = SCOPE[channel]
@@ -575,8 +591,9 @@ local function OnTargetChanged()
 end
 
 --- The calm claim: the minimap, out of combat, when the player asked for it
--- (/myui map calm). The default is peek: the map is on a key. Asked again whenever combat or the setting changes, and
--- after clearing adopts the minimap.
+-- (/myui map calm). The default is peek: the map is on a key. Asked again
+-- whenever combat or the setting changes, and after clearing adopts the
+-- minimap.
 Reveal.MAP_MODES = { calm = true, peek = true }
 
 function Reveal.MapMode()
@@ -591,6 +608,14 @@ function Reveal.Calm()
     else
         Reveal.Release("calm")
     end
+end
+
+--- The always claim: group frames up all the time for a role set to
+-- "always". Scope is decided at claim time, so it is asked again whenever
+-- the role or the setting changes.
+function Reveal.Always()
+    Reveal.Release("always")
+    Reveal.Claim("always")
 end
 
 function Reveal.OnLogin()

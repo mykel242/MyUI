@@ -32,10 +32,14 @@ Group.SIZES = {
     party  = { w = 150, h = 24, font = 11, bar = 3 },
     healer = { w = 200, h = 34, font = 12, bar = 6 },
     raid   = { w = 56,  h = 28, font = 9,  bar = 3 },
+    -- 2026-11-23 (Mykel): five small boxes in a row, role icon and class
+    -- colour -- the tank and DPS default, as an experiment.
+    box    = { w = 64,  h = 40, font = 10, bar = 5 },
 }
 -- Round 004 play: 4 between rows read as one block ("too tight").
 Group.GAP = 8
 Group.RAID_GAP = 4
+Group.BOX_GAP = 6
 Group.PARTY_MAX = 5
 Group.RAID_MAX = 40
 
@@ -64,6 +68,26 @@ function Group.Kind()
     return role == "HEALER" and "healer" or "party"
 end
 
+--- The party's look for the current role: "list" or "boxes" (Clear).
+function Group.Look()
+    return ns.Clear and ns.Clear.GroupLook and ns.Clear.GroupLook() or "list"
+end
+
+--- Which SIZES entry the party uses now.
+function Group.PartySize()
+    if Group.Look() == "boxes" then return "box" end
+    return Group.Kind()
+end
+
+--- The party header's layout attributes for a look: a row grows right, a
+-- list grows up.
+function Group.PartyAttrs(look)
+    if look == "boxes" then
+        return { point = "LEFT", xOffset = U(Group.BOX_GAP), yOffset = 0 }
+    end
+    return { point = "TOP", xOffset = 0, yOffset = -U(Group.GAP) }
+end
+
 -- ---------------------------------------------------------------------------
 -- Unit buttons: dressing (ordinary code, out of combat, at creation)
 -- ---------------------------------------------------------------------------
@@ -84,7 +108,11 @@ local function Remap()
 end
 
 local function SizeOf(b)
-    return Group.SIZES[b.__myuiKind == "raid" and "raid" or Group.Kind()]
+    return Group.SIZES[b.__myuiKind == "raid" and "raid" or Group.PartySize()]
+end
+
+local function IsBox(b)
+    return b.__myuiKind ~= "raid" and Group.Look() == "boxes"
 end
 
 --- Lay out the inside of one button for its size.
@@ -99,6 +127,12 @@ local function Dress(b)
     if b.__myuiKind == "raid" then
         b.__role:Hide()
         b.__name:SetPoint("TOPLEFT", b, "TOPLEFT", U(3), -U(3))
+        b.__name:SetPoint("RIGHT", b, "RIGHT", -U(2), 0)
+    elseif IsBox(b) then
+        -- Role icon in the corner, the name under it, health along the foot.
+        b.__role:SetSize(U(sz.font + 2), U(sz.font + 2))
+        b.__role:SetPoint("TOPLEFT", b, "TOPLEFT", U(3), -U(3))
+        b.__name:SetPoint("TOPLEFT", b.__role, "BOTTOMLEFT", 0, -U(2))
         b.__name:SetPoint("RIGHT", b, "RIGHT", -U(2), 0)
     else
         b.__role:SetSize(U(sz.font + 2), U(sz.font + 2))
@@ -127,7 +161,7 @@ function Group.Style(b, kind)
     fill:SetColorTexture(Palette.Get("fill"))
     health:SetStatusBarTexture(fill)
     health:SetValue(1)
-    b.__health = health
+    b.__health, b.__fill = health, fill
 
     -- Round 004 play (Mykel): a 1 px border while the pointer is over a
     -- member. Display only, hooked -- the button's secure click is untouched.
@@ -152,6 +186,7 @@ function Group.Style(b, kind)
     if b.__name.SetWordWrap then b.__name:SetWordWrap(false) end
 
     Dress(b)
+    Group.PaintClass(b)
     b:HookScript("OnAttributeChanged", function(self, name)
         if name == "unit" then
             Remap()
@@ -159,6 +194,29 @@ function Group.Style(b, kind)
         end
     end)
     Group.buttons[#Group.buttons + 1] = b
+end
+
+--- The class colour of a unit, or nil when it cannot be read plainly.
+function Group.ClassColour(unit)
+    if not unit or not _G.UnitClass then return nil end
+    local ok, _, class = pcall(_G.UnitClass, unit)
+    if not ok or class == nil or ns.Compat.IsSecret(class) then return nil end
+    local c = _G.RAID_CLASS_COLORS and _G.RAID_CLASS_COLORS[class]
+    if type(c) ~= "table" or type(c.r) ~= "number" then return nil end
+    return c.r, c.g, c.b
+end
+
+--- Boxes fill their health in the member's class colour; lists and raid
+-- cells keep the palette's fill (SPEC 7).
+function Group.PaintClass(b)
+    if not b.__fill then return end
+    local r, g, bb
+    if IsBox(b) then r, g, bb = Group.ClassColour(b:GetAttribute("unit")) end
+    if r then
+        b.__fill:SetColorTexture(r, g, bb)
+    else
+        b.__fill:SetColorTexture(Palette.Get("fill"))
+    end
 end
 
 --- The border: amber while this member is your target (round 004's "gold
@@ -204,6 +262,7 @@ function Group.UpdateButton(b)
     local curves = ns.Bars and ns.Bars.curves
     local v = curves and Guard.HealthThrough(unit, curves.frac)
     if v ~= nil then Guard.Send(b.__health, "SetValue", v) end
+    Group.PaintClass(b)
     if b.__myuiKind ~= "raid" then
         local role = _G.UnitGroupRolesAssigned and _G.UnitGroupRolesAssigned(unit)
         local atlas = ROLE_ATLAS[role]
@@ -264,17 +323,18 @@ function Group.Build()
 
     local frame = CreateFrame("Frame", "MyUIGroup", UIParent)
     frame:SetFrameStrata(ns.Frames.STRATA or "MEDIUM")
-    frame:SetSize(U(Group.SIZES.healer.w), U(Group.SIZES.healer.h * 5 + Group.GAP * 4))
     Group.frame = frame
+    Group.FrameSize()
     Group.Place()
 
-    local pw, ph = SizeAttrs(Group.SIZES[Group.Kind()])
-    local party = Header("MyUIPartyHeader", frame, "party", {
+    local pw, ph = SizeAttrs(Group.SIZES[Group.PartySize()])
+    local attrs = {
         showParty = true, showPlayer = true, showRaid = false, showSolo = false,
-        point = "TOP", yOffset = -U(Group.GAP),
         groupBy = "ASSIGNEDROLE", groupingOrder = "TANK,HEALER,DAMAGER,NONE",
         unitWidth = pw, unitHeight = ph,
-    })
+    }
+    for k, v in pairs(Group.PartyAttrs(Group.Look())) do attrs[k] = v end
+    local party = Header("MyUIPartyHeader", frame, "party", attrs)
     -- The header sizes itself to its rows; anchored by the bottom, it grows up.
     party:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, 0)
 
@@ -315,19 +375,47 @@ function Group.Place()
     return true
 end
 
---- A role change (spec swap) resizes the party list -- out of combat only.
+--- The group area's size: room for five of whatever the party looks like,
+-- so hover finds it where the party is.
+function Group.FrameSize()
+    if not Group.frame then return end
+    if Group.Look() == "boxes" then
+        local sz = Group.SIZES.box
+        Group.frame:SetSize(U(sz.w * 5 + Group.BOX_GAP * 4), U(sz.h))
+    else
+        local sz = Group.SIZES.healer
+        Group.frame:SetSize(U(sz.w), U(sz.h * 5 + Group.GAP * 4))
+    end
+end
+
+--- A role change (spec swap) or a new look resizes the party -- out of
+-- combat only; a change in combat waits for it to end.
 function Group.Resize()
-    if not Group.party or InCombatLockdown() then return false end
-    local pw, ph = SizeAttrs(Group.SIZES[Group.Kind()])
+    if not Group.party then return false end
+    if InCombatLockdown() then Group.resizePending = true return false end
+    Group.resizePending = false
+    Group.FrameSize()
+    local pw, ph = SizeAttrs(Group.SIZES[Group.PartySize()])
     Group.party:SetAttribute("unitWidth", pw)
     Group.party:SetAttribute("unitHeight", ph)
+    for k, v in pairs(Group.PartyAttrs(Group.Look())) do Group.party:SetAttribute(k, v) end
     for _, b in ipairs(Group.buttons) do
         if b.__myuiKind == "party" then
             b:SetSize(pw, ph)
             Dress(b)
+            Group.PaintClass(b)
         end
     end
     return true
+end
+
+--- After a role or setting change: the size and look, and whether the
+-- always claim reaches the group frames now.
+function Group.Apply()
+    local done = Group.Resize()
+    Group.Refresh()
+    if ns.Reveal and ns.Reveal.Always then ns.Reveal.Always() end
+    return done
 end
 
 -- ---------------------------------------------------------------------------
@@ -857,9 +945,9 @@ function Group.Start()
         elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH" or event == "UNIT_NAME_UPDATE"
            or event == "UNIT_CONNECTION" then
             Group.UpdateUnit(unit)
-        elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "PLAYER_REGEN_ENABLED" then
-            Group.Resize()
-            Group.Refresh()
+        elseif event == "PLAYER_SPECIALIZATION_CHANGED" or event == "PLAYER_REGEN_ENABLED"
+            or event == "PLAYER_ROLES_ASSIGNED" then
+            Group.Apply()
             if Group.splitPending then Group.UpdateSplit() end
             if Group.petBarPending then Group.LayoutPetBar() end
         else
@@ -870,7 +958,7 @@ function Group.Start()
     Group.UpdateSplit()
     Group.UpdatePet()
     Group.UpdateFocus()
-    ns.Reveal.Resolve()
+    ns.Reveal.Always()
     ns.Reveal.Snap()
     return true
 end

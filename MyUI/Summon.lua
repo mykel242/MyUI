@@ -284,7 +284,9 @@ function Summon.PaintFilters(frame, counts, chosen)
 end
 
 --- The footer: the panel's action at the left, "+N more" / "fewer" at the
--- right. Either may be absent. Returns { action, more }.
+-- right. Either may be absent. actionText may instead be a list of
+-- { text, onClick } for several actions in a row (the debug log's copy,
+-- clear, report). Returns { action, actions, more }.
 function Summon.Footer(frame, actionText, onAction, onMore)
     local f = {}
     local function Button(justify)
@@ -298,7 +300,21 @@ function Summon.Footer(frame, actionText, onAction, onMore)
     f.line = Hairline(frame, "trough")
     f.line:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", 0, U(Summon.FOOTER_H + 4))
     f.line:SetPoint("BOTTOMRIGHT", frame, "BOTTOMRIGHT", 0, U(Summon.FOOTER_H + 4))
-    if onAction then
+    if type(actionText) == "table" then
+        f.actions = {}
+        local x = Summon.PAD
+        for _, a in ipairs(actionText) do
+            local b = Button("LEFT")
+            b:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", U(x), U(6))
+            b:SetWidth(U(48))
+            b.text:SetText(a[1])
+            local fn = a[2]
+            b:SetScript("OnClick", function() fn() end)
+            f.actions[#f.actions + 1] = b
+            x = x + 48 + Summon.GAP
+        end
+        f.action = f.actions[1]
+    elseif onAction then
         f.action = Button("LEFT")
         f.action:SetPoint("BOTTOMLEFT", frame, "BOTTOMLEFT", U(Summon.PAD), U(6))
         f.action:SetWidth(U(Summon.WIDTH * 0.6))
@@ -342,6 +358,7 @@ function Summon.Mouse(frame, on)
     local f = frame.__footer
     if f then
         if f.action then f.action:EnableMouse(on) end
+        for _, b in ipairs(f.actions or {}) do b:EnableMouse(on) end
         if f.more then f.more:EnableMouse(on) end
     end
 end

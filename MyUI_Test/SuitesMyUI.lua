@@ -440,11 +440,14 @@ T.Suite("myui-clear", {
               return #missing == 0, #missing == 0 and "all at 0" or ("not at 0: " .. table.concat(missing, ", "))
           end },
         { id = "peek-reveals", shot = false,
-          what = "Peek summons them.",
+          what = "Peek summons them -- all but Blizzard's chat window while MyUI's chat panel is on.",
           setup = function(api) api.ns().Reveal.Claim("peek") end,
           check = function(api)
-              return Target(api, "Chat") == 1 and Target(api, "Minimap") == 1,
-                     ("chat %s, minimap %s"):format(tostring(Target(api, "Chat")), tostring(Target(api, "Minimap")))
+              local talk = api.ns().Reveal.TalkActive()
+              local chat = Target(api, "Chat")
+              return chat == (talk and 0 or 1) and Target(api, "Minimap") == 1,
+                     ("chat %s (panel %s), minimap %s"):format(tostring(chat), talk and "on" or "off",
+                                                              tostring(Target(api, "Minimap")))
           end,
           teardown = function(api) api.ns().Reveal.Release("peek") end },
         { id = "whisper-reveals-chat", shot = false,

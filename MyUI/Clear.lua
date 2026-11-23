@@ -496,12 +496,24 @@ function Clear.ActiveLayoutName()
 end
 
 -- ---------------------------------------------------------------------------
--- Group frames in combat: by role or by preference
+-- Group frames: when they come back, and how they look -- per role
 -- ---------------------------------------------------------------------------
--- "auto" (default): a healer's group frames come back in combat; everyone
--- else summons them by hover or peek. "combat" and "hover" pin it.
+-- 2026-11-23 (Mykel): one setting per machine did not fit -- a healer and a
+-- tank want different things. Each role keeps its own:
+--   mode   "combat" (default): back in every fight, and on hover or peek.
+--          "hover": never by combat, only on hover or peek.
+--          "always": up all the time.
+--   look   "list": a column of rows (the healer's default, SPEC 19).
+--          "boxes": five small boxes in a row, role icon and class colour
+--          (tank and DPS default; Mykel: "worth an experiment").
+-- The old single setting migrates: "auto" meant combat for healers only.
 
-Clear.GROUP_MODES = { auto = true, combat = true, hover = true }
+Clear.GROUP_MODES = { combat = true, hover = true, always = true }
+Clear.GROUP_LOOKS = { list = true, boxes = true }
+Clear.GROUP_ROLES = { "TANK", "HEALER", "DAMAGER" }
+Clear.GROUP_ROLE_WORDS = { tank = "TANK", healer = "HEALER", heal = "HEALER",
+                           dps = "DAMAGER", damage = "DAMAGER", damager = "DAMAGER" }
+Clear.GROUP_DEFAULT_LOOK = { TANK = "boxes", HEALER = "list", DAMAGER = "boxes" }
 
 function Clear.IsHunter()
     if not _G.UnitClass then return false end
@@ -518,24 +530,69 @@ function Clear.Role()
     return role or "NONE"
 end
 
-function Clear.GroupMode()
-    local m = DB().group
-    -- Round 004 play (Mykel): group frames in every fight, not only a
-    -- healer's. "auto" stays available.
+--- The role whose settings apply: no role reads as DPS.
+local function SettingRole(role)
+    role = role or Clear.Role()
+    if role ~= "TANK" and role ~= "HEALER" then role = "DAMAGER" end
+    return role
+end
+Clear.SettingRole = SettingRole
+
+--- The per-role table, migrated from the old single setting on first use.
+local function GroupDB()
+    local db = DB()
+    if type(db.groupBy) ~= "table" then
+        local old = db.group
+        local by = {}
+        if old == "auto" then
+            by = { TANK = "hover", HEALER = "combat", DAMAGER = "hover" }
+        elseif Clear.GROUP_MODES[old] then
+            by = { TANK = old, HEALER = old, DAMAGER = old }
+        end
+        db.groupBy = by
+        db.group = nil
+    end
+    if type(db.groupLook) ~= "table" then db.groupLook = {} end
+    return db
+end
+
+function Clear.GroupMode(role)
+    local m = GroupDB().groupBy[SettingRole(role)]
     return Clear.GROUP_MODES[m] and m or "combat"
+end
+
+function Clear.GroupLook(role)
+    role = SettingRole(role)
+    local l = GroupDB().groupLook[role]
+    return Clear.GROUP_LOOKS[l] and l or Clear.GROUP_DEFAULT_LOOK[role]
 end
 
 function Clear.GroupInCombat()
     local m = Clear.GroupMode()
-    if m == "combat" then return true end
-    if m == "hover" then return false end
-    return Clear.Role() == "HEALER"
+    return m == "combat" or m == "always"
 end
 
-function Clear.SetGroupMode(m)
+function Clear.GroupAlways()
+    return Clear.GroupMode() == "always"
+end
+
+--- Set one role's mode, or (no role) the current role's. "auto" is the old
+-- shorthand: combat for healers, hover for the rest. Returns the mode set.
+function Clear.SetGroupMode(m, role)
+    local db = GroupDB()
+    if m == "auto" and not role then
+        db.groupBy.TANK, db.groupBy.HEALER, db.groupBy.DAMAGER = "hover", "combat", "hover"
+        return m
+    end
     if not Clear.GROUP_MODES[m] then return nil end
-    DB().group = m
+    db.groupBy[SettingRole(role)] = m
     return m
+end
+
+function Clear.SetGroupLook(l, role)
+    if not Clear.GROUP_LOOKS[l] then return nil end
+    GroupDB().groupLook[SettingRole(role)] = l
+    return l
 end
 
 --- Hide every action bar that has a visibility setting, and
@@ -891,7 +948,18 @@ end
 -- account everywhere, and MyUI used to select its own on every spec it met.
 -- `use` is the player saying yes on this spec (/myui layout use); choosing
 -- another layout in Edit Mode is the player saying no.
+local ApplyLayout
+--- ApplyLayout, noted in the debug log (Dev.lua) whatever it decides.
 function Clear.ApplyLayout(use)
+    local a, b = ApplyLayout(use)
+    if ns.Dev then
+        ns.Dev.Add("layout", ("layout %s: %s"):format(use and "use" or "check",
+            a == nil and tostring(b) or (tostring(a) .. " setting(s) changed")))
+    end
+    return a, b
+end
+
+function ApplyLayout(use)
     if not _G.C_EditMode or not _G.C_EditMode.GetLayouts then return nil, "no C_EditMode" end
     local E = _G.Enum
     local info = C_EditMode.GetLayouts()

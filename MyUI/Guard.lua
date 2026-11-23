@@ -73,6 +73,7 @@ end
 local function Violation(message)
     local full = message .. "\n    " .. RULES
     Record(message)
+    if ns.Dev and ns.Dev.Add then pcall(ns.Dev.Add, "error", "compliance: " .. message) end
     if Guard.mode == "strict" then
         error("MyUI compliance violation: " .. full, 3)
     end

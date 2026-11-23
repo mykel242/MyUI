@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 33, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 34, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -3006,8 +3006,19 @@ do
           or _G.ChatFrame1EditBox == nil)
     check("applying twice adopts nothing new", Clear.Apply() == 0)
 
+    local talkOn = ns.Talk.enabled
+    ns.Talk.enabled = false
     Reveal.Claim("peek")
     check("peek reveals them", Registry.Get("Minimap").target == 1 and Registry.Get("Chat").target == 1)
+    Reveal.Release("peek")
+    ns.Talk.enabled = true
+    Reveal.Claim("peek")
+    check("  but with MyUI's chat panel on, not Blizzard's chat window (Mykel: \"annoying\")",
+          Registry.Get("Minimap").target == 1 and Registry.Get("Chat").target == 0
+          and Registry.Get("ChatDock").target == 0 and Registry.Get("ChatButtons").target == 0)
+    Reveal.Release("peek")
+    ns.Talk.enabled = talkOn
+    Reveal.Claim("peek")
     Reveal.Release("peek")
     check("  and they settle back to 0", Registry.Get("Minimap").target == 0)
 
@@ -3060,10 +3071,10 @@ do
     check("  something you can attack brings them all", Registry.Get("WingCooldowns").target == 1
           and Registry.Get("Debuffs").target == 1)
     Reveal.Release("target")
-    run("group combat")
+    run("group dps combat")
     _G.UnitGroupRolesAssigned = function() return "DAMAGER" end
     Reveal.Claim("combat")
-    check("  or pinned to combat, whatever the role", Registry.Get("Group").target == 1)
+    check("  or set to combat for that role", Registry.Get("Group").target == 1)
     run("group auto")
     _G.UnitGroupRolesAssigned = nil
     Reveal.Release("combat")
@@ -3869,7 +3880,9 @@ do
         return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(224))
            and near(y, Scale.U(176)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
     end)())
-    check("rows 8 apart", near(party:GetAttribute("yOffset"), -Scale.U(8)))
+    check("a DPS gets five boxes in a row by default (the experiment)", ns.Clear.GroupLook() == "boxes"
+          and party:GetAttribute("point") == "LEFT" and near(party:GetAttribute("xOffset"), Scale.U(G.BOX_GAP))
+          and near(party:GetAttribute("unitWidth"), Scale.U(G.SIZES.box.w)))
 
     -- The engine making a unit button: CONFIG in the restricted environment,
     -- then the child attribute the header sets.
@@ -4890,6 +4903,180 @@ do
     run("report")
     ns.readOnlyDB = nil
     check("a newer build's saved data is not written to", ns.db.report == nil)
+end
+
+-- ---------------------------------------------------------------------------
+section("Group frames per role (2026-11-23)")
+-- ---------------------------------------------------------------------------
+do
+    local Clear, G, Reveal = ns.Clear, ns.Group, ns.Reveal
+    local db = ns.db.clear
+    local savedBy, savedLook, savedOld = db.groupBy, db.groupLook, db.group
+    db.groupBy, db.groupLook, db.group = nil, nil, "auto"
+    check("the old single setting migrates: auto was combat for healers only",
+          Clear.GroupMode("TANK") == "hover" and Clear.GroupMode("HEALER") == "combat"
+          and Clear.GroupMode("DAMAGER") == "hover" and db.group == nil)
+    db.groupBy, db.groupLook = nil, nil
+    check("  and with nothing saved, every role is combat", Clear.GroupMode("TANK") == "combat"
+          and Clear.GroupMode("HEALER") == "combat" and Clear.GroupMode("DAMAGER") == "combat")
+    check("  healers get the list, tanks and DPS the boxes", Clear.GroupLook("HEALER") == "list"
+          and Clear.GroupLook("TANK") == "boxes" and Clear.GroupLook("DAMAGER") == "boxes")
+    check("no role reads as DPS", Clear.SettingRole("NONE") == "DAMAGER")
+
+    run("group tank always")
+    run("group healer hover")
+    check("each role keeps its own mode", Clear.GroupMode("TANK") == "always"
+          and Clear.GroupMode("HEALER") == "hover" and Clear.GroupMode("DAMAGER") == "combat")
+    ns.ClearOutput()
+    run("group")
+    local out = ns.GetOutput()
+    check("/myui group lists all three roles", out:find("tank", 1, true) and out:find("healer", 1, true)
+          and out:find("dps", 1, true) and out:find("always", 1, true))
+    run("group nonsense")
+    check("  and refuses a word it does not know", ns.GetOutput():find("unknown", 1, true) ~= nil)
+
+    _G.UnitGroupRolesAssigned = function() return "TANK" end
+    G.events:Fire("PLAYER_ROLES_ASSIGNED")
+    check("always: a tank's group frames are up out of combat", Registry.Get("Group").target == 1
+          and Reveal.HasClaim("always", "Group"))
+    run("group tank hover")
+    check("  and down again when set to hover", Registry.Get("Group").target == 0
+          and not Reveal.HasClaim("always", "Group"))
+    run("group always")
+    check("a bare mode sets the current role's", Clear.GroupMode("TANK") == "always"
+          and Registry.Get("Group").target == 1)
+    _G.UnitGroupRolesAssigned = function() return "HEALER" end
+    G.events:Fire("PLAYER_SPECIALIZATION_CHANGED")
+    check("  and a spec swap to a role that is not always drops it", Registry.Get("Group").target == 0)
+
+    local party = G.party
+    check("a healer's party is the list", party:GetAttribute("point") == "TOP"
+          and near(party:GetAttribute("unitWidth"), Scale.U(G.SIZES.healer.w)))
+    run("group healer boxes")
+    check("  until set to boxes", party:GetAttribute("point") == "LEFT"
+          and near(party:GetAttribute("unitHeight"), Scale.U(G.SIZES.box.h))
+          and near(G.frame:GetWidth(), Scale.U(G.SIZES.box.w * 5 + G.BOX_GAP * 4)))
+
+    local b = mock.frame({ name = "MyUIPartyHeaderUnitButton9", objectType = "Button" })
+    b.__parent = party
+    party:SetAttribute("child9", b)
+    mock.units.party2 = true
+    local wasClass, wasColours, wasName = _G.UnitClass, _G.RAID_CLASS_COLORS, _G.UnitName
+    _G.UnitName = _G.UnitName or function() return "Nimbus" end
+    _G.UnitClass = function() return "Priest", "PRIEST" end
+    _G.RAID_CLASS_COLORS = { PRIEST = { r = 0.9, g = 0.8, b = 0.7 } }
+    b:SetAttribute("unit", "party2")
+    local function lastColour(t)
+        for i = #t.__calls, 1, -1 do
+            if t.__calls[i].method == "SetColorTexture" then return t.__calls[i] end
+        end
+    end
+    check("a box fills its health in the class colour", (function()
+        local c = lastColour(b.__fill)
+        return c and near(c[1], 0.9) and near(c[2], 0.8) and near(c[3], 0.7)
+    end)())
+    run("group healer list")
+    check("  a list row keeps the palette's fill", (function()
+        local c = lastColour(b.__fill)
+        local r = ns.Palette.Get("fill")
+        return c and near(c[1], r)
+    end)())
+    _G.UnitClass = function() return nil, mock.secret and mock.secret("x") or nil end
+    run("group healer boxes")
+    check("  and an unreadable class falls back to the palette", (function()
+        local c = lastColour(b.__fill)
+        return c and near(c[1], (ns.Palette.Get("fill")))
+    end)())
+    _G.UnitClass, _G.RAID_CLASS_COLORS, _G.UnitName = wasClass, wasColours, wasName
+    mock.units.party2 = nil
+    _G.UnitGroupRolesAssigned = nil
+    db.groupBy, db.groupLook, db.group = savedBy, savedLook, savedOld
+    db.groupBy, db.groupLook = nil, nil
+    G.Apply()
+end
+
+-- ---------------------------------------------------------------------------
+section("The debug log (2026-11-23)")
+-- ---------------------------------------------------------------------------
+do
+    local Dev, Reveal = ns.Dev, ns.Reveal
+    ns.db.dev, ns.db.devlog = nil, nil
+    check("off by default: nothing is kept", Dev.Add("command", "x") == nil and #Dev.Entries() == 0)
+    check("  and it will not open", Dev.Open() == false)
+    run("dev on")
+    check("/myui dev on turns it on", Dev.On() and ns.db.dev == true)
+
+    run("version")
+    local e = Dev.Shown()[1]
+    check("a command is noted with what it printed", e and e.kind == "command"
+          and e.text:find("/myui version", 1, true) == 1 and e.text:find(" -- ", 1, true) ~= nil)
+    local n = #Dev.Entries()
+    run("dev")
+    check("  but not its own toggles", #Dev.Entries() == n and Dev.IsOpen())
+
+    Reveal.Claim("peek")
+    Reveal.Release("peek")
+    check("reveal claims and releases are noted", Dev.Shown()[1].text == "release peek"
+          and Dev.Shown()[2].text == "claim peek")
+    local before = #Dev.Entries()
+    Reveal.Claim("cursor", "SelfStack")
+    Reveal.Release("cursor", "SelfStack")
+    check("  but never the pointer's", #Dev.Entries() == before)
+
+    local guardWas = Guard.mode
+    Guard.mode = "warn"
+    Guard.Violation("a test violation")
+    Guard.mode = guardWas
+    check("a compliance violation is an error", Dev.Shown()[1].kind == "error"
+          and Dev.Shown()[1].text:find("a test violation", 1, true) ~= nil)
+    Dev.driver:Fire("ADDON_ACTION_BLOCKED", "MyUI", "CastSpellByName()")
+    Dev.driver:Fire("ADDON_ACTION_BLOCKED", "SomeOtherAddon", "Jump()")
+    check("Blizzard blocking MyUI is an error; another addon's block is not ours",
+          Dev.Shown()[1].text == "Blizzard blocked MyUI: CastSpellByName()")
+    Dev.driver:Fire("EDIT_MODE_LAYOUTS_UPDATED")
+    check("layout changes are noted", Dev.Shown()[1].kind == "layout")
+
+    Dev.filter = "error"
+    local shown = Dev.Shown()
+    check("the filter shows one kind", #shown == 2 and shown[1].kind == "error" and shown[2].kind == "error")
+    check("  and the panel's title says which", Dev.panel.__header.title:GetText() ~= nil)
+    Dev.Refresh()
+    check("  copy holds just what is shown, oldest first", (function()
+        local t = Dev.Text()
+        local a, b2 = t:find("violation", 1, true), t:find("CastSpellByName", 1, true)
+        return a and b2 and a < b2 and t:find("version", 1, true) == nil
+    end)())
+    Dev.Copy()
+    check("  in the copy window, selected", ns.Copy.IsShown())
+    ns.Copy.Hide()
+    local total = #Dev.Entries()
+    check("clear empties what the filter shows, and only that", Dev.ClearShown() == 2
+          and #Dev.Entries() == total - 2)
+    Dev.filter = nil
+    Dev.Remove(Dev.Shown()[1])
+    check("a right-click clears one", #Dev.Entries() == total - 3)
+
+    local f = Dev.panel.__footer
+    check("the footer: copy, clear, report, on the shared grid", f.actions and #f.actions == 3
+          and f.actions[1].text:GetText() == "copy" and f.actions[3].text:GetText() == "report")
+    check("docked down the left with the other panels", Dev.summon.dock == "left")
+
+    mock.mouseFoci = { Registry.Get("SelfStack").frame }
+    check("the pointer line names the part and why it is up", Dev.Under():find("SelfStack", 1, true) ~= nil)
+    mock.mouseFoci = {}
+    check("  or that it is the world", Dev.Under():find("the world", 1, true) ~= nil)
+
+    Dev.Close()
+    Dev.unseen = 0
+    Guard.mode = "warn"
+    Guard.Violation("while closed")
+    Guard.mode = guardWas
+    check("an error while closed is counted for the title", Dev.unseen == 1)
+    run("dev clear")
+    check("/myui dev clear empties it", #Dev.Entries() == 0)
+    run("dev off")
+    check("/myui dev off stops keeping anything", not Dev.On() and Dev.Add("command", "x") == nil)
+    Guard.Reset()
 end
 
 -- ---------------------------------------------------------------------------
