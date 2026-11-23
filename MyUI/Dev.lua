@@ -144,8 +144,14 @@ end
 local function Named(region)
     if type(region) ~= "table" then return nil end
     if type(region.IsForbidden) == "function" and region:IsForbidden() then return "<forbidden>" end
-    local ok, name = pcall(function() return region:GetName() end)
-    return ok and name or nil
+    -- Some of Blizzard's frames override GetName with their own meaning (a
+    -- damage meter row returns its name FontString), so only a string counts;
+    -- otherwise the debug name, which every region has.
+    for _, method in ipairs({ "GetName", "GetDebugName" }) do
+        local ok, name = pcall(function() return region[method](region) end)
+        if ok and type(name) == "string" and name ~= "" then return name end
+    end
+    return nil
 end
 
 function Dev.Under()

@@ -106,7 +106,9 @@ local function Describe(region)
     if type(region) ~= "table" then
         return nil
     end
-    local name = (type(region.GetName) == "function" and region:GetName()) or "<unnamed>"
+    -- Only a string: a damage meter row's GetName returns a FontString.
+    local ok, name = pcall(function() return region:GetName() end)
+    if not ok or type(name) ~= "string" then name = "<unnamed>" end
     local kind = (type(region.GetObjectType) == "function" and region:GetObjectType()) or "?"
     local w, h = 0, 0
     if type(region.GetSize) == "function" then
@@ -124,7 +126,8 @@ local function Ancestry(region, depth)
         if type(cur.GetParent) ~= "function" then break end
         cur = cur:GetParent()
         if not cur then break end
-        out[#out + 1] = (type(cur.GetName) == "function" and cur:GetName()) or "<unnamed>"
+        local ok, name = pcall(function() return cur:GetName() end)
+        out[#out + 1] = (ok and type(name) == "string") and name or "<unnamed>"
         seen = seen + 1
     end
     return out

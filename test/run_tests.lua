@@ -5063,6 +5063,15 @@ do
 
     mock.mouseFoci = { Registry.Get("SelfStack").frame }
     check("the pointer line names the part and why it is up", Dev.Under():find("SelfStack", 1, true) ~= nil)
+    -- Charon play: a damage meter row's GetName returns its name FontString.
+    local row = mock.frame({ name = "MeterRow" })
+    row.GetName = function() return mock.frame({}) end
+    row.GetDebugName = function() return "DamageMeter.Row1" end
+    mock.mouseFoci = { row }
+    check("  even over a frame whose GetName is not a name", (function()
+        local ok, text = pcall(Dev.Under)
+        return ok and text:find("DamageMeter.Row1", 1, true) ~= nil
+    end)())
     mock.mouseFoci = {}
     check("  or that it is the world", Dev.Under():find("the world", 1, true) ~= nil)
 

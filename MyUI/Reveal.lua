@@ -614,8 +614,11 @@ end
 -- "always". Scope is decided at claim time, so it is asked again whenever
 -- the role or the setting changes.
 function Reveal.Always()
-    Reveal.Release("always")
-    Reveal.Claim("always")
+    local want = ns.Clear ~= nil and ns.Clear.GroupAlways() == true
+    -- Only a real change: the debug log showed a release and a claim for
+    -- every /myui group that changed nothing.
+    if want == Reveal.HasClaim("always", "Group") then return end
+    if want then Reveal.Claim("always") else Reveal.Release("always") end
 end
 
 function Reveal.OnLogin()
