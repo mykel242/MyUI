@@ -3878,7 +3878,7 @@ do
     check("right of the target strip, clear of the right wing, growing up; in the registry", (function()
         local p, rel, rp, x, y = G.frame:GetPoint(1)
         local pp = party:GetPoint(1)
-        return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(224))
+        return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(248))
            and near(y, Scale.U(170)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
     end)())
     check("a DPS gets five tiny icons in a row by default", ns.Clear.GroupLook() == "icons"
@@ -4060,6 +4060,11 @@ do
         local _, _, _, fy = L.Pos("Focus")
         return by < sy and sy + 33 <= ty and ty + 49 <= fy and near(fb:GetWidth(), Scale.U(400))
     end)())
+    check("  the party starts well clear of the focus's clear x (Charon play: 2 apart)", (function()
+        local _, _, gx = ns.Layout.Pos("Group")
+        local xRight = ns.Frames.UNIT_W / 2 + 8 + 14     -- the x: 8 past the bar, 14 wide
+        return gx - xRight >= 16, gx - xRight
+    end)())
     check("an x after the focus bar clears it (/clearfocus, a secure macro)", fb.__clear ~= nil
           and fb.__clear:GetAttribute("type") == "macro" and fb.__clear:GetAttribute("macrotext") == "/clearfocus")
     check("the focus drops into the target strip's place with no target, and rises above it with one", (function()
@@ -4157,7 +4162,7 @@ do
     run("move group -10 5")
     check("  and moves the group frames too", (function()
         local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
-        return near(x, Scale.U(214)) and near(yy, Scale.U(175))
+        return near(x, Scale.U(238)) and near(yy, Scale.U(175))
     end)())
     run("spacing padding 8")
     check("/myui spacing padding sets the gap between wing icons", L.Value("iconPadding") == 8)

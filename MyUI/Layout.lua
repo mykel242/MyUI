@@ -41,7 +41,9 @@ Layout.PRESETS = {
         SelfStack   = { "BOTTOM", "BOTTOM", 0, 110 },
         TargetStrip = { "BOTTOM", "BOTTOM", 0, 157 },
         Focus       = { "BOTTOM", "BOTTOM", 0, 220 },
-        Group       = { "BOTTOMLEFT", "BOTTOM", 224, 170 },
+        -- Charon play: at 224 the party icons sat 2 past the focus's clear
+        -- x (focus edge 200, the x 208-222). 26 clear of it now.
+        Group       = { "BOTTOMLEFT", "BOTTOM", 248, 170 },
         -- Blizzard's experience and second status bars, out of the way at
         -- the top edge (round 004 play).
         StatusBars  = { "TOP", "TOP", 0, 0 },
