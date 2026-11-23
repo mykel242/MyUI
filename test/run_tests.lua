@@ -322,9 +322,10 @@ check("the three SPEC 2 frames registered (the rail is cut), plus round 004's ac
 local EXPECTED = {
     -- name,        resting, mock w, mock h, anchor,   x,   y
     -- Round 004: positions from the default layout profile ("focus").
-    { "SelfStack",   0.35, 240, 33, "BOTTOM",   0,   24 },   -- grew a text row; under the bar
+    -- 2026-11-23: one stack above the bar, all three the target's width.
+    { "SelfStack",   0.35, 400, 33, "BOTTOM",   0,  110 },   -- grew a text row; over the bar
     { "Cooldowns",   0.25, 240,  4, "TOP",      0,  -18 },
-    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  163 },   -- over bar 1 and its mini page rows
+    { "TargetStrip", 0,    400, 49, "BOTTOM",   0,  157 },   -- over you
 }
 
 for _, e in ipairs(EXPECTED) do
@@ -346,14 +347,14 @@ end
 -- Regression: GetPoint returns five values and Compat.Call used to forward
 -- four, so every anchor read back with y = nil and the audit printed +0.0.
 local ok5, _, _, _, _, y5 = Compat.Call(Registry.Get("SelfStack").frame, "GetPoint", 1)
-check("Compat.Call forwards GetPoint's fifth value", ok5 and near(y5, Scale.U(24)), y5)
+check("Compat.Call forwards GetPoint's fifth value", ok5 and near(y5, Scale.U(110)), y5)
 
 -- ---------------------------------------------------------------------------
 section("Frames -- SelfStack internals")
 -- ---------------------------------------------------------------------------
 
 local stack = Registry.Get("SelfStack").frame
-check("health bar is 240 x 4", near(stack.health:GetWidth(), Scale.U(240))
+check("health bar is 400 x 4 (the target's width)", near(stack.health:GetWidth(), Scale.U(400))
       and near(stack.health:GetHeight(), Scale.U(4)))
 check("resource bar is 240 x 2", near(stack.resource:GetHeight(), Scale.U(2)))
 check("cast bar is 240 x 4", near(stack.cast:GetHeight(), Scale.U(4)))
@@ -396,9 +397,9 @@ end)())
 -- two checks are what proves the geometry says so.
 local _, _, _, t20 = stack.tick20:GetPoint(1)
 local _, _, _, t40 = stack.tick40:GetPoint(1)
-check("20% tick sits at x = 48", near(t20, Scale.U(48)), t20)
+check("20% tick sits at x = 80 (of 400)", near(t20, Scale.U(80)), t20)
 check("  which is 20% of the bar", near(t20 / stack.health:GetWidth(), 0.20))
-check("40% tick sits at x = 96", near(t40, Scale.U(96)), t40)
+check("40% tick sits at x = 160 (of 400)", near(t40, Scale.U(160)), t40)
 check("  which is 40% of the bar", near(t40 / stack.health:GetWidth(), 0.40))
 check("ticks are one physical pixel wide",
       near(stack.tick20:GetWidth(), Scale.Hairline()))
@@ -2803,7 +2804,7 @@ do
             for i = #g.__calls, 1, -1 do if g.__calls[i].method == "SetGradient" then found = g.__calls[i] break end end
             if not found or found[1] ~= "HORIZONTAL" or found[3].a ~= 0 then return false end
         end
-        return near(stack.health.danger:GetWidth(), Scale.U(240) * 0.35)
+        return near(stack.health.danger:GetWidth(), Scale.U(400) * 0.35)
     end)())
     check("an idle cast bar is hidden, not an empty band", (function()
         Bars.UpdateCast()
@@ -3516,7 +3517,7 @@ do
     check("  centred, low on the screen", (function()
         local p, rel, rp, x, y = header:GetPoint(1)
         return p == "BOTTOM" and rel == UIParent and rp == "BOTTOM" and x == 0
-           and near(y * A.Scale(), Scale.U(76))
+           and near(y * A.Scale(), Scale.U(24))      -- 2026-11-23: at the foot
     end)())
     check("  buttons kept at Blizzard's 45, the bar scaled to SPEC's 44 (glows stay centred)", (function()
         local w, h = b1:GetSize()
@@ -3878,7 +3879,7 @@ do
         local p, rel, rp, x, y = G.frame:GetPoint(1)
         local pp = party:GetPoint(1)
         return p == "BOTTOMLEFT" and rel == UIParent and rp == "BOTTOM" and near(x, Scale.U(224))
-           and near(y, Scale.U(176)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
+           and near(y, Scale.U(170)) and pp == "BOTTOMLEFT" and Registry.Get("Group") ~= nil
     end)())
     check("a DPS gets five tiny icons in a row by default", ns.Clear.GroupLook() == "icons"
           and party:GetAttribute("point") == "LEFT" and near(party:GetAttribute("xOffset"), Scale.U(G.ROWS.icons.gap))
@@ -3957,7 +3958,7 @@ do
         local p, rel, rp, x, y = me:GetPoint(1)
         local sp, _, srp, sx, sy = ns.Registry.Get("SelfStack").frame:GetPoint(1)
         return rel == UIParent and p == sp and rp == srp and near(x, sx) and near(y, sy - Scale.U(6))
-           and near(me:GetWidth(), Scale.U(252)) and near(me:GetHeight(), Scale.U(45))
+           and near(me:GetWidth(), Scale.U(412)) and near(me:GetHeight(), Scale.U(45))
     end)())
     local pet = G.petButton
     check("your pet: a strip on a secure button -- click targets it, right-click its menu", pet ~= nil
@@ -3971,17 +3972,17 @@ do
     check("with a pet out, you and it side by side at 45% each, 10% between, in SelfStack's place", (function()
         local _, _, _, sx = stack:GetPoint(1)
         local _, _, _, px = pet:GetPoint(1)
-        local w = Scale.U(240 * 0.45)
+        local w = Scale.U(400 * 0.45)
         return F.split and near(stack:GetWidth(), w) and near(pet:GetWidth(), w)
-           and near(px - sx, Scale.U(240 * 0.55)) and near(sx + px, 0)
+           and near(px - sx, Scale.U(400 * 0.55)) and near(sx + px, 0)
            and near(stack.health:GetWidth(), w)
     end)())
     check("  your 20% and 40% marks stay true to the narrower bar", (function()
         local _, _, _, x20 = stack.tick20:GetPoint(1)
         local _, _, _, x40 = stack.tick40:GetPoint(1)
-        return near(x20, Scale.U(240 * 0.45 * 0.2)) and near(x40, Scale.U(240 * 0.45 * 0.4))
+        return near(x20, Scale.U(400 * 0.45 * 0.2)) and near(x40, Scale.U(400 * 0.45 * 0.4))
     end)())
-    check("  and your clickable bar narrows with it", near(G.selfButton:GetWidth(), Scale.U(240 * 0.45 + 12)))
+    check("  and your clickable bar narrows with it", near(G.selfButton:GetWidth(), Scale.U(400 * 0.45 + 12)))
     Guard.Reset()
     G.events:Fire("UNIT_HEALTH", "pet")
     check("  its health through the curve, its name", (function()
@@ -4037,7 +4038,7 @@ do
     mock.units.pet = nil
     G.events:Fire("UNIT_PET", "player")
     check("no pet: SelfStack gets its full width and place back", not F.split
-          and near(stack:GetWidth(), Scale.U(240)) and select(4, stack:GetPoint(1)) == 0)
+          and near(stack:GetWidth(), Scale.U(400)) and select(4, stack:GetPoint(1)) == 0)
     local tb = G.targetButton
     check("the target strip is clickable: ctrl-click makes your target the focus, right-click its menu",
           tb ~= nil and tb:GetAttribute("unit") == "target" and tb:GetAttribute("ctrl-type1") == "focus"
@@ -4045,6 +4046,29 @@ do
     local fb = G.focusButton
     G.PlaceFocus()   -- the Actions section rebuilt the bar's header since login
     check("the focus strip is labelled FOCUS, like the ALT and CTRL pages", fb.__label:GetText() == "FOCUS")
+    check("  and you and your target are labelled the same way (2026-11-23)",
+          stack.label and stack.label:GetText() == "PLAYER"
+          and Registry.Get("TargetStrip").frame.label:GetText() == "TARGET"
+          and select(2, stack.label:GetPoint(1)) == stack.health
+          and select(2, fb.__label:GetPoint(1)) == fb.__health)
+    check("the default profile is one stack that never overlaps: bar, you, target, focus, each 400 wide",
+          (function()
+        local L = ns.Layout
+        local _, _, _, by = L.Pos("ActionBar")
+        local _, _, _, sy = L.Pos("SelfStack")
+        local _, _, _, ty = L.Pos("TargetStrip")
+        local _, _, _, fy = L.Pos("Focus")
+        return by < sy and sy + 33 <= ty and ty + 49 <= fy and near(fb:GetWidth(), Scale.U(400))
+           and L.Value("focusFixed") == true
+    end)())
+    check("  the focus stays in its own place: no slot driver", G.FocusSlots() == nil and (function()
+        for _, d in ipairs(mock.drivers) do if d.frame == fb and d.state == "slot" then return false end end
+        local p, rel, rp, _, y = fb:GetPoint(1)
+        return p == "BOTTOM" and rel == UIParent and near(y, Scale.U(220))
+    end)())
+    -- The round 004 slots, for a profile that still uses them.
+    ns.Layout.PRESETS.focus.focusFixed = nil
+    G.PlaceFocus()
     check("an x after the focus bar clears it (/clearfocus, a secure macro)", fb.__clear ~= nil
           and fb.__clear:GetAttribute("type") == "macro" and fb.__clear:GetAttribute("macrotext") == "/clearfocus")
     check("the focus drops into the target strip's place with no target, and rises above it with one", (function()
@@ -4082,6 +4106,12 @@ do
           fb ~= nil and fb:GetAttribute("unit") == "focus" and fb:GetAttribute("*type1") == "target"
           and fb:GetAttribute("*type2") == "togglemenu" and G.FOCUS_DRIVER == "[@focus,exists] show; hide"
           and select(2, G.FocusSlots()) > select(3, G.FocusSlots()))
+    ns.Layout.PRESETS.focus.focusFixed = true
+    G.PlaceFocus()
+    check("going back to a fixed place lets the slot driver go", (function()
+        for _, d in ipairs(mock.drivers) do if d.frame == fb and d.state == "slot" then return false end end
+        return G.focusSlotDriver == false
+    end)())
     mock.units.focus = true
     Guard.Reset()
     G.events:Fire("PLAYER_FOCUS_CHANGED")
@@ -4109,24 +4139,23 @@ do
     local stack = Registry.Get("SelfStack").frame
     local strip = Registry.Get("TargetStrip").frame
     local function y(f) local _, _, _, _, v = f:GetPoint(1) return v end
-    check("the default profile: you under the bar, the target just over the bar",
-          L.Active() == "focus" and near(y(stack), Scale.U(24)) and near(y(strip), Scale.U(163))
+    -- 2026-11-23 (Mykel): "All the unit frames above the action bars which
+    -- move down."
+    check("the default profile: the bar at the foot, the unit frames over it",
+          L.Active() == "focus" and near(y(stack), Scale.U(110)) and near(y(strip), Scale.U(157))
           and strip:GetPoint(1) == "BOTTOM")
-    check("one rhythm: bar 1 to your health bar = mini pages to the target's health bar", (function()
+    check("  you sit clear of the bar's mini pages", (function()
         local A = ns.Actions
         local _, _, _, sy = L.Pos("SelfStack")
         local _, _, _, by = L.Pos("ActionBar")
-        local _, _, _, ty = L.Pos("TargetStrip")
-        local selfBarTop = sy + 33 - 13                       -- SelfStack: text row, then the bar
         local miniTop = by + 44 + A.MINI_GAP + 45 * A.MINI_SCALE * (44 / 45)
-        local targetBar = ty + 15                             -- the strip's bar sits 15 up
-        return math.abs((by - selfBarTop) - (targetBar - miniTop)) < 1, (by - selfBarTop) .. " vs " .. (targetBar - miniTop)
+        return sy >= miniTop + 8, sy .. " vs " .. miniTop
     end)())
-    check("  the order bottom-up: you, the bar, the target strip, with room between", (function()
+    check("  the order bottom-up: the bar, you, the target strip, with room between", (function()
         local _, _, _, sy = L.Pos("SelfStack")
         local _, _, _, by = L.Pos("ActionBar")
         local _, _, _, ty = L.Pos("TargetStrip")
-        return sy + 33 < by and by + 44 < ty
+        return by + 44 < sy and sy + 33 < ty
     end)())
     run("profile spec")
     check("/myui profile spec puts SPEC 2's positions back, bar included", L.Active() == "spec"
@@ -4135,12 +4164,12 @@ do
     run("profile focus")
     run("move target 0 20")
     check("/myui move on a built-in profile copies it to \"mine\" first", L.Active() == "mine"
-          and near(y(strip), Scale.U(183)) and L.PRESETS.focus.TargetStrip[4] == 163
+          and near(y(strip), Scale.U(177)) and L.PRESETS.focus.TargetStrip[4] == 157
           and ns.db.layout.saved.mine.base == "focus" and ns.db.layout.saved.mine.SelfStack == nil)
     run("move group -10 5")
     check("  and moves the group frames too", (function()
         local _, _, _, x, yy = ns.Group.frame:GetPoint(1)
-        return near(x, Scale.U(214)) and near(yy, Scale.U(181))
+        return near(x, Scale.U(214)) and near(yy, Scale.U(175))
     end)())
     run("spacing padding 8")
     check("/myui spacing padding sets the gap between wing icons", L.Value("iconPadding") == 8)
@@ -4165,7 +4194,7 @@ do
     run("profile delete raid")
     run("profile delete mine")
     check("deleting the active one falls back to the default", L.Active() == "focus"
-          and near(y(strip), Scale.U(163)))
+          and near(y(strip), Scale.U(157)))
     check("an unknown profile changes nothing", L.Use("nope") == nil and L.Active() == "focus")
     check("a stray bracket on a command word is forgiven", (function()
         ns.ClearOutput()
@@ -5027,6 +5056,17 @@ do
            and near(b:GetHeight(), Scale.U(G.SIZES.icon.h)) and c and near(c[1], 0.9)
     end)())
     check("  the role drawn over the health", b.__role:GetParent() == b.__top)
+    check("  centred and bigger: 18 in a 24 icon, 3 to each edge (2026-11-23)", (function()
+        local p, rel, rp, x, y = b.__role:GetPoint(1)
+        return p == "CENTER" and rel == b and rp == "CENTER" and x == 0 and y == 0
+           and near(b.__role:GetWidth(), Scale.U(G.ICON_ROLE)) and G.ICON_ROLE < G.SIZES.icon.w
+    end)())
+    Guard.Reset()
+    b.scripts.OnEnter(b)
+    check("hovering a member shows its name over it, through Guard", G.tip and G.tip:IsShown()
+          and G.tip.text:GetText() ~= nil and select(2, G.tip:GetPoint(1)) == b and #Guard.violations == 0)
+    b.scripts.OnLeave(b)
+    check("  and leaving hides it", not G.tip:IsShown())
     check("  and the group area is five icons wide",
           near(G.frame:GetWidth(), Scale.U(G.SIZES.icon.w * 5 + G.ROWS.icons.gap * 4)))
     -- Charon play (twice): a descending stair. The header lays out on every

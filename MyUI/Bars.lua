@@ -158,15 +158,16 @@ local function BuildLowLayer(stack)
     local inner = CreateFrame("Frame", nil, low)
     inner:SetAllPoints(low)
 
-    local health = Frames.Bar(inner, 240, 4)
-    Frames.DangerGradient(health, 240, 4)
+    local W = Frames.SELF_W
+    local health = Frames.Bar(inner, W, 4)
+    Frames.DangerGradient(health, W, 4)
     health:SetPoint("TOPLEFT", stack.health, "TOPLEFT", 0, 0)
     local tick20 = Frames.Fill(health, "tickDark", "OVERLAY")
     tick20:SetSize(Scale.Hairline(), U(4))
-    tick20:SetPoint("TOPLEFT", health, "TOPLEFT", U(48), 0)
+    tick20:SetPoint("TOPLEFT", health, "TOPLEFT", U(W * 0.2), 0)
     local tick40 = Frames.Fill(health, "fillDim", "OVERLAY")
     tick40:SetSize(Scale.Hairline(), U(4))
-    tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(96), 0)
+    tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(W * 0.4), 0)
 
     -- SPEC 3: 12pt -> 14pt, the only type-size change in the addon. On its
     -- own pill, over the low bar, so it breathes with it.

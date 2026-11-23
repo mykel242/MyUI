@@ -24,29 +24,27 @@ ns.Layout = Layout
 
 -- Each frame: { point, relativePoint, x, y } against UIParent.
 Layout.PRESETS = {
-    -- Bottom up: you (SelfStack) under the bar, the bar, the row above it
-    -- (utility, stance, chosen buffs), then the target strip where your
-    -- health used to sit, with room left between each so it reads open.
-    -- The group list sits right of the target strip, above the right wing.
-    -- Round 004 play: stances moved under the cooldowns, so the target
-    -- strip comes down to just over the bar (its cast tick clear of it).
-    -- The zone / extra ability button, shrunk, sits right of SelfStack,
-    -- under bar 1's last buttons (Mykel: "under the [8] button").
+    -- 2026-11-23 (Mykel): "All the unit frames above the action bars which
+    -- move down." Bottom up: the bar at the foot, the row above it (utility,
+    -- stance, chosen buffs), then the unit frames in one stack that never
+    -- overlaps -- you, your target, your focus -- each the target's width,
+    -- each labelled. The group list sits right of the target strip.
+    -- Round 004 had you under the bar and the focus dropping into the
+    -- target's place; both gone (focusFixed).
+    -- The zone / extra ability button, shrunk, sits right of the bar's end
+    -- (Mykel's own height from round 004, when it sat under button 8).
     focus = {
-        SelfStack   = { "BOTTOM", "BOTTOM", 0, 24 },
-        ActionBar   = { "BOTTOM", "BOTTOM", 0, 76 },
-        -- One vertical rhythm (Mykel: "consistent sizing and margins make UI
-        -- look intentional"): bar 1's bottom is 32 above SelfStack's health
-        -- bar (44), and the target's health bar is 32 above the mini pages'
-        -- top (~146) -- the strip's bar sits 15 above its own bottom.
-        TargetStrip = { "BOTTOM", "BOTTOM", 0, 163 },
-        Group       = { "BOTTOMLEFT", "BOTTOM", 224, 176 },
+        ActionBar   = { "BOTTOM", "BOTTOM", 0, 24 },
+        -- The bar's rows reach ~94: you 16 over them, then 14 between each
+        -- frame (SelfStack 33 tall, the target strip 49).
+        SelfStack   = { "BOTTOM", "BOTTOM", 0, 110 },
+        TargetStrip = { "BOTTOM", "BOTTOM", 0, 157 },
+        Focus       = { "BOTTOM", "BOTTOM", 0, 220 },
+        focusFixed  = true,
+        Group       = { "BOTTOMLEFT", "BOTTOM", 224, 170 },
         -- Blizzard's experience and second status bars, out of the way at
         -- the top edge (round 004 play).
         StatusBars  = { "TOP", "TOP", 0, 0 },
-        -- Your focus, over the target strip: its bar 16 above the target's
-        -- text row (round 004 play).
-        Focus       = { "BOTTOM", "BOTTOM", 0, 210 },
         -- Left of the strip, mirroring the group list: the Cooldown
         -- Manager's tracked buff bars, over the left wing's rows, growing up.
         -- Only x is a position: y is how far above the chosen buffs' row

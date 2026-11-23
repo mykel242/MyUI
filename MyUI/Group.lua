@@ -45,6 +45,7 @@ Group.GAP = 8
 Group.RAID_GAP = 4
 Group.BOX_GAP = 6
 Group.ICON_GAP = 4
+Group.ICON_ROLE = 18     -- the role mark inside a 24 icon: 3 to each edge
 -- The looks that are a row (grow right), with their size and gap.
 Group.ROWS = { boxes = { size = "box", gap = 6 }, icons = { size = "icon", gap = 4 } }
 Group.PARTY_MAX = 5
@@ -150,8 +151,10 @@ local function Dress(b)
         b.__health:SetPoint("BOTTOMRIGHT", b, "BOTTOMRIGHT", -px, px)
         if b.__health.SetOrientation then b.__health:SetOrientation("VERTICAL") end
         b.__name:Hide()
-        b.__role:SetSize(U(10), U(10))
-        b.__role:SetPoint("TOPLEFT", b, "TOPLEFT", U(1), -U(1))
+        -- 2026-11-23 (Mykel): the role centred and bigger, a little space
+        -- to the edges.
+        b.__role:SetSize(U(Group.ICON_ROLE), U(Group.ICON_ROLE))
+        b.__role:SetPoint("CENTER", b, "CENTER", 0, 0)
         return
     end
     b.__health:SetPoint("BOTTOMLEFT", b, "BOTTOMLEFT", 0, 0)
@@ -211,8 +214,16 @@ function Group.Style(b, kind)
         t:Hide()
         b.__hover[#b.__hover + 1] = t
     end
-    b:HookScript("OnEnter", function(self) self.__hovered = true; Group.PaintBorder(self) end)
-    b:HookScript("OnLeave", function(self) self.__hovered = false; Group.PaintBorder(self) end)
+    b:HookScript("OnEnter", function(self)
+        self.__hovered = true
+        Group.PaintBorder(self)
+        Group.ShowName(self)
+    end)
+    b:HookScript("OnLeave", function(self)
+        self.__hovered = false
+        Group.PaintBorder(self)
+        Group.HideName(self)
+    end)
 
     -- Role and name on a layer over the health: an icon's health fills the
     -- whole square, and a child frame draws over its parent's textures.
@@ -233,6 +244,47 @@ function Group.Style(b, kind)
         end
     end)
     Group.buttons[#Group.buttons + 1] = b
+end
+
+--- The name on hover (2026-11-23, Mykel: the icons carry none). MyUI's own
+-- small tip, not GameTooltip: the name may be secret in an instance, and a
+-- FontString is the sanctioned place for it (Guard). Fixed width, centred,
+-- because a secret string cannot be measured.
+Group.TIP_W = 140
+
+function Group.NameTip()
+    if Group.tip then return Group.tip end
+    local tip = CreateFrame("Frame", "MyUIGroupNameTip", UIParent)
+    tip:SetFrameStrata("TOOLTIP")
+    tip:SetSize(U(Group.TIP_W), U(20))
+    local bg = tip:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    local sf = ns.Summon and ns.Summon.SURFACE or { 0.04, 0.04, 0.05, 0.86 }
+    bg:SetColorTexture(sf[1], sf[2], sf[3], sf[4])
+    tip.text = ns.Frames.Text(tip, 11, "textPrimary", "CENTER")
+    tip.text:SetPoint("LEFT", tip, "LEFT", U(6), 0)
+    tip.text:SetPoint("RIGHT", tip, "RIGHT", -U(6), 0)
+    if tip.text.SetWordWrap then tip.text:SetWordWrap(false) end
+    tip:Hide()
+    Group.tip = tip
+    return tip
+end
+
+function Group.ShowName(b)
+    local unit = b:GetAttribute("unit")
+    if not unit or not (_G.UnitExists and _G.UnitExists(unit)) then return false end
+    local tip = Group.NameTip()
+    tip:ClearAllPoints()
+    tip:SetPoint("BOTTOM", b, "TOP", 0, U(4))
+    Guard.Send(tip.text, "SetText", _G.UnitName(unit))
+    tip.owner = b
+    tip:Show()
+    return true
+end
+
+function Group.HideName(b)
+    local tip = Group.tip
+    if tip and tip.owner == b then tip.owner = nil; tip:Hide() end
 end
 
 --- The class colour of a unit, or nil when it cannot be read plainly.
@@ -810,7 +862,8 @@ end
 -- a focus is a deliberate choice, so while it exists it is simply up.
 
 Group.FOCUS_DRIVER = "[@focus,exists] show; hide"
-local FOCUS_W, FOCUS_H = 240, 16   -- a 3 px bar under an 11pt text row
+-- The same width as you and your target (2026-11-23, Frames.UNIT_W).
+local FOCUS_W, FOCUS_H = ns.Frames.UNIT_W, 16   -- a 3 px bar under an 11pt text row
 
 -- Round 004 play (Mykel: "the focus should move down? ... we could try
 -- it"): with no target, the focus drops into the target strip's place --
@@ -836,6 +889,9 @@ local FOCUS_SLOT = [[
 --- The two slots, as offsets from the action bar's bottom centre, or nil
 -- when the profile places the focus or the target strip some other way.
 function Group.FocusSlots()
+    -- 2026-11-23: a fixed stack -- player, target, focus -- with no frame
+    -- dropping into another's place.
+    if ns.Layout.Value("focusFixed") then return nil end
     local fp, frel, fx, fy = ns.Layout.Pos("Focus")
     local tp, trel, _, ty = ns.Layout.Pos("TargetStrip")
     local _, brel, bx, by = ns.Layout.Pos("ActionBar")
@@ -866,6 +922,11 @@ function Group.PlaceFocus()
         b:Execute("local newstate = self:GetAttribute('state-slot') or 'high'\n" .. FOCUS_SLOT)
         return true
     end
+    -- A fixed place: the slot driver, if this profile once had it, lets go.
+    if Group.focusSlotDriver and _G.UnregisterStateDriver then
+        _G.UnregisterStateDriver(b, "slot")
+        Group.focusSlotDriver = false
+    end
     local point, rel, px, py = ns.Layout.Pos("Focus")
     b:ClearAllPoints()
     b:SetPoint(point, UIParent, rel, U(px), U(py))
@@ -889,14 +950,9 @@ function Group.BuildFocus()
     local pill, number = F.Pill(b, health, 11)
     b.__health, b.__name, b.__level, b.__number = health, name, level, number
     F.HoverEdge(b, Group.SELF_PAD)
-    -- Labelled like the ALT and CTRL pages (round 004 play, Mykel).
-    local label = b:CreateFontString(nil, "OVERLAY")
-    label:SetFont(F.FONT, U(10), "")
-    label:SetTextColor(Palette.Get("notifAmber"))
-    label:SetJustifyH("RIGHT")
-    label:SetText("FOCUS")
-    label:SetPoint("RIGHT", b, "LEFT", -U(8), 0)
-    b.__label = label
+    -- Labelled like the ALT and CTRL pages (round 004 play, Mykel); now
+    -- PLAYER and TARGET are too, in the same place on each.
+    b.__label = F.UnitLabel(b, health, "FOCUS")
 
     -- An x after the bar clears the focus (round 004 play). A secure macro
     -- button (/clearfocus is a protected action), drawn as two thin strokes

@@ -144,7 +144,11 @@ end
 -- so together they take SelfStack's place exactly.
 -- ---------------------------------------------------------------------------
 
-Frames.SELF_W = 240
+-- 2026-11-23 (Mykel): player, target and focus "all the same width in a
+-- stack that doesn't overlap", the target's width the default. The pet
+-- split still halves the player's (to be sorted later).
+Frames.UNIT_W = 400
+Frames.SELF_W = Frames.UNIT_W
 Frames.SPLIT = 0.45
 
 function Frames.SelfWidth()
@@ -197,6 +201,16 @@ end
 -- ---------------------------------------------------------------------------
 
 Frames.PCT_STYLES = { pill = true, above = true }
+
+--- The amber label left of a unit frame, as the focus first had (round 004
+-- play): PLAYER, TARGET, FOCUS. Level with the frame's text row and bar.
+function Frames.UnitLabel(frame, bar, text)
+    local label = Frames.Text(frame, 10, "notifAmber", "RIGHT")
+    label:SetText(text)
+    label:SetPoint("RIGHT", bar, "LEFT", -U(8), U(5))
+    frame.label = label
+    return label
+end
 Frames.ROW_GAP = 2     -- the text row's bottom, above its bar
 
 function Frames.PctStyle()
@@ -391,25 +405,26 @@ end
 -- + 6 gap + 4 cast = 33. The bars sit where they always did: the group grew up.
 
 local function BuildSelfStack()
+    local W = Frames.SELF_W
     local group = CreateFrame("Frame", "MyUISelfStack", UIParent)
     group:SetFrameStrata(Frames.STRATA)
-    group:SetSize(U(240), U(33))
+    group:SetSize(U(W), U(33))
     -- Where: the layout profile (Layout.lua; SPEC 2 said BOTTOM, 214 up).
     Frames.PlaceOne(group, "SelfStack")
 
-    local health = Bar(group, 240, 4)
-    Frames.DangerGradient(health, 240, 4)
+    local health = Bar(group, W, 4)
+    Frames.DangerGradient(health, W, 4)
     health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(13))
 
     -- Round 004 (Mykel): name left, level right, the percentage between them
     -- -- one row, just above the bar, the same on the target strip.
     local name, level = Frames.TextRow(group, health)
 
-    local resource = Bar(group, 240, 2)
+    local resource = Bar(group, W, 2)
     resource:SetPoint("TOPLEFT", health, "BOTTOMLEFT", 0, -U(4))
     resource.fill:SetColorTexture(Palette.Get("resource"))
 
-    local cast = Bar(group, 240, 4)
+    local cast = Bar(group, W, 4)
     cast:SetPoint("TOPLEFT", resource, "BOTTOMLEFT", 0, -U(6))
 
     -- 12pt, on the middle of the health bar (round 004; was 40 wide,
@@ -422,22 +437,23 @@ local function BuildSelfStack()
     -- the 20% and 40% marks by construction.
     local tick20 = Fill(health, "tickDark", "OVERLAY")
     tick20:SetSize(Scale.Hairline(), U(4))
-    tick20:SetPoint("TOPLEFT", health, "TOPLEFT", U(48), 0)
+    tick20:SetPoint("TOPLEFT", health, "TOPLEFT", U(W * 0.2), 0)
 
     local tick40 = Fill(health, "fillDim", "OVERLAY")
     tick40:SetSize(Scale.Hairline(), U(4))
-    tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(96), 0)
+    tick40:SetPoint("TOPLEFT", health, "TOPLEFT", U(W * 0.4), 0)
 
     -- Round 004 play (Mykel, levelling): experience as a thin line just
     -- under the stack, in place of Blizzard's bar along the screen's foot.
     -- Hidden at max level (Bars.UpdateXP).
-    local xp = Bar(group, 240, 2)
+    local xp = Bar(group, W, 2)
     xp:SetPoint("TOPLEFT", cast, "BOTTOMLEFT", 0, -U(4))
     xp.fill:SetColorTexture(Palette.Get("notifBlue"))
     xp:Hide()
 
     group.health, group.resource, group.cast, group.xp = health, resource, cast, xp
     group.name, group.level = name, level
+    Frames.UnitLabel(group, health, "PLAYER")
     group.number, group.pill, group.tick20, group.tick40 = number, pill, tick20, tick40
     return group
 end
@@ -464,13 +480,14 @@ end
 -- 9 to the cast tick, 6 of tick = 49.
 
 local function BuildTargetStrip()
+    local W = Frames.UNIT_W
     local group = CreateFrame("Frame", "MyUITargetStrip", UIParent)
     group:SetFrameStrata(Frames.STRATA)
-    group:SetSize(U(400), U(49))
+    group:SetSize(U(W), U(49))
     Frames.PlaceOne(group, "TargetStrip")   -- SPEC 2: TOP, 20 down; now the profile
 
-    local health = Bar(group, 400, 3)
-    Frames.DangerGradient(health, 400, 3)
+    local health = Bar(group, W, 3)
+    Frames.DangerGradient(health, W, 3)
     health:SetPoint("TOPLEFT", group, "TOPLEFT", 0, -U(31))
 
     -- Name left, level right, on the percentage's row just above the bar
@@ -486,6 +503,7 @@ local function BuildTargetStrip()
 
     group.name, group.level, group.health, group.cast = name, level, health, cast
     group.number, group.pill = number, pill
+    Frames.UnitLabel(group, health, "TARGET")
     return group
 end
 

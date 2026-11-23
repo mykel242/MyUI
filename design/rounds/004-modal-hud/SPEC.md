@@ -550,7 +550,12 @@ Positions are personal preference (Mykel), so they live in **layout profiles** (
 where SelfStack, the target strip, the action bar (and with it the wings, stance and pet bars) and
 the group frames sit, plus the wing gap and icon padding, in SPEC units. Built in:
 
-- **focus** (default) — bottom up: SelfStack (24), the bar (76), then the target strip just over
+- **focus** (default) — **2026-11-23** (Mykel: "All the unit frames above the action bars which
+  move down"): the bar at the foot (24), then one stack that never overlaps — you (110), your
+  target (157), your focus (220, fixed: `focusFixed`, no slot driver) — **all three 400 wide**
+  (the target's width; the pet split still halves yours, to be sorted later), each labelled in
+  amber at its left like FOCUS was: PLAYER, TARGET, FOCUS. The group list right of the target
+  (224, 170). Earlier: SelfStack (24), the bar (76), the target strip just over
   the bar (132); stance under the left wing and pet under the right (Mykel: "stances belong below
   the CDs"); Blizzard's zone / extra ability button with its frame art hidden, on bar 1's row past button 8,
   with the debuffs starting beyond it (`debuffGap`); the group list right
@@ -660,7 +665,7 @@ and raid frames are hidden outright. Not yet: shift-click pinning, cards, alt-cl
 | `hover` | never by combat; hover or peek only |
 | `always` | up all the time (the `always` reveal channel, asked again on a role or spec change) |
 | `list` | a column of rows — the healer's default |
-| `icons` | **five tiny squares in a row, no names** (Mykel: "5 tiny icons that act"): health fills the square from the bottom in the **class colour**, the role in its corner; the same click map — the tank and DPS default |
+| `icons` | **five tiny squares in a row, no names** (Mykel: "5 tiny icons that act"): health fills the square from the bottom in the **class colour**, the role mark centred (18 in 24); the same click map; the name on hover in MyUI's own small tip (a FontString, as a name may be secret) — the tank and DPS default |
 | `boxes` | five small boxes in a row, role icon in the corner, name, health in the class colour — a choice |
 
 `/myui group` shows all three; `/myui group [tank|healer|dps] <mode or look>` sets one (no role:

@@ -698,6 +698,12 @@ function M.install()
         M.drivers[#M.drivers + 1] = d
         RunDriver(d)
     end
+    _G.UnregisterStateDriver = function(frame, state)
+        for i = #M.drivers, 1, -1 do
+            local d = M.drivers[i]
+            if d.frame == frame and d.state == state then table.remove(M.drivers, i) end
+        end
+    end
     function M.UpdateStateDrivers()
         for _, d in ipairs(M.drivers) do RunDriver(d) end
     end
