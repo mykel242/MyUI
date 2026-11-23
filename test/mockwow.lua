@@ -788,9 +788,15 @@ function M.install()
     -- the slots came from.
     _G.BACKPACK_CONTAINER = 0
     _G.NUM_TOTAL_EQUIPPED_BAG_SLOTS = 4
+    -- M.bagSlots: the backpack's size (nil reads 16); 0 is a bag the client
+    -- has not loaded yet, as at login.
     _G.C_Container = {
         GetContainerNumFreeSlots = function(bag)
             if bag == 0 then return M.bagFree end
+            return 0
+        end,
+        GetContainerNumSlots = function(bag)
+            if bag == 0 then return M.bagSlots or 16 end
             return 0
         end,
     }

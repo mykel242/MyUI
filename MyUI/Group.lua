@@ -89,12 +89,14 @@ function Group.PartySize()
 end
 
 --- How far over SelfStack's foot the party sits when lined up with it
--- (Layout groupBeside): a row centred on its 33, a list level with its foot.
-Group.SELF_STACK_H = 33
+-- (Layout groupBeside). Charon play: centred on SelfStack's 33, every look
+-- sat "a little too low" -- the resource and cast bars under your health
+-- are mostly empty, so the eye reads the frame as its name and health
+-- bar. Every look's foot sits on your health bar's foot, 16 up: the list's
+-- and boxes' bars line up with yours.
+Group.SELF_BAR_FOOT = 16     -- SelfStack: 33 tall, the bar 13 down, 4 thick
 function Group.BesideOffset()
-    local row = Group.ROWS[Group.Look()]
-    if not row then return 0 end
-    return (Group.SELF_STACK_H - Group.SIZES[row.size].h) / 2
+    return Group.SELF_BAR_FOOT
 end
 
 --- The party header's layout attributes for a look: a row grows right, a

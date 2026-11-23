@@ -559,7 +559,7 @@ the group frames sit, plus the wing gap and icon padding, in SPEC units. Built i
   amber — PLAYER, TARGET, FOCUS — leading its text row, inside the column (outside it, left of
   the bar, they sat on the Cooldown Manager's left wing; Charon play). The party **lined up with you**
   (Mykel: "always lined up with the PLAYER | PET frame" — `groupBeside`: its y follows SelfStack's,
-  a row centred on it, a list level with its foot), x 248, the tracked buff bars mirroring it
+  every look's foot on your health bar's foot, 16 up — centred read too low on Charon), x 248, the tracked buff bars mirroring it
   (-248). The zone / extra ability button on bar 1's row right of the bar (250, -23; its button
   sits ~69 over the anchor). Earlier: SelfStack (24), the bar (76), the target strip just over
   the bar (132); stance under the left wing and pet under the right (Mykel: "stances belong below

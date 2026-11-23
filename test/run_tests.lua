@@ -1438,6 +1438,18 @@ check("  and filling it again speaks again", #Feed.items == 2, #Feed.items)
 mock.bagFree = 5
 sourceDriver:Fire("BAG_UPDATE_DELAYED")
 
+-- Charon play: "a bags full notification every log in and my bags are not
+-- full" -- at login the client reads 0 free of 0 slots.
+Feed.Clear()
+Sources.latched.bagFull = nil
+mock.bagFree, mock.bagSlots = 0, 0
+sourceDriver:Fire("BAG_UPDATE_DELAYED")
+check("bags not loaded yet (0 free of 0 slots) are not full", #Feed.items == 0
+      and Sources.FreeBagSlots() == nil and not Sources.latched.bagFull, #Feed.items)
+mock.bagFree, mock.bagSlots = 5, nil
+sourceDriver:Fire("BAG_UPDATE_DELAYED")
+check("  and once they load, the real count is read", Sources.FreeBagSlots() == 5 and #Feed.items == 0)
+
 Feed.Clear()
 Sources.latched.durability = nil
 mock.durability = 0.10
@@ -4182,14 +4194,15 @@ do
         local _, _, _, sy = L.Pos("SelfStack")
         return near(yy, Scale.U(sy + ns.Group.BesideOffset() + 5)) and sy == 120
     end)())
-    check("  a row of icons centred on you, a list level with your foot", (function()
+    check("  every look's foot on your health bar's foot (Charon play: centred read too low)", (function()
         local was = ns.db.clear.groupLook
-        ns.db.clear.groupLook = { DAMAGER = "icons" }
-        local icons = ns.Group.BesideOffset()
-        ns.db.clear.groupLook = { DAMAGER = "list" }
-        local list = ns.Group.BesideOffset()
+        local out = {}
+        for _, look in ipairs({ "icons", "boxes", "list" }) do
+            ns.db.clear.groupLook = { DAMAGER = look }
+            out[#out + 1] = ns.Group.BesideOffset()
+        end
         ns.db.clear.groupLook = was
-        return near(icons, (33 - ns.Group.SIZES.icon.h) / 2) and list == 0
+        return out[1] == 16 and out[2] == 16 and out[3] == 16 and 33 - 13 - 4 == 16
     end)())
     run("spacing padding 8")
     check("/myui spacing padding sets the gap between wing icons", L.Value("iconPadding") == 8)

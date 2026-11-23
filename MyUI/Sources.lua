@@ -375,15 +375,20 @@ end
 function Sources.FreeBagSlots()
     local first = _G.BACKPACK_CONTAINER or 0
     local last  = _G.NUM_TOTAL_EQUIPPED_BAG_SLOTS or 4
-    local free, sawAny = 0, false
+    -- Charon play: "a bags full notification every log in and my bags are
+    -- not full". At login the client answers 0 free for bags it has not
+    -- loaded yet -- 0 free of 0 slots. Only bags with slots count, and no
+    -- slots at all is "no data", not "full".
+    local free, slots = 0, 0
     for bag = first, last do
+        local size = API("C_Container.GetContainerNumSlots", bag)
         local n = API("C_Container.GetContainerNumFreeSlots", bag)
-        if type(n) == "number" then
-            sawAny = true
+        if type(size) == "number" and size > 0 and type(n) == "number" then
+            slots = slots + size
             free = free + n
         end
     end
-    if not sawAny then
+    if slots == 0 then
         return nil
     end
     return free
