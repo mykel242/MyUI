@@ -4170,6 +4170,12 @@ do
     local mm = mock.frame({ name = "MinimapClusterMock" })
     local had = Registry.Get("Minimap")
     if not had then Registry.Add("Minimap", mm, 0) end
+    local wasMap = ns.db.map
+    ns.db.map = nil
+    check("the map is on a key by default: peek, not calm", ns.Reveal.MapMode() == "peek")
+    ns.Reveal.Calm()
+    check("  so the minimap is not up out of combat", Registry.Get("Minimap").target == 0)
+    ns.db.map = wasMap
     run("map calm")
     check("/myui map calm: the minimap is up out of combat", Registry.Get("Minimap").target == 1)
     ns.Reveal.driver:Fire("PLAYER_REGEN_DISABLED")

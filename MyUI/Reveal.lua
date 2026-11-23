@@ -574,14 +574,14 @@ local function OnTargetChanged()
     end
 end
 
---- The calm claim: the minimap, out of combat, unless the player asked for
--- it only on peek. Asked again whenever combat or the setting changes, and
+--- The calm claim: the minimap, out of combat, when the player asked for it
+-- (/myui map calm). The default is peek: the map is on a key. Asked again whenever combat or the setting changes, and
 -- after clearing adopts the minimap.
 Reveal.MAP_MODES = { calm = true, peek = true }
 
 function Reveal.MapMode()
     local m = ns.db and ns.db.map
-    return Reveal.MAP_MODES[m] and m or "calm"
+    return Reveal.MAP_MODES[m] and m or "peek"
 end
 
 function Reveal.Calm()

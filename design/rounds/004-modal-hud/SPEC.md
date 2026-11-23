@@ -541,8 +541,9 @@ only alpha moves (RULES).
 Blizzard's experience and second status bars sit at the **top edge** of the screen (Layout
 `StatusBars`), shown as Blizzard shows them; MyUI's XP line under SelfStack is off.
 
-The minimap stays up **out of combat** (Mykel: "enough of a map to see BugSack") — a `calm`
-reveal channel claimed outside combat; `/myui map peek` returns it to summon-only.
+The minimap is **on a key** by default (`peek`, since 2026-11-23: a fresh install on a second
+machine showed the corner map nobody asked for). `/myui map calm` keeps it up **out of combat**
+(Mykel: "enough of a map to see BugSack") — a `calm` reveal channel claimed outside combat.
 
 
 Positions are personal preference (Mykel), so they live in **layout profiles** (`Layout.lua`):
