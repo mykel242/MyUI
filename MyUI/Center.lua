@@ -26,7 +26,7 @@ ns.Center = Center
 -- "+N more" opens the rest.
 Center.ROW_H    = ns.Summon.ROW_H
 Center.ROWS     = 8
-Center.ROWS_ALL = 24
+Center.ROWS_ALL = ns.Summon.ROWS_MAX
 Center.ROLLUP   = true   -- runs of the same thing read as one row
 
 -- Allowed by Mykel in R3 (2026-11-14) as the palette's one recorded

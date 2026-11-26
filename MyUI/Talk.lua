@@ -32,7 +32,7 @@ Talk.KEEP   = 200       -- messages kept
 -- On the summoned panels' grid (Summon.lua): a message is two grid lines.
 Talk.ROW    = 2 * ns.Summon.ROW_H - 12   -- who + up to two lines of what
 Talk.ROWS   = 6
-Talk.ROWS_ALL = 16
+Talk.ROWS_ALL = ns.Summon.ROWS_MAX
 Talk.WHO_W  = 70
 -- Each group's square, the history's grammar (round 005 play: "I like the
 -- color coding ... the squares").

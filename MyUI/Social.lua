@@ -23,7 +23,7 @@ ns.Social = Social
 -- On the summoned panels' grid (Summon.lua).
 Social.ROW    = ns.Summon.ROW_H
 Social.ROWS   = 10
-Social.ROWS_ALL = 30
+Social.ROWS_ALL = ns.Summon.ROWS_MAX
 Social.GATHER = 2.0     -- seconds online notices gather before one toast
 Social.NAMES  = 2       -- names spelled out in that toast
 -- The squares (round 005 play: "it could be color coordinated"): guild in
@@ -291,6 +291,7 @@ function Social.Whisper(who)
 end
 
 function Social.Toggle()
+    if ns.Switches and not ns.Switches.On("social") then return false end
     Social.Build()
     if Social.open then Social.summon:Close("asked") return false end
     return Social.summon:Open()
@@ -312,10 +313,12 @@ Social.EVENTS = {
 }
 
 function Social.OnLogin()
-    if ns.Switches and not ns.Switches.On("chat") then return end
+    -- Its own switch, applied at once: the driver always listens and
+    -- does nothing while the switch is off.
     local d = CreateFrame("Frame", "MyUISocialDriver", UIParent)
     for event in pairs(Social.EVENTS) do pcall(d.RegisterEvent, d, event) end
     d:SetScript("OnEvent", function(_, event, ...)
+        if ns.Switches and not ns.Switches.On("social") then return end
         local fn = Social.EVENTS[event]
         if fn then fn(...) end
     end)

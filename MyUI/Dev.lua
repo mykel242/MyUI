@@ -27,7 +27,7 @@ ns.Dev = Dev
 
 Dev.KEEP      = 200
 Dev.ROWS      = 10
-Dev.ROWS_ALL  = 30
+Dev.ROWS_ALL = ns.Summon.ROWS_MAX
 Dev.TICK      = 0.5     -- the under-the-pointer line, while open
 Dev.TOAST_GAP = 30      -- at most one error toast this often
 

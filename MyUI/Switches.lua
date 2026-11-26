@@ -20,8 +20,11 @@ ns.Switches = Switches
 Switches.LIST = {
     { key = "quests", yields = { "!KalielsTracker", "ElvUI" }, label = "Quest tracker", mine = "progress as toasts; the list on a key, by kind",
       frames = { "Tracker" } },
-    { key = "chat", yields = { "Prat-3.0", "Chattynator", "ElvUI" }, label = "Chat", mine = "MyUI's chat panel and who's online; toasts for people",
+    { key = "chat", yields = { "Prat-3.0", "Chattynator", "ElvUI" }, label = "Chat", mine = "MyUI's chat panel in place of Blizzard's",
       frames = { "Chat", "ChatDock", "ChatButtons", "ChatSocial" }, reload = true },
+    -- 2026-11-26 (Mykel, Charon): "chat and social should be separated -
+    -- chat is a bigger lift to get right but social is very useful already".
+    { key = "social", label = "Who's online", mine = "friends and guild online, on a key; a toast as they come on" },
     { key = "minimap", yields = { "SexyMap", "BasicMinimap", "ElvUI" }, label = "Minimap", mine = "out of the corner; the map on a key",
       frames = { "Minimap", "MinimapMap" } },
     { key = "buffs", yields = { "ElvUI" }, label = "Buffs and debuffs", mine = "buffs on peek; debuffs beside the bar",
@@ -160,6 +163,9 @@ function Switches.Set(key, on)
         elseif C.Enabled() then
             C.AdoptOne(name)
         end
+    end
+    if key == "social" and not on and ns.Social and ns.Social.open then
+        ns.Social.summon:Close("asked")
     end
     if key == "quests" and ns.Quests then
         if on then ns.Quests.Enable() else ns.Quests.Disable() end

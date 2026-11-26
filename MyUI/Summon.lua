@@ -43,6 +43,10 @@ Summon.PAD      = 10
 Summon.HEADER_H = 26
 Summon.FILTER_H = 22
 Summon.ROW_H    = 22
+-- The most rows a panel builds: more than any screen's column holds, so
+-- what ends a panel is the column (Summon.Share), never its own count.
+-- Charon play: "+1 more" over a column of empty space.
+Summon.ROWS_MAX = 64
 Summon.FOOTER_H = 22
 Summon.DOT      = 8
 Summon.GAP      = 6

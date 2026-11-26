@@ -747,11 +747,11 @@ hearthstone and the like on hover.
 ## 23. Switches and the quest tracker (round 005)
 
 **Switches.** Every place MyUI replaces or hides Blizzard chrome is one player switch
-(`Switches.lua`): quests, chat, minimap, buffs, castbar, cooldowns, menu, meter, bars, unitframes,
+(`Switches.lua`): quests, chat, social (who's online; its own switch since 2026-11-26, "chat is a bigger lift … social is very useful already"), minimap, buffs, castbar, cooldowns, menu, meter, bars, unitframes,
 group. On (default) is MyUI's way; off gives that piece back to Blizzard. Chat is the exception:
 off by default (2026-11-26, Mykel: "too pre-alpha ... leave blizz chat enabled until later"). Alpha-only switches apply
 at once; bars, unitframes and group (protected frames) on `/reload`. `/myui override` lists them;
-`/myui override <name> on|off` flips one. Saved in `MyUIDB.switches` (only the ones turned off).
+`/myui override <name> on|off` flips one. Saved in `MyUIDB.switches` (only the ones turned off). A panel builds more rows than any column holds (`Summon.ROWS_MAX`): the column's share ends it, never its own count.
 
 **The features panel** (2026-11-26, Mykel: "an in game panel (styled like the others) with on/off
 switches for each feature so i can just click through many combinations"). `Features.lua`, a

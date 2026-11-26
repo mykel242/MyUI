@@ -5258,6 +5258,11 @@ do
         check("  turned on, it is remembered", ns.db.switches.chat == true and S.On("chat"))
         S.Set("chat", false)
         check("  and off again stores nothing", ns.db.switches.chat == nil and not S.On("chat"))
+        -- Mykel: "chat and social should be separated".
+        check("who's online is its own switch, on with chat off", S.On("social") and not S.On("chat"))
+        S.Set("social", false)
+        check("  off, its key opens nothing", ns.Social.Toggle() == false and not ns.Social.open)
+        S.Set("social", true)
         ns.db.switches = was
     end
     local saved = {}
@@ -5457,6 +5462,10 @@ do
     check("  a panel opened with +N more is filled first", a.alloc == 8 and b.alloc == 12,
           a.alloc .. "/" .. b.alloc)
     check("  and the rest of the room goes to who has more", left ~= nil)
+    -- Charon: "+1 more" on 24 notifications over a column of space.
+    check("panels build more rows than a column holds (the column ends them)",
+          ns.Center.ROWS_ALL >= 60 and ns.Social.ROWS_ALL >= 60 and ns.Talk.ROWS_ALL >= 60
+          and ns.Dev.ROWS_ALL >= 60)
 
     -- The floor: Blizzard's chat, given back, at the bottom left.
     local ui = _G.UIParent
