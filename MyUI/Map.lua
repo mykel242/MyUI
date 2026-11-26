@@ -262,6 +262,23 @@ function Map.Paint()
     panel.where:SetText(coords or "")
 end
 
+--- Charon (2026-11-26): "our minimap is blank" -- blips, no ground. The
+-- client redraws the minimap's terrain only when its zoom changes, and a
+-- resize alone leaves it empty; that went with the zoom-out (08982c5, which
+-- stopped touching the player's zoom). A step and back again on the next
+-- frame: the ground is redrawn and the zoom the client saves is the one it
+-- had.
+function Map.Redraw()
+    local mm = _G.Minimap
+    if type(mm) ~= "table" or not (mm.GetZoom and mm.SetZoom) then return false end
+    local z = mm:GetZoom()
+    if type(z) ~= "number" then return false end
+    local levels = mm.GetZoomLevels and mm:GetZoomLevels() or 6
+    mm:SetZoom(z > 0 and z - 1 or math.min(z + 1, levels - 1))
+    mm:SetZoom(z)
+    return true
+end
+
 --- Take Blizzard's minimap into the panel, big. Its zoom is the player's:
 -- the client saves it (minimapZoom), and a pinned map opened at every login.
 function Map.Show()
@@ -278,6 +295,7 @@ function Map.Show()
     mm:ClearAllPoints()
     mm:SetPoint("CENTER", panel.area, "CENTER", 0, 0)
     mm:SetSize(Size(), Size())
+    C_Timer.After(0, Map.Redraw)
     Map.Gather()
     Map.open = true
     -- The minimap is adopted at rest (Clear: hidden, hideAtZero); this
@@ -306,6 +324,7 @@ function Map.Hide()
         mm:ClearAllPoints()
         for _, p in ipairs(home.points) do mm:SetPoint(p[1], p[2], p[3], p[4], p[5]) end
         mm:SetSize(home.w, home.h)
+        C_Timer.After(0, Map.Redraw)
     end
     Map.home = nil
     ns.Summon.Mouse(panel, false)

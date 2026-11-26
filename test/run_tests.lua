@@ -4801,7 +4801,8 @@ do
     mm:SetPoint("CENTER", corner, "CENTER", 0, 0)
     mm.zoom = 3
     mm.GetZoom = function() return mm.zoom end
-    mm.SetZoom = function(_, z) mm.zoom, mm.zoomed = z, true end
+    mm.zooms = {}
+    mm.SetZoom = function(_, z) mm.zoom, mm.zoomed = z, true; mm.zooms[#mm.zooms + 1] = z end
     _G.Minimap = mm
     M.enabled = true
     M.Build()
@@ -4810,6 +4811,10 @@ do
         return M.open and mm:GetParent() == M.panel.area and mm:GetWidth() > 140 and mm.zoom == 3 and not mm.zoomed
            and M.panel:IsShown()
     end)())
+    mock.runTimers()
+    check("  its ground redrawn: a zoom step and back on the next frame, ending where it was (Charon: blank)",
+          #mm.zooms == 2 and mm.zooms[1] ~= 3 and mm.zoom == 3, table.concat(mm.zooms, ","))
+    mm.zoomed = nil
     check("  and the same key hands it back to its corner, as it was", (function()
         M.Toggle()
         local p, rel = mm:GetPoint(1)
