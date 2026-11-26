@@ -427,6 +427,13 @@ end
 -- left column starts to its right.
 Summon.EDGE_FRAMES = { left = { "CompactRaidFrameManager" } }
 
+-- Seconds after login to lay the columns out again, once Blizzard's
+-- frames have settled.
+Summon.SETTLE = { 2, 6 }
+
+-- The least of the screen a column keeps under its ceiling.
+Summon.MIN_SPAN = 0.4
+
 local function EdgeRight(f)
     local right
     for _, part in ipairs({ f, f.toggleButtonForward, f.toggleButtonBack }) do
@@ -460,7 +467,15 @@ function Summon.Origin(side)
             local cl, cr
             if side == "left" then cl, cr = x, x + colW else cr = W + x; cl = cr - colW end
             if r > cl and l < cr and t > H / 2 then
-                if t - b > H / 2 then
+                -- Charon: at login, Blizzard's party frames given back
+                -- briefly reported a rect that put the whole left column
+                -- under the screen's bottom. Going under a frame may never
+                -- leave the column less than MIN_SPAN of the screen: past
+                -- that, step aside instead.
+                local under = b - H - gap
+                local floor = U(Summon.BOTTOM_RESERVE)
+                local tooLow = H + under - floor < H * Summon.MIN_SPAN
+                if t - b > H / 2 or tooLow then
                     if side == "right" then x = math.min(x, l - W - gap) else x = math.max(x, r + gap) end
                 else
                     y = math.min(y, b - H - gap)
@@ -800,7 +815,7 @@ function Summon.OnLogin()
         end
     end
     driver:SetScript("OnEvent", function(_, event)
-        if event == "GROUP_ROSTER_UPDATE" then
+        if event == "GROUP_ROSTER_UPDATE" or event == "PLAYER_ENTERING_WORLD" then
             if not Summon.relayoutQueued then
                 Summon.relayoutQueued = true
                 C_Timer.After(0.5, function() Summon.relayoutQueued = false; Summon.Layout() end)
@@ -812,4 +827,8 @@ function Summon.OnLogin()
     Summon.driver = driver
     -- After everything that attaches a panel has built (Core runs this last).
     C_Timer.After(0, Summon.Restore)
+    -- Blizzard's frames settle after login (Charon: a column placed against
+    -- a party frame's first rect landed off the screen): look again.
+    driver:RegisterEvent("PLAYER_ENTERING_WORLD")
+    for _, t in ipairs(Summon.SETTLE) do C_Timer.After(t, Summon.Layout) end
 end

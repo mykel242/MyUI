@@ -5311,6 +5311,20 @@ do
         check("  a tall one: the column steps aside, left of it", x2 <= -(2000 - 1740), x2)
         local _, lx, ly = ns.Summon.Origin("left")
         check("  and the other column does not move", near(lx, Scale.U(16)) and near(ly, Scale.U(-28)))
+        -- Charon: a party frame's first rect at login pushed the left
+        -- column under the screen. Going under one never leaves less than
+        -- MIN_SPAN: past that, the column steps aside.
+        local party = mock.frame({ name = "CompactPartyFrame" })
+        local wasP = _G.CompactPartyFrame
+        _G.CompactPartyFrame = party
+        party.__rect = { 10, 640, 150, 1190 }        -- 550 tall: short, but low
+        party:Show()
+        S.Set("group", false)
+        local _, px, py = ns.Summon.Origin("left")
+        check("  a frame that would leave the column too short: stepped aside, not gone under",
+              px >= 150 and near(py, Scale.U(-28)), px .. "," .. py)
+        S.Set("group", true)
+        _G.CompactPartyFrame = wasP
         S.Set("minimap", true); S.Set("quests", true)
         local _, x3, y3 = ns.Summon.Origin("right")
         check("  given to MyUI again, the column goes home", near(x3, x0) and near(y3, y0))
