@@ -62,6 +62,11 @@ Layout.PRESETS = {
         -- button" -- at 39 it sat beside PLAYER once the bar moved down).
         -- Charon's screenshot: the button's centre sits ~69 over this
         -- anchor, so -23 puts it level with the bar (24-68).
+        -- Charon, 2026-11-26: Blizzard's talking head (an NPC's portrait and
+        -- line) sat over PLAYER and the party, where Blizzard keeps room
+        -- above its own bars. Over the stack instead: past the focus (220,
+        -- 16 tall) and a gap.
+        TalkingHead = { "BOTTOM", "BOTTOM", 0, 252 },
         -- With rightRow (below) its place is worked out (Clear.Anchor).
         ZoneAbility = { "BOTTOM", "BOTTOM", 250, -23 },
         -- Round 005 play: Blizzard's tooltip out of the middle of the fight,
@@ -87,6 +92,7 @@ Layout.PRESETS = {
         StatusBars  = { "TOP", "TOP", 0, 0 },
         BuffBars    = { "BOTTOMRIGHT", "BOTTOM", -240, 0 },
         ZoneAbility = { "BOTTOM", "BOTTOM", 0, 280 },
+        TalkingHead = { "BOTTOM", "BOTTOM", 0, 260 },
         Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 144 },
         debuffGap   = 32,
         wingGap     = 32,

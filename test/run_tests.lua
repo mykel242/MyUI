@@ -3343,6 +3343,12 @@ do
            and near(a.offsetX, Scale.U(-16)) and near(a.offsetY, Scale.U(144))
            and a.offsetY > (select(2, ns.Actions.Extent())) + 44   -- clear of the debuff row
     end)())
+    check("  Blizzard's talking head over the unit stack, not on it (2026-11-26)", (function()
+        local a = sys(15).anchorInfo
+        local _, _, _, fy = ns.Layout.Pos("Focus")
+        return a and a.point == "BOTTOM" and a.relativeTo == "UIParent" and near(a.offsetX, 0)
+           and a.offsetY >= Scale.U(fy + 16)
+    end)())
     check("  other systems are untouched", saved.layouts[mine].systems[4].settings[1].value == 0)
     check("  the source layout is untouched", saved.layouts[1].systems[2].settings[1].value == 0)
     check("  and it is selected", mock.editMode.active == 2 + mine, mock.editMode.active)

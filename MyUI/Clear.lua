@@ -911,6 +911,9 @@ function Clear.PlaceWings(layout)
             -- tooltip -- nothing of MyUI's touches the tooltip itself, which
             -- carries secret values and must stay untainted.
             At(sys, "Tooltip")
+        elseif E.EditModeSystem.TalkingHeadFrame and sys.system == E.EditModeSystem.TalkingHeadFrame then
+            -- Blizzard's talking head, over MyUI's unit stack (Layout).
+            At(sys, "TalkingHead")
         elseif E.EditModeSystem.ExtraAbilities and sys.system == E.EditModeSystem.ExtraAbilities then
             -- Blizzard's zone / extra ability button (round 004 play: it sat
             -- mid-screen over the character). Placed by the profile.

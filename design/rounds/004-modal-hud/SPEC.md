@@ -764,6 +764,9 @@ dock column that would cover it moves (`Summon.Origin`): under a short one (the 
 beside a tall one (the quest tracker). Only frames in the top half of the screen across the
 column's width. The bottom of the screen -- the bar, the unit frames, Blizzard's own given back --
 is not solved yet.
+Blizzard's talking head (an NPC's portrait and line) is never MyUI's, but it sat over PLAYER and the
+party, in the room Blizzard keeps above its own bars: the MyUI layout puts it over the unit stack
+(`TalkingHead` in the profile).
 
 **Quest tracker** (`Quests.lua`, the "quests" switch). Blizzard's objective tracker stays adopted
 at 0; MyUI says what changes:
