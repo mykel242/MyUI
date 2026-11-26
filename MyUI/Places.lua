@@ -41,7 +41,7 @@ Places.PARTS = {
 }
 for _, p in ipairs({ { "map", "Map", "right" }, { "quests", "Quests", "right" }, { "social", "Who's online", "right" },
                      { "history", "Notifications", "left" }, { "chat", "Chat", "left" },
-                     { "dev", "Debug log", "left" } }) do
+                     { "dev", "Debug log", "left" }, { "features", "Features", "left" } }) do
     local l = { key = "left", label = "left column", side = "left" }
     local r = { key = "right", label = "right column", side = "right" }
     Places.PARTS[#Places.PARTS + 1] = { key = p[1], label = p[2], panel = true,

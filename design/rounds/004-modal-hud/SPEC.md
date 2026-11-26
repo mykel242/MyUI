@@ -750,6 +750,14 @@ group. On (default) is MyUI's way; off gives that piece back to Blizzard. Alpha-
 at once; bars, unitframes and group (protected frames) on `/reload`. `/myui override` lists them;
 `/myui override <name> on|off` flips one. Saved in `MyUIDB.switches` (only the ones turned off).
 
+**The features panel** (2026-11-26, Mykel: "an in game panel (styled like the others) with on/off
+switches for each feature so i can just click through many combinations"). `Features.lua`, a
+summoned panel docked left (MyUI → Show MyUI's features, `/myui features`): one row per switch,
+its name and `on` / `off`; a click flips it. Pointing at a row says what MyUI does there (or
+"Blizzard's own"). A switch that applies on `/reload` says `reload` in amber until then, the title
+counts them, and the footer has `all on`, `all off` and `reload` (a click is a hardware event).
+Pinned, it comes back after the reload.
+
 **Quest tracker** (`Quests.lua`, the "quests" switch). Blizzard's objective tracker stays adopted
 at 0; MyUI says what changes:
 - **Toasts, amber.** An objective moving says its own line ("Boars slain: 4/10"); a quest

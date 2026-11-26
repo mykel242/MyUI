@@ -81,4 +81,9 @@
     <Binding name="MYUI_DEVLOG" category="MyUI">
         MyUI_DevLog()
     </Binding>
+
+    <!-- Every switch as a row to click: on is MyUI's, off is Blizzard's. -->
+    <Binding name="MYUI_FEATURES" category="MyUI">
+        MyUI_Features()
+    </Binding>
 </Bindings>

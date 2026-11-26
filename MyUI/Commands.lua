@@ -226,6 +226,7 @@ end
 local COMMANDS = {
     { "help",         "this list" },
     { "override",     "MyUI's replacements, one switch each: list | <name> on|off (off = Blizzard's)" },
+    { "features",     "the switches as a panel: click one to flip it" },
     { "quests",       "the quest list (the tracker's replacement): toggles; bind MyUI -> Show the quest list" },
     { "copy",         "the last output in a selectable window" },
     { "show",         "force every frame to alpha 1, or release back to resting" },
@@ -282,6 +283,10 @@ end
 
 local HANDLERS = {
     help         = Help,
+    features     = function()
+        if ns.Features then ns.Features.Toggle() end
+        ns.Print(ns.Features and ns.Features.IsOpen() and "features: open" or "features: closed")
+    end,
     override     = function(arg)
         local S = ns.Switches
         local key, state = (arg or ""):lower():match("^(%S*)%s*(%S*)$")
@@ -1067,7 +1072,7 @@ Report.SECTIONS = { "version", "override", "audit", "claims", "sources", "taint"
 -- Every binding in Bindings.xml; a test keeps the two in step.
 Report.BINDINGS = { "MYUI_PEEK", "MYUI_REPLY", "MYUI_CENTER", "MYUI_WHAT", "MYUI_ARRANGE",
                     "MYUI_QUESTS", "MYUI_TALK", "MYUI_SOCIAL", "MYUI_MAP", "MYUI_REPORT",
-                    "MYUI_DEVLOG" }
+                    "MYUI_DEVLOG", "MYUI_FEATURES" }
 
 local function Call(fn, ...)
     if type(fn) ~= "function" then return nil end

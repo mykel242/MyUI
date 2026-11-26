@@ -55,7 +55,7 @@ end
 section("Load")
 -- ---------------------------------------------------------------------------
 
-check("every file in the TOC was loaded", #ns.__loadedFiles == 34, #ns.__loadedFiles)
+check("every file in the TOC was loaded", #ns.__loadedFiles == 35, #ns.__loadedFiles)
 
 -- Each delivered phase gets an annotated git tag named after the TOC version,
 -- so these three must agree before one is cut. They drift silently otherwise,
@@ -5215,6 +5215,58 @@ do
     db.groupBy, db.groupLook, db.group = savedBy, savedLook, savedOld
     db.groupBy, db.groupLook = nil, nil
     G.Apply()
+end
+
+-- ---------------------------------------------------------------------------
+section("The features panel (2026-11-26)")
+-- ---------------------------------------------------------------------------
+do
+    local F, S = ns.Features, ns.Switches
+    local saved = {}
+    for k, v in pairs(ns.db.switches or {}) do saved[k] = v end
+    ns.db.switches = {}
+    F.Snapshot()
+    run("features")
+    check("/myui features opens a panel", F.IsOpen())
+    check("  one row per switch, every one on", #F.panel.rows == #S.LIST and (function()
+        for _, r in ipairs(F.panel.rows) do
+            if r.state:GetText() ~= "on" then return false end
+        end
+        return true
+    end)())
+    local quests, bars
+    for _, r in ipairs(F.panel.rows) do
+        if r.switch.key == "quests" then quests = r end
+        if r.switch.key == "bars" then bars = r end
+    end
+    quests:Click()
+    check("a click flips one: off is Blizzard's", S.On("quests") == false and quests.state:GetText() == "off")
+    check("  and one that applies at once waits for nothing", F.WaitingCount() == 0)
+    bars:Click()
+    check("one that applies on /reload says so", S.On("bars") == false and F.Waiting("bars")
+          and bars.state:GetText():find("reload", 1, true) ~= nil
+          and F.panel.__header.title:GetText():find("1 to reload", 1, true) ~= nil)
+    bars:Click()
+    check("  and flipping it back waits for nothing", not F.Waiting("bars") and F.WaitingCount() == 0)
+    F.panel.__footer.actions[2]:Click()
+    check("all off: every switch off", (function()
+        for _, sw in ipairs(S.LIST) do if S.On(sw.key) then return false end end
+        return true
+    end)())
+    F.panel.__footer.actions[1]:Click()
+    check("all on: every switch back on, nothing waits", (function()
+        for _, sw in ipairs(S.LIST) do if not S.On(sw.key) then return false end end
+        return F.WaitingCount() == 0
+    end)())
+    local was, reloaded = _G.ReloadUI, 0
+    _G.ReloadUI = function() reloaded = reloaded + 1 end
+    F.panel.__footer.actions[3]:Click()
+    _G.ReloadUI = was
+    check("the reload button reloads (a click is a hardware event)", reloaded == 1)
+    F.Close()
+    check("  and it closes", not F.IsOpen())
+    ns.db.switches = saved
+    F.Snapshot()
 end
 
 -- ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@ Talk.lua
 Social.lua
 Map.lua
 Dev.lua
+Features.lua
 Clear.lua
 Actions.lua
 Group.lua

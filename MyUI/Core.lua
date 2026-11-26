@@ -262,6 +262,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             { "group frames", ns.Group    },
             -- The debug log, a summoned panel like the others (dev only).
             { "debug log",    ns.Dev      },
+            -- The switches as a panel (before the pinned panels come back).
+            { "features",     ns.Features },
             -- Last: brings back any summoned panel left pinned.
             { "summoned panels", ns.Summon },
         }) do

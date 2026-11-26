@@ -291,6 +291,45 @@ and active choice (full slots, preset, renamed or deleted original, two specs, a
 hand-edited MyUI layout, Mykel's existing install); in game, a clean character and one whose MyUI
 folder was simply deleted both come back right.
 
+### Modular, and Forever (agreed with Mykel 2026-11-26)
+
+Mykel: "ensure that MyUI is modular enough that users can disable some or all of it to work with
+whatever addon build out they feel they require to play at a high level", and a version for WoW
+Forever (interface 16001) kept in step with retail.
+
+**Parts.** Every feature is a part with a switch (Switches.lua already has eleven; the features
+panel shows them). Each part declares: its key and label; the frames it adopts or hides; the
+modules it starts; whether it applies on `/reload`; the addons that already do its job
+(`yields`); and the games it runs on (`flavors`). The **base** is not a part and is always on:
+Compat, Guard, Core, Scale, Palette, Frames, Registry, Reveal, Toast, Summon, Commands.
+
+**Off means absent.** A part that is off starts no module, registers no event, adopts and hides
+nothing, and leaves Blizzard's frames exactly as Blizzard left them. Test: with every part off, a
+login makes no Blizzard-frame call at all (the mock counts them), and `disable` (Safe to try) is
+"every part off" plus the base going quiet.
+
+**Standing down.** A part whose `yields` addon is loaded starts off on a character that never set
+it, and says so once (a toast: "Cell is loaded: MyUI's group frames are off");
+the player can still turn it on. First list: ElvUI (everything but toasts and chat), Bartender4 /
+Dominos (bars), Cell / Grid2 / VuhDo (group), Plater / Platynator (nameplates, when MyUI has
+any), ShadowedUnitFrames / oUF layouts / UnhaltedUnitFrames (unitframes), Details / Skada (meter),
+Prat / Chattynator (chat), SexyMap / BasicMinimap (minimap).
+
+**Forever.** One tree, two TOCs (`MyUI_Mainline.toc` 120105, `MyUI_Forever.toc` 16001 -- if the
+Forever client does not honour the suffix, one TOC with both and a flavor check). `Compat.FLAVOR`
+from the interface number; a part whose `flavors` lacks it is not listed and never starts. Edit
+Mode, the Cooldown Manager, specs and secret values are retail-only: there the base keeps its
+guard but has nothing to guard, and bars are hidden at runtime only. Steps: a read-only probe on
+Forever (its globals and APIs, with Mykel's say-so: it writes saved data); the mock gains a
+Forever mode; the suite runs twice; the lint rejects a retail-only API outside Compat.
+
+**Defaults for every role and class.** One `Defaults()` (Safe to try step 2) keyed by role and
+class: which parts are on, the group look, class resources, stances (a druid's always up), pet.
+A harness check loads each class and spec in the mock and finds no overlap and no gap.
+
+**Order.** Features panel (built) → parts declare yields and flavors → off means absent (the
+mock's count) → standing down → Defaults by role and class → Forever probe → Forever build.
+
 **Then, one at a time, in Mykel's order:** the mode switch proper (§ 16 — rest, travel and boss
 layouts, the layout rail); boss mode (§ 21, after P4); the map key (§ 22); Blizzard's toasts
 (§ 6 amendment); a collected enemy list; the history window and other toast sources; MyUI's chat
