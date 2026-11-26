@@ -264,6 +264,8 @@ loader:SetScript("OnEvent", function(self, event, addon)
             { "debug log",    ns.Dev      },
             -- The switches as a panel (before the pinned panels come back).
             { "features",     ns.Features },
+            -- Which features stood down for another addon, said once.
+            { "stand down",   ns.Switches },
             -- Last: brings back any summoned panel left pinned.
             { "summoned panels", ns.Summon },
         }) do

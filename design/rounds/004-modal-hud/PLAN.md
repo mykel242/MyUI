@@ -327,7 +327,11 @@ Forever mode; the suite runs twice; the lint rejects a retail-only API outside C
 class: which parts are on, the group look, class resources, stances (a druid's always up), pet.
 A harness check loads each class and spec in the mock and finds no overlap and no gap.
 
-**Order.** Features panel (built) → parts declare yields and flavors → off means absent (the
+Built 2026-11-26 (`Switches.Standing`, `Switches.Default`, `Switches.Announce`): the `yields` lists
+are in `Switches.LIST`; decided once a session after login; the features panel and `/myui override`
+name the addon; the player's own setting always wins.
+
+**Order.** Features panel (built) → standing down (built) → parts declare flavors → off means absent (the
 mock's count) → standing down → Defaults by role and class → Forever probe → Forever build.
 
 **Then, one at a time, in Mykel's order:** the mode switch proper (§ 16 — rest, travel and boss

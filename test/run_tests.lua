@@ -5385,6 +5385,42 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+section("Standing down for other addons (2026-11-26)")
+-- ---------------------------------------------------------------------------
+do
+    local S = ns.Switches
+    local saved, savedStood = ns.db.switches, ns.db.stoodDown
+    ns.db.switches, ns.db.stoodDown = {}, nil
+    local wasAddOns = _G.C_AddOns
+    local loaded = { Bartender4 = true, Details = true }
+    _G.C_AddOns = setmetatable({ IsAddOnLoaded = function(n) return loaded[n] == true end }, { __index = wasAddOns })
+    S.standing = nil
+    check("an addon that does a feature's job: MyUI's stands down", not S.On("bars") and not S.On("meter")
+          and S.Standing().bars == "Bartender4" and S.Standing().meter == "Details")
+    check("  the rest stay MyUI's", S.On("group") and S.On("minimap"))
+    ns.Toast.Clear()
+    local said = S.Announce()
+    local last = ns.Log.db.entries[1]
+    check("  and it says so once, as a notification", #said == 2 and last ~= nil
+          and tostring(last.name):find("is loaded", 1, true) ~= nil, last and last.name)
+    check("  not again next time", #S.Announce() == 0)
+    S.Set("bars", true)
+    check("the player can still turn it on, and that is remembered", S.On("bars") and ns.db.switches.bars == true)
+    S.Set("bars", false)
+    check("  off again stores nothing: off is the default while Bartender4 is loaded",
+          ns.db.switches.bars == nil and not S.On("bars"))
+    local F = ns.Features
+    F.Refresh()
+    local row
+    for _, r in ipairs(F.panel.rows) do if r.switch.key == "meter" then row = r end end
+    check("the features panel names the addon", row and row.state:GetText():find("Details", 1, true) ~= nil)
+    _G.C_AddOns = wasAddOns
+    S.standing = nil
+    ns.db.switches, ns.db.stoodDown = saved, savedStood
+    F.Refresh()
+end
+
+-- ---------------------------------------------------------------------------
 section("Columns share their height (2026-11-26)")
 -- ---------------------------------------------------------------------------
 do

@@ -18,27 +18,27 @@ ns.Switches = Switches
 
 -- In the order /myui override lists them. Your pet peeves first.
 Switches.LIST = {
-    { key = "quests", label = "Quest tracker", mine = "progress as toasts; the list on a key, by kind",
+    { key = "quests", yields = { "!KalielsTracker", "ElvUI" }, label = "Quest tracker", mine = "progress as toasts; the list on a key, by kind",
       frames = { "Tracker" } },
-    { key = "chat", label = "Chat", mine = "MyUI's chat panel and who's online; toasts for people",
+    { key = "chat", yields = { "Prat-3.0", "Chattynator", "ElvUI" }, label = "Chat", mine = "MyUI's chat panel and who's online; toasts for people",
       frames = { "Chat", "ChatDock", "ChatButtons", "ChatSocial" }, reload = true },
-    { key = "minimap", label = "Minimap", mine = "out of the corner; the map on a key",
+    { key = "minimap", yields = { "SexyMap", "BasicMinimap", "ElvUI" }, label = "Minimap", mine = "out of the corner; the map on a key",
       frames = { "Minimap", "MinimapMap" } },
-    { key = "buffs", label = "Buffs and debuffs", mine = "buffs on peek; debuffs beside the bar",
+    { key = "buffs", yields = { "ElvUI" }, label = "Buffs and debuffs", mine = "buffs on peek; debuffs beside the bar",
       frames = { "Buffs", "Debuffs" } },
-    { key = "castbar", label = "Cast bar", mine = "shown only while casting",
+    { key = "castbar", yields = { "Quartz", "ElvUI" }, label = "Cast bar", mine = "shown only while casting",
       frames = { "CastBar" } },
     { key = "cooldowns", label = "Cooldown Manager", mine = "beside the bar, with it",
       frames = { "WingCooldowns", "WingUtility", "WingBuffs" } },
-    { key = "menu", label = "Menu and bags", mine = "on peek",
+    { key = "menu", yields = { "Bagnon", "AdiBags", "Baganator", "ElvUI" }, label = "Menu and bags", mine = "on peek",
       frames = { "MicroMenu", "Bags" } },
-    { key = "meter", label = "Damage meter", mine = "on peek",
+    { key = "meter", yields = { "Details", "Skada", "Recount" }, label = "Damage meter", mine = "on peek",
       frames = { "DamageMeter" } },
-    { key = "bars", label = "Action bars", mine = "MyUI's bar: one row, pages on modifiers",
+    { key = "bars", yields = { "Bartender4", "Dominos", "ElvUI" }, label = "Action bars", mine = "MyUI's bar: one row, pages on modifiers",
       frames = { "MainBar", "StanceBar" }, reload = true },
-    { key = "unitframes", label = "Player, target, focus frames", mine = "MyUI's strips instead",
+    { key = "unitframes", yields = { "ShadowedUnitFrames", "UnhaltedUnitFrames", "PitBull4", "MidnightSimpleUnitFrames", "ElvUI" }, label = "Player, target, focus frames", mine = "MyUI's strips instead",
       units = { "PlayerFrame", "TargetFrame", "FocusFrame" }, reload = true },
-    { key = "group", label = "Party and raid frames", mine = "MyUI's group frames",
+    { key = "group", yields = { "Cell", "Grid2", "VuhDo", "ElvUI" }, label = "Party and raid frames", mine = "MyUI's group frames",
       units = { "PartyFrame", "CompactPartyFrame", "CompactRaidFrameContainer", "PetFrame" },
       reload = true },
 }
@@ -61,11 +61,72 @@ end
 -- should leave blizz chat enabled until later". Off unless turned on.
 Switches.DEFAULT_OFF = { chat = true }
 
+-- 2026-11-26 (Mykel: "ensure that MyUI is modular enough that users can
+-- disable some or all of it to work with whatever addon build out they
+-- feel they require"). A switch lists the addons that already do its job
+-- (yields). With one of them loaded, the switch starts off -- MyUI stands
+-- down -- unless the player has set it; a notification says so once.
+-- Decided once a session (Switches.Standing), so an addon loaded on demand
+-- later cannot flip a switch mid-session.
+
+local function Loaded(name)
+    local f = _G.C_AddOns and _G.C_AddOns.IsAddOnLoaded or _G.IsAddOnLoaded
+    if type(f) ~= "function" then return false end
+    local ok, loaded = pcall(f, name)
+    return ok and loaded == true
+end
+
+--- Which switches stand down this session, and for which addon:
+-- { key = addonName }. Worked out on first ask.
+function Switches.Standing()
+    if Switches.standing then return Switches.standing end
+    local out = {}
+    for _, s in ipairs(Switches.LIST) do
+        for _, name in ipairs(s.yields or {}) do
+            if Loaded(name) then out[s.key] = name break end
+        end
+    end
+    -- Kept only once the game says every addon has loaded: asked earlier,
+    -- an addon loading after MyUI would be missed for the session.
+    local ready = _G.IsLoggedIn
+    if type(ready) ~= "function" or ready() then Switches.standing = out end
+    return out
+end
+
+--- What a switch is when the player has not set it.
+function Switches.Default(key)
+    if Switches.Standing()[key] then return false end
+    return not Switches.DEFAULT_OFF[key]
+end
+
 --- Is this switch on (MyUI's way)? Unknown keys are on.
 function Switches.On(key)
     local v = DB()[key]
-    if v == nil then return not Switches.DEFAULT_OFF[key] end
+    if v == nil then return Switches.Default(key) end
     return v == true
+end
+
+--- Say once, per addon and switch, that MyUI stood down.
+function Switches.Announce()
+    if not ns.db then return {} end
+    ns.db.stoodDown = ns.db.stoodDown or {}
+    local said = {}
+    for key, addon in pairs(Switches.Standing()) do
+        local s = Switches.BY_KEY[key]
+        if DB()[key] == nil and ns.db.stoodDown[key] ~= addon then
+            ns.db.stoodDown[key] = addon
+            said[#said + 1] = key
+            if ns.Toast and ns.Toast.Add then
+                pcall(ns.Toast.Add, "blue", ("%s is loaded: MyUI's %s is off"):format(addon, s.label:lower()))
+            end
+        end
+    end
+    return said
+end
+
+function Switches.OnLogin()
+    -- After the toasts exist, and a moment in, so it is seen.
+    C_Timer.After(3, Switches.Announce)
 end
 
 --- May Clear adopt this frame (by its Clear.ADOPT name)?
@@ -87,8 +148,8 @@ function Switches.Set(key, on)
     if not s then return nil, ("no switch %q"):format(tostring(key)) end
     on = on and true or false
     if Switches.On(key) == on then return s, false end
-    -- Stored only when it differs from the default.
-    if on == not Switches.DEFAULT_OFF[key] then DB()[key] = nil else DB()[key] = on end
+    -- Stored only when it differs from the default (standing down included).
+    if on == Switches.Default(key) then DB()[key] = nil else DB()[key] = on end
     if s.reload then return s, true end
     -- Giving a frame back always works; taking it again only while
     -- clearing is on (/myui restore turns it all off).

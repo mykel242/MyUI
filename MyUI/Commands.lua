@@ -303,8 +303,10 @@ local HANDLERS = {
         ns.Print("MyUI's replacements (off gives Blizzard's back):")
         for _, s in ipairs(S.LIST) do
             local on = S.On(s.key)
-            ns.Raw(("  %s %-10s|r %s -- %s%s"):format(on and "|cffa6d98con |r" or "|cfff29e73off|r",
-                   s.key, s.label, on and s.mine or "Blizzard's", s.reload and " (on /reload)" or ""))
+            local stood = S.Standing()[s.key]
+            ns.Raw(("  %s %-10s|r %s -- %s%s%s"):format(on and "|cffa6d98con |r" or "|cfff29e73off|r",
+                   s.key, s.label, on and s.mine or "Blizzard's", s.reload and " (on /reload)" or "",
+                   stood and (" (" .. stood .. " is loaded)") or ""))
         end
         ns.Raw("  /myui override <name> on|off")
     end,

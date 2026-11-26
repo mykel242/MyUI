@@ -88,7 +88,7 @@ local function BuildRow(parent, index)
     row.dot:SetPoint("LEFT")
     row.state = ns.Frames.Text(row, 10, "textDim", "RIGHT")
     row.state:SetPoint("RIGHT")
-    row.state:SetWidth(U(80))
+    row.state:SetWidth(U(130))
     row.name = ns.Frames.Text(row, 11, "textPrimary", "LEFT")
     row.name:SetPoint("LEFT", row.dot, "RIGHT", U(S.GAP), 0)
     row.name:SetPoint("RIGHT", row.state, "LEFT", -U(S.GAP), 0)
@@ -101,7 +101,9 @@ local function BuildRow(parent, index)
     row:SetScript("OnEnter", function(self)
         if self.switch and panel then
             local on = ns.Switches.On(self.switch.key)
-            panel.note:SetText(on and ("MyUI: " .. self.switch.mine) or "Blizzard's own")
+            local stood = ns.Switches.Standing()[self.switch.key]
+            panel.note:SetText(on and ("MyUI: " .. self.switch.mine)
+                               or (stood and (stood .. " does this; MyUI stands down") or "Blizzard's own"))
         end
     end)
     row:SetScript("OnLeave", function()
@@ -190,7 +192,11 @@ function Features.Refresh()
         row.dot:SetHue(on and "notifGreen" or "textDim")
         row.name:SetText(s.label)
         row.name:SetTextColor(Palette.Get(on and "textPrimary" or "textDim"))
-        row.state:SetText((on and "on" or "off") .. (waiting and " \194\183 reload" or ""))
+        -- Stood down for another addon, and not set by the player: say which.
+        local stood = not on and ns.Switches.Standing()[s.key]
+        if stood and ns.db and ns.db.switches and ns.db.switches[s.key] ~= nil then stood = nil end
+        row.state:SetText((on and "on" or "off") .. (stood and (" \194\183 " .. stood) or "")
+                          .. (waiting and " \194\183 reload" or ""))
         row.state:SetTextColor(Palette.Get(waiting and "notifAmber" or (on and "textPrimary" or "textDim")))
         row:EnableMouse(open)
         row:Show()
