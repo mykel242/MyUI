@@ -5314,6 +5314,25 @@ do
         S.Set("minimap", true); S.Set("quests", true)
         local _, x3, y3 = ns.Summon.Origin("right")
         check("  given to MyUI again, the column goes home", near(x3, x0) and near(y3, y0))
+        -- Mykel: "the panel that shows up for tanks to add markers ...
+        -- collides" -- Blizzard's raid manager at the left edge.
+        local m = mock.frame({ name = "CompactRaidFrameManager" })
+        m.toggleButtonForward = mock.frame({ name = "RaidManagerTab" })
+        m.__rect = { -200, 920, 0, 1060 }
+        m.toggleButtonForward.__rect = { 0, 960, 20, 1000 }
+        m:Show(); m.toggleButtonForward:Show()
+        local wasM = _G.CompactRaidFrameManager
+        _G.CompactRaidFrameManager = m
+        local _, cx = ns.Summon.Origin("left")
+        check("the raid manager's tab at the left edge: the left column starts past it", cx >= 20, cx)
+        m.__rect = { 0, 920, 200, 1060 }
+        m.toggleButtonForward:Hide()
+        local _, ex = ns.Summon.Origin("left")
+        check("  and past the whole manager while it is open", ex >= 200, ex)
+        m:Hide()
+        local _, hx = ns.Summon.Origin("left")
+        check("  and home when it is gone", near(hx, Scale.U(16)), hx)
+        _G.CompactRaidFrameManager = wasM
         _G.MinimapCluster, _G.ObjectiveTrackerFrame = wasC, wasT
         ui.__w, ui.__h = wasW, wasH
     end

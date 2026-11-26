@@ -420,6 +420,24 @@ function Summon.GivenBack()
     return out
 end
 
+-- 2026-11-26 (Mykel): "the panel that shows up for tanks to add markers --
+-- that is blizzards and collides". Blizzard's raid manager (markers, ready
+-- check, role filters) lives at the left edge in any group: collapsed, a tab
+-- just in from the edge; expanded, 200 wide. Whatever is shown of it, the
+-- left column starts to its right.
+Summon.EDGE_FRAMES = { left = { "CompactRaidFrameManager" } }
+
+local function EdgeRight(f)
+    local right
+    for _, part in ipairs({ f, f.toggleButtonForward, f.toggleButtonBack }) do
+        if part and part.IsShown and part:IsShown() and part.GetRect then
+            local _, r = Rect(part)
+            if r and (not right or r > right) then right = r end
+        end
+    end
+    return right
+end
+
 --- Where a dock column starts: point, x, y in UI units against UIParent.
 function Summon.Origin(side)
     local d = Summon.DOCK[side]
@@ -429,6 +447,13 @@ function Summon.Origin(side)
     local H = ui and ui.GetHeight and ui:GetHeight() or 0
     if type(W) ~= "number" or type(H) ~= "number" or W <= 0 or H <= 0 then return d.point, x, y end
     local gap, colW = U(Summon.DOCK_GAP), U(Summon.WIDTH)
+    if side == "left" then
+        for _, name in ipairs(Summon.EDGE_FRAMES.left) do
+            local f = _G[name]
+            local r = f and f.IsShown and f:IsShown() and EdgeRight(f)
+            if r and r > 0 then x = math.max(x, r + gap) end
+        end
+    end
     for _, f in ipairs(Summon.GivenBack()) do
         local l, r, t, b = Rect(f)
         if l then
@@ -633,6 +658,12 @@ function Summon.OnLogin()
     -- Blizzard's party frames, given back, appear with a group: the columns
     -- move off them once they have (Summon.Origin).
     driver:RegisterEvent("GROUP_ROSTER_UPDATE")
+    -- The raid manager opening or closing moves the left column with it.
+    for _, fn in ipairs({ "CompactRaidFrameManager_Expand", "CompactRaidFrameManager_Collapse" }) do
+        if type(_G[fn]) == "function" then
+            hooksecurefunc(fn, function() C_Timer.After(0, Summon.Layout) end)
+        end
+    end
     driver:SetScript("OnEvent", function(_, event)
         if event == "GROUP_ROSTER_UPDATE" then
             if not Summon.relayoutQueued then

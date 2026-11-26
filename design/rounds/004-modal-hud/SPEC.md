@@ -763,7 +763,9 @@ Pinned, it comes back after the reload.
 blizz components expect space"). A Blizzard frame a switch gives back keeps its own place, and a
 dock column that would cover it moves (`Summon.Origin`): under a short one (the minimap, the buffs),
 beside a tall one (the quest tracker), and under Blizzard's party and unit frames when the group
-or unitframes switch is off (re-checked when the group changes). Only frames in the top half of the screen across the
+or unitframes switch is off (re-checked when the group changes). Blizzard's raid manager (markers, ready
+check) is always Blizzard's: the left column starts right of whatever is shown of it -- its tab, or
+the whole manager while open (`Summon.EDGE_FRAMES`). Only frames in the top half of the screen across the
 column's width. The bottom of the screen -- the bar, the unit frames, Blizzard's own given back --
 is not solved yet.
 Blizzard's talking head (an NPC's portrait and line) is never MyUI's, but it sat over PLAYER and the
