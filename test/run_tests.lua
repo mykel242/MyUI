@@ -3232,7 +3232,8 @@ do
     -- party's column (248): three stances (94), the zone button (50), debuffs.
     local rowLeft = Scale.U(248)
     local rowZone = rowLeft + 3 * 30 + 2 * 2 + Scale.U(12)
-    local rowDebuffs = rowZone + 50 + Scale.U(12)
+    local zoneScale = Scale.U(44) / 52
+    local rowDebuffs = rowZone + 52 * zoneScale + Scale.U(12)
     local mine
     for i, l in ipairs(saved.layouts) do if l.layoutName == "MyUI" then mine = i end end
     check("a MyUI layout is made from the active one", mine ~= nil, mine)
@@ -3311,11 +3312,30 @@ do
     end)())
     check("  the zone / extra ability button on bar 1's row, past the stances (2026-11-26)", (function()
         local a = sys(11).anchorInfo
-        return a and a.point == "BOTTOM" and near(a.offsetX, rowZone + 25) and near(a.offsetY, Scale.U(-35))
+        -- Blizzard's geometry: a 52 button centred in a 256 x 128 frame,
+        -- hung from the top of a 120-tall container placed by its BOTTOM.
+        local _, bottom = ns.Actions.Extent()
+        local half = 26 * zoneScale
+        local left = a.offsetX - 128 + 128 * zoneScale - half
+        local foot = a.offsetY + 120 - 64 * zoneScale - half
+        return a and a.point == "BOTTOM" and near(left, rowZone) and near(foot, bottom)
+    end)())
+    check("  at bar 1's size, its container free of the screen's edge", (function()
+        _G.ZoneAbilityFrame = mock.frame({ name = "ZoneAbilityFrame" })
+        _G.ExtraAbilityContainer = mock.frame({ name = "ExtraAbilityContainer" })
+        local clamped, scale
+        _G.ExtraAbilityContainer.SetClampedToScreen = function(_, v) clamped = v end
+        _G.ZoneAbilityFrame.SetScale = function(_, v) scale = v end
+        Clear.StyleExtra(true)
+        local on = near(scale, zoneScale) and clamped == false
+        Clear.StyleExtra(false)
+        local off = near(scale, 1) and clamped == true
+        _G.ZoneAbilityFrame, _G.ExtraAbilityContainer = nil, nil
+        return on and off
     end)())
     check("  with no stances, the zone button takes the party's column", (function()
         local _, zone, debuffs = Clear.RightRow()
-        return near(zone, rowLeft) and near(debuffs, rowLeft + 50 + Scale.U(12))
+        return near(zone, rowLeft) and near(debuffs, rowLeft + 52 * zoneScale + Scale.U(12))
     end)())
     check("  Blizzard's tooltip corner in the bottom right, growing up (the tooltip itself untouched)", (function()
         local a = sys(14).anchorInfo

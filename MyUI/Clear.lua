@@ -731,10 +731,25 @@ Clear.UNDER_WING_HEIGHT = 30
 -- column -- stances, then the zone button, then the debuffs.
 Clear.STANCE_BUTTON = 30   -- a stance button at Edit Mode's 100%, UI units
 Clear.STANCE_PAD = 2       -- between them (measured: three are 94 wide)
-Clear.ZONE_W = 50          -- the zone button without its frame art
--- Its centre, right of its container's BOTTOM anchor. Charon (2026-11-26):
--- the centre lands on the anchor -- at 27 it overlapped the third stance.
-Clear.ZONE_DX = 0
+-- The zone button (Charon, 2026-11-26: "still sits too high and is too big").
+-- Blizzard's geometry (ZoneAbility.xml, ExtraAbilityContainer.xml): a 52 px
+-- button centred in a 256 x 128 ZoneAbilityFrame, hung TOPLEFT in a
+-- container 120 tall and as wide as it (256), placed by its BOTTOM. The
+-- container is clamped to the screen, which is what held the button ~30 up.
+-- MyUI scales the frame to bar 1's size and unclamps the container
+-- (StyleExtra), and works out the container's anchor from that.
+Clear.ZONE_BUTTON = 52
+Clear.ZONE_FRAME_W, Clear.ZONE_FRAME_H = 256, 128
+Clear.ZONE_CONTAINER_H = 120
+
+function Clear.ZoneScale()
+    return ns.Scale.U(ns.Actions.SIZE) / Clear.ZONE_BUTTON
+end
+
+--- The zone button's size on screen, UI units.
+function Clear.ZoneSize()
+    return Clear.ZONE_BUTTON * Clear.ZoneScale()
+end
 Clear.RIGHT_ROW_GAP = 12   -- between the row's parts, mock px
 
 --- How many stance buttons this character shows (0 for none).
@@ -760,7 +775,7 @@ function Clear.RightRow()
     if n > 0 then
         zone = left + n * Clear.STANCE_BUTTON + (n - 1) * Clear.STANCE_PAD + gap
     end
-    return left, zone, zone + Clear.ZONE_W + gap
+    return left, zone, zone + Clear.ZoneSize() + gap
 end
 Clear.STATUS_BAR_STEP = 12   -- the second status bar, this far under the first
 
@@ -809,8 +824,12 @@ function Clear.Anchor(key)
         return "BOTTOMLEFT", stances, bottom
     end
     if stances and key == "ZoneAbility" and not (ns.Places and ns.Places.Pos("ZoneAbility")) then
-        local _, _, _, y = ns.Layout.Pos(key)
-        return "BOTTOM", zone + Clear.ZONE_W / 2 - Clear.ZONE_DX, ns.Scale.U(y), "BOTTOM"
+        -- The button's left edge at `zone`, its foot on the bar's.
+        local sc = Clear.ZoneScale()
+        local half = Clear.ZONE_BUTTON * sc / 2
+        local x = zone + half + Clear.ZONE_FRAME_W / 2 * (1 - sc)
+        local y = bottom + half + Clear.ZONE_FRAME_H / 2 * sc - Clear.ZONE_CONTAINER_H
+        return "BOTTOM", x, y, "BOTTOM"
     end
     local o = Clear.OVER_BAR[key]
     if o then
@@ -983,6 +1002,17 @@ function Clear.StyleExtra(on)
     for _, t in pairs(art) do
         if t and t.SetAlpha then t:SetAlpha(on == false and 1 or 0) end
     end
+    -- On a profile with the right row: bar 1's size, and free to sit on the
+    -- bar's baseline (Clear.Anchor works out where).
+    local row = on ~= false and Clear.RightRow() ~= nil
+    local scale = row and Clear.ZoneScale() or 1
+    for _, f in pairs({ _G.ZoneAbilityFrame, _G.ExtraActionBarFrame }) do
+        if f.SetScale then f:SetScale(scale) end   -- lint:allow R3 a constant from SPEC sizes, never a unit value
+    end
+    local box = _G.ExtraAbilityContainer
+    if box and box.SetClampedToScreen then box:SetClampedToScreen(not row) end
+    -- No box:Layout(): run from here it would write Blizzard's layout fields
+    -- tainted. The scale needs none (the container ignores child scale).
     return true
 end
 
