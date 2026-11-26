@@ -6,6 +6,14 @@ Target: WoW Midnight 12.1.5, TOC `120105`. Reference source read at build **12.1
 
 ---
 
+## Checkpoints (noted 2026-11-26)
+
+- **`efc14e7`** -- the last commit before the column rework: dock columns placed by Origin only,
+  panels capped at fixed sizes (`ROWS` / `ROWS_ALL`) and `FitRows`.
+- **`5976c2f`** -- the column rework (SPEC § 23, "A column, and how its panels share it"):
+  `Summon.Floor`, `Summon.Share`, overflow to the other column; every docked panel declares
+  rowH / want / prefer / min / chrome. To back it out: `git revert 5976c2f`.
+
 ## Later (noted 2026-11-26)
 
 - **Toasts need a redesign.** Mykel: "they are just too tiny and look like log entries."
