@@ -69,6 +69,10 @@ Layout.PRESETS = {
         Tooltip     = { "BOTTOMRIGHT", "BOTTOMRIGHT", -16, 144 },
         -- The debuffs on bar 1's row start past the zone button.
         debuffGap   = 128,
+        -- 2026-11-26: right of the bar, on its baseline, from the party's
+        -- column: stances, the zone button, the debuffs (Clear.RightRow).
+        -- ZoneAbility's x is then worked out; its y still comes from here.
+        rightRow    = "Group",
         wingGap     = 32,
         iconPadding = 6,
     },

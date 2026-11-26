@@ -617,6 +617,9 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   bar (combat, a target). Round 004 play: they had been adopted and never came back.
   2026-11-26 (Charon, a druid): they also come with the held modifier, and a druid's are always up
   (`Reveal.STANCE_CLASSES`) -- travel, cat and bear are out-of-combat forms. Not while arranging.
+  Placed (same day, Mykel) right of the bar on its baseline, left edge on the party's column; the zone
+  button follows them on that baseline and the debuffs follow it (`Clear.RightRow`, the `focus` profile's
+  `rightRow`). Under the cooldowns there was no room once the bar sat at the screen's foot.
 - **Arranging**: every page drawn stacked above bar 1, labelled and held still — while a spell,
   item or macro is on the cursor, while the spellbook or macro window is open, or while the
   player toggles it (`/myui bars`, key "Arrange the action bars"). Out of combat; a fight folds it

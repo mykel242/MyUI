@@ -720,6 +720,46 @@ Clear.OVER_BAR = {
     -- (The pet bar was here, under the debuffs, until MyUI drew its own.)
 }
 Clear.UNDER_WING_HEIGHT = 30
+
+-- 2026-11-26 (Charon, a druid): with the bar at the foot of the screen there
+-- is no room under the cooldowns, and the stances were pushed up into them.
+-- Mykel: "To the RIGHT of the Action bar where the Zone bar currently is (but
+-- baseline aligned with the action bar and left aligned with the party
+-- frames ... the zone button pushes right with the same baseline alignment,
+-- whatever is right of the zone button pushes right". A profile with
+-- rightRow does that: one row on the bar's baseline, starting at the party's
+-- column -- stances, then the zone button, then the debuffs.
+Clear.STANCE_BUTTON = 30   -- a stance button at Edit Mode's 100%, UI units
+Clear.STANCE_PAD = 2       -- between them (measured: three are 94 wide)
+Clear.ZONE_W = 50          -- the zone button without its frame art
+Clear.ZONE_DX = 27         -- its centre, right of its container's BOTTOM anchor
+Clear.RIGHT_ROW_GAP = 12   -- between the row's parts, mock px
+
+--- How many stance buttons this character shows (0 for none).
+function Clear.StanceCount()
+    local f = _G.GetNumShapeshiftForms
+    if type(f) ~= "function" then return 0 end
+    local ok, n = pcall(f)
+    if not ok or type(n) ~= "number" or (ns.Compat and ns.Compat.IsSecret(n)) then return 0 end
+    return n
+end
+
+--- The right row's left edges in UI units from the screen's bottom centre:
+-- stances, zone button, debuffs; nil when the profile has no right row.
+function Clear.RightRow()
+    local profile = ns.Layout.Get()
+    local column = profile.rightRow and profile[profile.rightRow]
+    if not column then return nil end
+    local U = ns.Scale.U
+    local gap = U(Clear.RIGHT_ROW_GAP)
+    local left = U(column[3])
+    local n = Clear.StanceCount()
+    local zone = left
+    if n > 0 then
+        zone = left + n * Clear.STANCE_BUTTON + (n - 1) * Clear.STANCE_PAD + gap
+    end
+    return left, zone, zone + Clear.ZONE_W + gap
+end
 Clear.STATUS_BAR_STEP = 12   -- the second status bar, this far under the first
 
 -- Blizzard's zone / extra ability button has an ornate frame (Mykel: "I
@@ -762,6 +802,14 @@ function Clear.Anchor(key)
         if Clear.WingsAtEdge() then return "BOTTOMLEFT", ns.Scale.U(ns.Places.EDGE), y, "BOTTOMLEFT" end
         return w.side < 0 and "BOTTOMRIGHT" or "BOTTOMLEFT", barX + w.side * (half + gap), y
     end
+    local stances, zone, debuffs = Clear.RightRow()
+    if stances and key == "StanceBar" then
+        return "BOTTOMLEFT", stances, bottom
+    end
+    if stances and key == "ZoneAbility" and not (ns.Places and ns.Places.Pos("ZoneAbility")) then
+        local _, _, _, y = ns.Layout.Pos(key)
+        return "BOTTOM", zone + Clear.ZONE_W / 2 - Clear.ZONE_DX, ns.Scale.U(y), "BOTTOM"
+    end
     local o = Clear.OVER_BAR[key]
     if o then
         return o.side < 0 and "BOTTOMRIGHT" or "BOTTOMLEFT", barX + o.side * (half + gap),
@@ -775,6 +823,7 @@ function Clear.Anchor(key)
         if ns.Places and ns.Places.Of("debuffs") == "right" then
             return "BOTTOMRIGHT", -ns.Scale.U(ns.Places.EDGE), bottom, "BOTTOMRIGHT"
         end
+        if stances then return "BOTTOMLEFT", debuffs, bottom end
         local g = ns.Layout.Value("debuffGap") or ns.Layout.Value("wingGap")
         return "BOTTOMLEFT", barX + half + ns.Scale.U(g), bottom
     end

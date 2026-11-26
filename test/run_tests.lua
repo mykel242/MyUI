@@ -3223,8 +3223,16 @@ do
            and mock.editMode.active == nil and #mock.layouts.layouts == 2 and ns.db.clear.prevLayout == nil
            and Clear.layoutUntouched == true
     end)())
+    local wasForms = _G.GetNumShapeshiftForms
+    _G.GetNumShapeshiftForms = function() return 3 end
     local changed = Clear.ApplyLayout(true)
+    _G.GetNumShapeshiftForms = wasForms
     local saved = mock.editMode.saved
+    -- 2026-11-26 (Charon, a druid): right of the bar on its baseline, from the
+    -- party's column (248): three stances (94), the zone button (50), debuffs.
+    local rowLeft = Scale.U(248)
+    local rowZone = rowLeft + 3 * 30 + 2 * 2 + Scale.U(12)
+    local rowDebuffs = rowZone + 50 + Scale.U(12)
     local mine
     for i, l in ipairs(saved.layouts) do if l.layoutName == "MyUI" then mine = i end end
     check("a MyUI layout is made from the active one", mine ~= nil, mine)
@@ -3233,11 +3241,11 @@ do
     check("  every action bar with a visibility setting is hidden", changed >= 2
           and saved.layouts[mine].systems[2].settings[1].value == 3, changed)
     local function sys(i) return saved.layouts[mine].systems[i + 2] end
-    check("  stance under the cooldowns, outer edge with the wing", (function()
+    check("  stances right of the bar, on its baseline, at the party's column (2026-11-26)", (function()
         local st = saved.layouts[mine].systems[5].anchorInfo
-        local half, bottom, row, gap = ns.Actions.Extent()
-        local wing = half + Scale.U(32)
-        return st and st.point == "BOTTOMRIGHT" and near(st.offsetX, -wing) and near(st.offsetY, bottom - gap - 30)
+        local _, bottom = ns.Actions.Extent()
+        return st and st.point == "BOTTOMLEFT" and st.relativePoint == "BOTTOM"
+           and near(st.offsetX, rowLeft) and near(st.offsetY, bottom)
     end)())
     local function setting(s, id) for _, st in ipairs(s.settings) do if st.setting == id then return st.value end end end
     check("  the wings are always shown to Blizzard (the reveal engine decides); buff bars in combat only",
@@ -3267,9 +3275,9 @@ do
     check("  debuffs on you: past the zone button's place, on UIParent (never a MyUI frame: taint), dispel types shown", (function()
         local d = sys(9)
         local a = d.anchorInfo
-        local half, bottom = ns.Actions.Extent()
+        local _, bottom = ns.Actions.Extent()
         return a and a.relativeTo == "UIParent" and a.point == "BOTTOMLEFT" and a.relativePoint == "BOTTOM"
-           and near(a.offsetX, half + Scale.U(128)) and near(a.offsetY, bottom)
+           and near(a.offsetX, rowDebuffs) and near(a.offsetY, bottom)
            and setting(d, 5) == 6 and setting(d, 9) == 1 and setting(d, 4) == 8
     end)())
     check("  no Edit Mode anchor names a MyUI frame", (function()
@@ -3301,9 +3309,13 @@ do
         return a and b and a.point == "TOP" and a.relativePoint == "TOP" and near(a.offsetY, 0)
            and near(b.offsetY, -Scale.U(12))
     end)())
-    check("  the zone / extra ability button on bar 1's row, right of the bar (2026-11-23)", (function()
+    check("  the zone / extra ability button on bar 1's row, past the stances (2026-11-26)", (function()
         local a = sys(11).anchorInfo
-        return a and a.point == "BOTTOM" and near(a.offsetX, Scale.U(250)) and near(a.offsetY, Scale.U(-23))
+        return a and a.point == "BOTTOM" and near(a.offsetX, rowZone + 25 - 27) and near(a.offsetY, Scale.U(-23))
+    end)())
+    check("  with no stances, the zone button takes the party's column", (function()
+        local _, zone, debuffs = Clear.RightRow()
+        return near(zone, rowLeft) and near(debuffs, rowLeft + 50 + Scale.U(12))
     end)())
     check("  Blizzard's tooltip corner in the bottom right, growing up (the tooltip itself untouched)", (function()
         local a = sys(14).anchorInfo
