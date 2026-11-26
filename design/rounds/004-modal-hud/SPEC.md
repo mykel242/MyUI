@@ -765,7 +765,18 @@ dock column that would cover it moves (`Summon.Origin`): under a short one (the 
 beside a tall one (the quest tracker), and under Blizzard's party and unit frames when the group
 or unitframes switch is off (re-checked when the group changes). Blizzard's raid manager (markers, ready
 check) is always Blizzard's: the left column starts right of whatever is shown of it -- its tab, or
-the whole manager while open (`Summon.EDGE_FRAMES`). Only frames in the top half of the screen across the
+the whole manager while open (`Summon.EDGE_FRAMES`).
+
+**A column, and how its panels share it** (same day, Mykel: "we have dynamic ceiling floor and
+leading and trailing margin constraints. the panels should 'adjust' and not arbitrarily end").
+Each dock column runs from its ceiling (`Summon.Origin`) to its floor (`Summon.Floor`: the HUD's
+reserve, or the top of a Blizzard frame given back at the bottom -- Blizzard's chat); its leading
+margin is Origin's x. Its panels share that height (`Summon.Share`): each says its row height, how
+many rows it has, its default size and the fewest it can show. In turn: every panel its least;
+every panel toward its default size; a panel opened with "+N more" all it has; then what is left,
+a row at a time, to whoever has more. "+N more" therefore only shows when the column is full. A
+panel whose least does not fit moves to the top of the other column if that one has room (the
+features panel's least is all its rows). The map is a fixed size. Only frames in the top half of the screen across the
 column's width. The bottom of the screen -- the bar, the unit frames, Blizzard's own given back --
 is not solved yet.
 Blizzard's talking head (an NPC's portrait and line) is never MyUI's, but it sat over PLAYER and the

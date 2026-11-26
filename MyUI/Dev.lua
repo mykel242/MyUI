@@ -273,6 +273,12 @@ function Dev.Build()
     Dev.summon = S.Attach({
         key = "dev", frame = panel, header = header, dock = "left", order = 5,
         refresh = function() Dev.Refresh() end,
+        rowH = function() return U(S.ROW_H) end,
+        -- The pointer line is a row of chrome.
+        chrome = function() return S.Height(U(S.ROW_H), true, true) end,
+        want = function() return math.min(#Dev.Shown(), Dev.ROWS_ALL) end,
+        prefer = function() return Dev.ROWS end,
+        expanded = function() return Dev.expanded end,
         show = function()
             Dev.unseen = 0
             panel:Show()
@@ -314,9 +320,8 @@ function Dev.Refresh()
     if Dev.unseen > 0 then title = title .. (" \194\183 %d new error%s"):format(Dev.unseen, Dev.unseen == 1 and "" or "s") end
     panel.__header.title:SetText(title)
 
-    local cap = Dev.expanded and Dev.ROWS_ALL or Dev.ROWS
-    -- One row's room goes to the pointer line.
-    cap = math.min(cap, math.max(1, S.FitRows(Dev.summon, U(S.ROW_H), true, true) - 1))
+    -- Its share of the column (Summon.Share; the pointer line is chrome).
+    local cap = math.min(S.Rows(Dev.summon, Dev.expanded and Dev.ROWS_ALL or Dev.ROWS), Dev.ROWS_ALL)
     local all = Dev.Shown()
     local open = Dev.summon and Dev.summon.open or false
     local shown = 0

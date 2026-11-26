@@ -161,6 +161,12 @@ function Features.Build()
     Features.summon = S.Attach({
         key = "features", frame = panel, header = header, dock = "left", order = 6,
         refresh = function() Features.Refresh() end,
+        -- Every switch and the note, always: it moves column rather than
+        -- hide one.
+        rowH = function() return U(S.ROW_H) end,
+        chrome = function() return S.Height(0, false, true) end,
+        want = function() return #ns.Switches.LIST + 1 end,
+        min = function() return #ns.Switches.LIST + 1 end,
         show = function()
             panel:Show()
             Features.Refresh()

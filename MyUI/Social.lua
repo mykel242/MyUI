@@ -197,6 +197,10 @@ function Social.Build()
     Social.summon = ns.Summon.Attach({
         key = "social", frame = panel, header = header, dock = "right", order = 2,
         refresh = function() Social.Refresh() end,
+        rowH = function() return U(Social.ROW) end,
+        want = function() return math.min(#(Social.Lines()), Social.ROWS_ALL) end,
+        prefer = function() return Social.ROWS end,
+        expanded = function() return Social.expanded end,
         show = function()
             Social.open = true
             -- Ask the server for a fresh roster; GUILD_ROSTER_UPDATE repaints.
@@ -242,8 +246,8 @@ function Social.Refresh()
     local lines, n, counts = Social.Lines()
     local chosen = ns.Summon.PaintFilters(panel, counts, Social.filter)
     panel.__header.title:SetText(chosen and ("Online \194\183 " .. chosen) or "Online")
-    local cap = Social.expanded and Social.ROWS_ALL or Social.ROWS
-    cap = math.min(cap, ns.Summon.FitRows(Social.summon, U(Social.ROW), true, true))
+    local cap = math.min(ns.Summon.Rows(Social.summon, Social.expanded and Social.ROWS_ALL or Social.ROWS),
+                         Social.ROWS_ALL)
     local shown = math.min(#lines, cap)
     for i, r in ipairs(rows) do
         local l = lines[i]

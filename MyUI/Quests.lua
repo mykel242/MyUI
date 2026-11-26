@@ -422,6 +422,13 @@ local function Build()
     Quests.summon = ns.Summon.Attach({
         key = "quests", frame = frame, header = header, dock = "right", order = 1,
         refresh = function() Quests.Refresh() end,
+        rowH = function() return U(Quests.ROW) end,
+        -- The waypoint quest's objectives are chrome: they show whatever
+        -- the share.
+        chrome = function() return ns.Summon.Height(Quests.PinnedHeight(), true, true) end,
+        want = function() return math.min(select(3, Quests.Lines()), Quests.MAX_ALL_ROWS) end,
+        prefer = function() return Quests.MAX_QUESTS end,
+        expanded = function() return Quests.expanded end,
         show = function()
             Quests.open = true
             Quests.Refresh()
@@ -476,9 +483,18 @@ function Quests.Lines()
     end
     local total = #lines
     local cap = Quests.expanded and Quests.MAX_ALL_ROWS or Quests.MAX_QUESTS
-    -- Never past the bottom of the screen: as many as fit (the pinned
-    -- quest's objectives take room too), then "+N more".
-    local fit = ns.Summon.FitRows(Quests.summon, U(Quests.ROW), true, true)
+    -- Its share of the column (Summon.Share: the pinned quest's objectives
+    -- counted as chrome), else as many as fit, then "+N more".
+    local alloc = Quests.summon and Quests.summon.alloc
+    local fit = alloc and math.huge or ns.Summon.FitRows(Quests.summon, U(Quests.ROW), true, true)
+    if alloc then cap = math.max(1, math.min(alloc, Quests.MAX_ALL_ROWS)) end
+    Quests.pinnedLeft = 0
+    do
+        local pinned = lines[1] and lines[1].expand and lines[1].q
+        if pinned then
+            for _, o in ipairs(pinned.objectives) do if not o.done then Quests.pinnedLeft = Quests.pinnedLeft + 1 end end
+        end
+    end
     if fit ~= math.huge then
         local pinned = lines[1] and lines[1].expand and lines[1].q
         if pinned then
@@ -491,6 +507,13 @@ function Quests.Lines()
     local more = math.max(0, #lines - cap)
     for i = #lines, cap + 1, -1 do lines[i] = nil end
     return lines, more, total
+end
+
+--- The waypoint quest's objectives, in UI units (0 for none).
+function Quests.PinnedHeight()
+    local left = Quests.pinnedLeft or 0
+    if left == 0 then return 0 end
+    return math.ceil((left * Quests.DETAIL + 6) / Quests.ROW) * U(Quests.ROW)
 end
 
 --- Show one kind only (nil: everything).

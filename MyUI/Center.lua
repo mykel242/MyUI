@@ -152,6 +152,10 @@ function Center.Build()
     Center.summon = S.Attach({
         key = "history", frame = panel, header = header, dock = "left", order = 3,
         refresh = function() Center.Refresh() end,
+        rowH = function() return U(Center.ROW_H) end,
+        want = function() return math.min(#Center.Rows(Center.ROWS_ALL + 1), Center.ROWS_ALL) end,
+        prefer = function() return Center.ROWS end,
+        expanded = function() return Center.expanded end,
         show = function() panel:Show(); Center.Refresh() end,
         hide = function() panel:Hide() end,
     })
@@ -218,9 +222,9 @@ function Center.Refresh()
     local chosen = S.PaintFilters(panel, counts, Center.filter)
     panel.__header.title:SetText(chosen and ("Notifications \194\183 " .. chosen) or "Notifications")
 
-    local cap = Center.expanded and Center.ROWS_ALL or Center.ROWS
-    -- Never past the bottom of the screen: as many as fit, then "+N more".
-    cap = math.min(cap, ns.Summon.FitRows(Center.summon, U(Center.ROW_H), true, true))
+    -- Its share of the column (Summon.Share): "+N more" only when it is full.
+    local cap = math.min(S.Rows(Center.summon, Center.expanded and Center.ROWS_ALL or Center.ROWS),
+                         Center.ROWS_ALL)
     local all = Center.Rows(Center.ROWS_ALL + 1)
     local now = (Log and Log.Now and Log.Now()) or 0
     local shown = 0

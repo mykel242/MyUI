@@ -5341,6 +5341,68 @@ do
 end
 
 -- ---------------------------------------------------------------------------
+section("Columns share their height (2026-11-26)")
+-- ---------------------------------------------------------------------------
+do
+    -- Mykel: "a panel that says +1 more; that has space below it -- or a
+    -- long panel that says +10 more that has a lot of space."
+    local S = ns.Summon
+    local function panel(key, dock, order, want, prefer, minRows)
+        local f = mock.frame({ name = "Test" .. key })
+        local c = S.Attach({ key = key, frame = f, dock = dock, order = order,
+            show = function() f:Show() end, hide = function() f:Hide() end,
+            rowH = function() return 20 end, chrome = function() return 40 end,
+            want = function() return want end, prefer = function() return prefer end,
+            min = minRows and function() return minRows end or nil })
+        return c, f
+    end
+    local a = panel("ta", "left", 100, 12, 8)
+    local b = panel("tb", "left", 101, 40, 10)
+    local col = { a, b }
+    local left = S.Share(col, 40 + 40 + 8 + 30 * 20)          -- room for 30 rows
+    check("a panel with room shows everything it has (no \"+N more\" with space below)",
+          a.alloc == 12 and b.alloc == 18, a.alloc .. "/" .. b.alloc)
+    S.Share(col, 40 + 40 + 8 + 100 * 20)
+    check("  and a long one takes the space there is", a.alloc == 12 and b.alloc == 40, b.alloc)
+    S.Share(col, 40 + 40 + 8 + 12 * 20)
+    check("short of room: each its min, then toward its default size, in turn",
+          a.alloc == 6 and b.alloc == 6, a.alloc .. "/" .. b.alloc)
+    b.expanded = function() return true end
+    S.Share(col, 40 + 40 + 8 + 20 * 20)
+    check("  a panel opened with +N more is filled first", a.alloc == 8 and b.alloc == 12,
+          a.alloc .. "/" .. b.alloc)
+    check("  and the rest of the room goes to who has more", left ~= nil)
+
+    -- The floor: Blizzard's chat, given back, at the bottom left.
+    local ui = _G.UIParent
+    local wasW, wasH = ui.__w, ui.__h
+    ui.__w, ui.__h = 2000, 1200
+    local chat = mock.frame({ name = "ChatFrame1" })
+    local wasChat = _G.ChatFrame1
+    _G.ChatFrame1 = chat
+    chat.__rect = { 30, 40, 430, 360 }
+    chat:Show()
+    local wasOn = ns.db.switches.chat
+    ns.Switches.Set("chat", false)
+    check("Blizzard's chat given back is the left column's floor", S.Floor("left") >= 360, S.Floor("left"))
+    check("  not the right column's", near(S.Floor("right"), Scale.U(S.BOTTOM_RESERVE)), S.Floor("right"))
+
+    -- A panel whose least does not fit goes to the other column.
+    local big = panel("tbig", "left", 102, 40, 40, 40)
+    a.expanded, b.expanded = nil, nil
+    for _, c in ipairs({ a, b, big }) do c.open = true end
+    local cols = S.Layout()
+    local moved
+    for _, c in ipairs(cols.right) do if c == big then moved = true end end
+    check("a panel that cannot fit moves to the other column", moved and big.column == "right")
+    for _, c in ipairs({ a, b, big }) do c.open = false; S.all[c.key] = nil end
+    S.Layout()
+    ns.db.switches.chat = wasOn
+    _G.ChatFrame1 = wasChat
+    ui.__w, ui.__h = wasW, wasH
+end
+
+-- ---------------------------------------------------------------------------
 section("The debug log (2026-11-23)")
 -- ---------------------------------------------------------------------------
 do

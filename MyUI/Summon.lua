@@ -471,54 +471,186 @@ function Summon.Origin(side)
     return d.point, x, y
 end
 
---- Stack the open panels of each dock column, in order. Called whenever a
--- panel opens, closes or changes height.
---- How tall a docked panel may be: the screen under the dock's top, less
--- the panels above it in its column, less the HUD's reserve. Unknown screen
--- height (0): no limit.
-function Summon.Room(c)
-    local screen = _G.UIParent and _G.UIParent.GetHeight and _G.UIParent:GetHeight() or 0
-    if type(screen) ~= "number" or screen <= 0 or not c or not c.dock then return math.huge end
-    local _, _, top = Summon.Origin(c.dock)
-    local used = -top + U(Summon.BOTTOM_RESERVE)
-    for _, o in pairs(Summon.all) do
-        if o ~= c and o.open and o.dock == c.dock and (o.order or 0) < (c.order or 0) then
-            used = used + o.frame:GetHeight() + U(Summon.DOCK_GAP)
+-- ---------------------------------------------------------------------------
+-- The column: ceiling, floor, margins -- and how its panels share it
+-- ---------------------------------------------------------------------------
+-- 2026-11-26 (Mykel): "we have dynamic ceiling floor and leading and
+-- trailing margin constraints. the panels should 'adjust' and not
+-- arbitrarily end -- perhaps a set of default sizes -- what i am reacting to
+-- is a panel that says +1 more; that has space below it -- or a long panel
+-- that says +10 more that has a lot of space."
+--
+-- A column runs from its ceiling (Summon.Origin: the dock's top, under or
+-- beside whatever Blizzard frame is in the way) to its floor (Summon.Floor:
+-- the HUD's reserve, or the top of a Blizzard frame given back down there,
+-- such as Blizzard's chat). Its leading margin is Origin's x; its trailing
+-- edge is the panel width.
+--
+-- The panels in it share that height (Summon.Share). Each says how tall its
+-- rows are, how many it has (want), how many it shows when space is short
+-- (prefer: its default size) and the fewest it can show (min). In turn:
+-- every panel its min; every panel up to its default; a panel opened with
+-- "+N more" all it has; then whatever is left, one row at a time to the
+-- panels that still have more. So "+N more" only ever shows when the
+-- column is full. A panel whose min does not fit moves to the other
+-- column, if there is room there.
+
+--- The column's floor, in UI units up from the screen's bottom.
+function Summon.Floor(side)
+    local floor = U(Summon.BOTTOM_RESERVE)
+    local ui = _G.UIParent
+    local W = ui and ui.GetWidth and ui:GetWidth() or 0
+    local H = ui and ui.GetHeight and ui:GetHeight() or 0
+    if type(W) ~= "number" or type(H) ~= "number" or W <= 0 or H <= 0 then return floor end
+    local _, x = Summon.Origin(side)
+    local colW = U(Summon.WIDTH)
+    local cl, cr
+    if side == "left" then cl, cr = x, x + colW else cr = W + x; cl = cr - colW end
+    for _, f in ipairs(Summon.GivenBack()) do
+        local l, r, t, b = Rect(f)
+        if l and r > cl and l < cr and t <= H / 2 + 1 and t > floor then
+            floor = t + U(Summon.DOCK_GAP)
         end
     end
-    return screen - used
+    return floor
 end
 
---- How many rows of rowHeight fit in a panel's room, at least one.
+--- The height a column has for its panels; math.huge while the screen is
+-- unknown.
+function Summon.Span(side)
+    local ui = _G.UIParent
+    local H = ui and ui.GetHeight and ui:GetHeight() or 0
+    if type(H) ~= "number" or H <= 0 then return math.huge end
+    local _, _, top = Summon.Origin(side)
+    return H + top - Summon.Floor(side)
+end
+
+-- What a panel needs: its chrome, its row height, its counts.
+local function Measure(c)
+    local m = { fixed = c.want == nil }
+    if m.fixed then
+        m.chrome = c.frame:GetHeight() or 0
+        m.rowH, m.want, m.prefer, m.min = 1, 0, 0, 0
+        return m
+    end
+    m.rowH = c.rowH and c.rowH() or U(Summon.ROW_H)
+    m.want = math.max(1, c.want() or 1)       -- an empty panel still says so
+    -- After want: a panel may learn its chrome while counting (the quest
+    -- list's waypoint objectives).
+    m.chrome = c.chrome and c.chrome() or Summon.Height(0, true, true)
+    m.min = math.min(m.want, c.min and c.min() or 3)
+    m.prefer = math.max(m.min, math.min(m.want, c.prefer and c.prefer() or m.want))
+    return m
+end
+
+--- Share a column's height among its panels; sets c.alloc on each.
+function Summon.Share(col, span)
+    local gap = U(Summon.DOCK_GAP)
+    local budget = span - math.max(0, #col - 1) * gap
+    local ms = {}
+    for i, c in ipairs(col) do
+        ms[i] = Measure(c)
+        c.alloc = ms[i].min
+        budget = budget - ms[i].chrome - ms[i].min * ms[i].rowH
+    end
+    local function give(limit)
+        local more = true
+        while more do
+            more = false
+            for i, c in ipairs(col) do
+                local m = ms[i]
+                local cap = limit(c, m)
+                if not m.fixed and c.alloc < cap and budget >= m.rowH then
+                    c.alloc = c.alloc + 1
+                    budget = budget - m.rowH
+                    more = true
+                end
+            end
+        end
+    end
+    give(function(_, m) return m.prefer end)
+    give(function(c, m) return c.expanded and c.expanded() and m.want or 0 end)
+    give(function(_, m) return m.want end)
+    return budget
+end
+
+--- What a column's panels need at the least.
+local function Least(col)
+    local need = math.max(0, #col - 1) * U(Summon.DOCK_GAP)
+    for _, c in ipairs(col) do
+        local m = Measure(c)
+        need = need + m.chrome + m.min * m.rowH
+    end
+    return need
+end
+
+--- How tall a docked panel may be (kept for callers that ask): its share.
+function Summon.Room(c)
+    if not (c and c.dock) then return math.huge end
+    return Summon.Span(c.column or c.dock)
+end
+
+--- How many rows a panel shows: its share once the column has been laid
+-- out, otherwise as many as fit in the room.
 function Summon.FitRows(c, rowHeight, hasFilters, hasFooter)
+    if c and c.alloc then return c.alloc end
     local room = Summon.Room(c)
     if room == math.huge then return math.huge end
     local chrome = Summon.Height(0, hasFilters, hasFooter)
     return math.max(1, math.floor((room - chrome) / rowHeight))
 end
 
+--- The rows a panel shows: its share, or its default before the first
+-- layout.
+function Summon.Rows(c, default)
+    if c and c.alloc then return c.alloc end
+    return default
+end
+
 function Summon.Layout()
     -- A panel's Refresh asks for a layout, and a layout refreshes panels so
-    -- the lower ones fit what the upper ones left them: once at a time.
+    -- they draw what they were given: once at a time.
     if Summon.busy then return end
     Summon.busy = true
-    local order = {}
-    for _, c in pairs(Summon.all) do
-        if c.dock and c.open and c.refresh then order[#order + 1] = c end
-    end
-    table.sort(order, function(a, b) return (a.order or 0) < (b.order or 0) end)
-    for _, c in ipairs(order) do pcall(c.refresh) end
-    Summon.busy = false
     local columns = { left = {}, right = {} }
     for _, c in pairs(Summon.all) do
+        c.column = nil
         if c.dock and c.open and columns[c.dock] then
             local col = columns[c.dock]
             col[#col + 1] = c
         end
     end
+    local function byOrder(a, b) return (a.order or 0) < (b.order or 0) end
+    for _, col in pairs(columns) do table.sort(col, byOrder) end
+    -- A panel whose least does not fit moves to the other column, last
+    -- first, while the other has room for it.
+    for _, side in ipairs({ "left", "right" }) do
+        local other = side == "left" and "right" or "left"
+        local col, span = columns[side], Summon.Span(side)
+        while #col > 1 and Least(col) > span do
+            local c = col[#col]
+            local there = columns[other]
+            there[#there + 1] = c
+            if Least(there) > Summon.Span(other) then
+                there[#there] = nil
+                break
+            end
+            col[#col] = nil
+        end
+    end
+    for side, col in pairs(columns) do
+        for _, c in ipairs(col) do c.column = side end
+        if Summon.Span(side) ~= math.huge then Summon.Share(col, Summon.Span(side)) end
+    end
+    local order = {}
+    for _, col in pairs(columns) do
+        for _, c in ipairs(col) do if c.refresh then order[#order + 1] = c end end
+    end
+    table.sort(order, byOrder)
+    for _, c in ipairs(order) do pcall(c.refresh) end
+    Summon.busy = false
     local tops = {}
     for side, col in pairs(columns) do
-        table.sort(col, function(a, b) return (a.order or 0) < (b.order or 0) end)
         local point, ox, oy = Summon.Origin(side)
         local prev
         for _, c in ipairs(col) do
@@ -554,7 +686,10 @@ function Summon.Attach(spec)
     local c = { key = spec.key, frame = spec.frame, header = spec.header,
                 show = spec.show, hide = spec.hide, open = false,
                 dock = spec.dock and ns.Places and ns.Places.Of(spec.key) or spec.dock,
-                order = spec.order, refresh = spec.refresh }
+                order = spec.order, refresh = spec.refresh,
+                -- How it shares its column (Summon.Share); none: a fixed size.
+                rowH = spec.rowH, want = spec.want, prefer = spec.prefer, min = spec.min,
+                chrome = spec.chrome, expanded = spec.expanded }
     Summon.all[spec.key] = c
 
     function c:IsPinned() return DB()[self.key] == true end

@@ -200,6 +200,10 @@ function Talk.Build()
     Talk.summon = S.Attach({
         key = "chat", frame = panel, header = header, dock = "left", order = 4,
         refresh = function() Talk.Refresh() end,
+        rowH = function() return U(Talk.ROW) end,
+        want = function() return math.min(#Talk.Lines(Talk.ROWS_ALL + 1), Talk.ROWS_ALL) end,
+        prefer = function() return Talk.ROWS end,
+        expanded = function() return Talk.expanded end,
         show = function()
             Talk.open = true
             panel:Show()
@@ -247,8 +251,7 @@ function Talk.Refresh()
     local online = ns.Social and (select(2, ns.Social.Lines())) or 0
     panel.online.text:SetText(("online %d"):format(online))
 
-    local cap = Talk.expanded and Talk.ROWS_ALL or Talk.ROWS
-    cap = math.min(cap, ns.Summon.FitRows(Talk.summon, U(Talk.ROW), true, true))
+    local cap = math.min(S.Rows(Talk.summon, Talk.expanded and Talk.ROWS_ALL or Talk.ROWS), Talk.ROWS_ALL)
     local all = Talk.Lines(Talk.ROWS_ALL + 1)
     local lines = {}
     for i = 1, math.min(#all, cap) do lines[i] = all[i] end
