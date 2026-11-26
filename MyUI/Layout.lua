@@ -62,7 +62,8 @@ Layout.PRESETS = {
         -- button" -- at 39 it sat beside PLAYER once the bar moved down).
         -- Charon's screenshot: the button's centre sits ~69 over this
         -- anchor, so -23 puts it level with the bar (24-68).
-        ZoneAbility = { "BOTTOM", "BOTTOM", 250, -23 },
+        -- Charon, 2026-11-26: at -23 its foot sat ~10 units over the bar's.
+        ZoneAbility = { "BOTTOM", "BOTTOM", 250, -35 },
         -- Round 005 play: Blizzard's tooltip out of the middle of the fight,
         -- into the bottom-right corner, growing up -- from over the debuff
         -- row, which on the laptop reaches under it.

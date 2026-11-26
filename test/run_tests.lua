@@ -3311,7 +3311,7 @@ do
     end)())
     check("  the zone / extra ability button on bar 1's row, past the stances (2026-11-26)", (function()
         local a = sys(11).anchorInfo
-        return a and a.point == "BOTTOM" and near(a.offsetX, rowZone + 25 - 27) and near(a.offsetY, Scale.U(-23))
+        return a and a.point == "BOTTOM" and near(a.offsetX, rowZone + 25) and near(a.offsetY, Scale.U(-35))
     end)())
     check("  with no stances, the zone button takes the party's column", (function()
         local _, zone, debuffs = Clear.RightRow()

@@ -732,7 +732,9 @@ Clear.UNDER_WING_HEIGHT = 30
 Clear.STANCE_BUTTON = 30   -- a stance button at Edit Mode's 100%, UI units
 Clear.STANCE_PAD = 2       -- between them (measured: three are 94 wide)
 Clear.ZONE_W = 50          -- the zone button without its frame art
-Clear.ZONE_DX = 27         -- its centre, right of its container's BOTTOM anchor
+-- Its centre, right of its container's BOTTOM anchor. Charon (2026-11-26):
+-- the centre lands on the anchor -- at 27 it overlapped the third stance.
+Clear.ZONE_DX = 0
 Clear.RIGHT_ROW_GAP = 12   -- between the row's parts, mock px
 
 --- How many stance buttons this character shows (0 for none).
