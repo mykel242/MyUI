@@ -416,12 +416,42 @@ function Sources.WorstDurability()
     return worst
 end
 
-local function OnBagUpdate()
+-- Charon play, again: "I still see Bags full" at login, with 58 free a few
+-- minutes later. Slot counts can arrive before the items do, so one full
+-- reading is not believed: it has to still be full BAG_CONFIRM seconds later.
+-- Emptying a bag clears the latch at once; only speaking waits.
+Sources.BAG_CONFIRM = 3
+
+local function BagFull()
     local free = Sources.FreeBagSlots()
     if free == nil then
+        return nil
+    end
+    return free <= Sources.Setting("bagFree")
+end
+
+local bagChecking = false
+
+local function OnBagUpdate()
+    local full = BagFull()
+    if full == nil then
         return
     end
-    Latch("bagFull", free <= Sources.Setting("bagFree"), "orange", "Bags full")
+    if not full or Sources.latched.bagFull then
+        Latch("bagFull", full, "orange", "Bags full")
+        return
+    end
+    if bagChecking then
+        return
+    end
+    bagChecking = true
+    C_Timer.After(Sources.BAG_CONFIRM, function()
+        bagChecking = false
+        local still = BagFull()
+        if still ~= nil then
+            Latch("bagFull", still, "orange", "Bags full")
+        end
+    end)
 end
 
 local function OnDurability()

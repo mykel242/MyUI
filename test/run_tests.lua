@@ -1424,8 +1424,14 @@ end)())
 -- BAG_UPDATE."
 Feed.Clear()
 Sources.latched.bagFull = nil
+local function settleBags()
+    mock.time = mock.time + Sources.BAG_CONFIRM + 0.1
+    mock.runTimers()
+end
 mock.bagFree = 0
 for _ = 1, 5 do sourceDriver:Fire("BAG_UPDATE_DELAYED") end
+check("a full reading is not believed at once", #Feed.items == 0, #Feed.items)
+settleBags()
 check("a full bag says so once, not on every update", #Feed.items == 1, #Feed.items)
 check("  in orange", Feed.items[1] and Feed.items[1].kind == "orange")
 
@@ -1434,6 +1440,7 @@ sourceDriver:Fire("BAG_UPDATE_DELAYED")
 check("making room clears the latch silently", #Feed.items == 1, #Feed.items)
 mock.bagFree = 0
 sourceDriver:Fire("BAG_UPDATE_DELAYED")
+settleBags()
 check("  and filling it again speaks again", #Feed.items == 2, #Feed.items)
 mock.bagFree = 5
 sourceDriver:Fire("BAG_UPDATE_DELAYED")
@@ -1449,6 +1456,18 @@ check("bags not loaded yet (0 free of 0 slots) are not full", #Feed.items == 0
 mock.bagFree, mock.bagSlots = 5, nil
 sourceDriver:Fire("BAG_UPDATE_DELAYED")
 check("  and once they load, the real count is read", Sources.FreeBagSlots() == 5 and #Feed.items == 0)
+
+-- Charon play, again: still "Bags full" at login, 58 free minutes later. The
+-- slots arrive before the items: one reading of 0 free, then the real count.
+Feed.Clear()
+Sources.latched.bagFull = nil
+mock.bagFree = 0
+sourceDriver:Fire("BAG_UPDATE_DELAYED")
+mock.bagFree = 58
+sourceDriver:Fire("BAG_UPDATE_DELAYED")
+settleBags()
+check("a full reading that clears within the wait says nothing", #Feed.items == 0
+      and not Sources.latched.bagFull, #Feed.items)
 
 Feed.Clear()
 Sources.latched.durability = nil

@@ -6,6 +6,10 @@ Target: WoW Midnight 12.1.5, TOC `120105`. Reference source read at build **12.1
 
 ---
 
+## Later (noted 2026-11-26)
+
+- **Toasts need a redesign.** Mykel: "they are just too tiny and look like log entries."
+
 ## Pick up here (2026-11-21, evening) — round 005, "replace the chrome"
 
 Direction (Mykel, PLAN): MyUI *replaces* Blizzard chrome, toast-oriented, UI when you need it;
