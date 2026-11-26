@@ -615,6 +615,8 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   Blizzard's pet bar is held at alpha 0, its keybinds still firing.
 - **Stance (forms) bar** — Blizzard's own, placed by the MyUI layout under the cooldowns, at 30 px; they return with the
   bar (combat, a target). Round 004 play: they had been adopted and never came back.
+  2026-11-26 (Charon, a druid): they also come with the held modifier, and a druid's are always up
+  (`Reveal.STANCE_CLASSES`) -- travel, cat and bear are out-of-combat forms. Not while arranging.
 - **Arranging**: every page drawn stacked above bar 1, labelled and held still — while a spell,
   item or macro is on the cursor, while the spellbook or macro window is open, or while the
   player toggles it (`/myui bars`, key "Arrange the action bars"). Out of combat; a fight folds it

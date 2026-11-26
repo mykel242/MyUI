@@ -3101,6 +3101,23 @@ do
           and Registry.Get("WingUtility").target == 0 and Registry.Get("Debuffs").target == 0
           and Registry.Get("StanceBar").target == 0)
     Reveal.Release("target")
+    Reveal.Claim("hold")
+    check("holding the modifier brings the stances with the bar",
+          Registry.Get("ActionBar").target == 1 and Registry.Get("StanceBar").target == 1)
+    Reveal.Release("hold")
+    do
+        -- Charon play (a druid): the forms showed only with an enemy targeted.
+        local wasClass = _G.UnitClass
+        _G.UnitClass = function() return "Druid", "DRUID" end
+        Reveal.Always()
+        check("a druid's forms are up out of combat with no target",
+              Registry.Get("StanceBar").target == 1 and Reveal.HasClaim("always", "StanceBar"))
+        _G.UnitClass = function() return "Warrior", "WARRIOR" end
+        Reveal.Always()
+        check("  and another class's are not", Registry.Get("StanceBar").target == 0
+              and not Reveal.HasClaim("always", "StanceBar"))
+        _G.UnitClass = wasClass
+    end
     mock.hostile = true
     Reveal.Claim("target")
     check("  something you can attack brings them all", Registry.Get("WingCooldowns").target == 1

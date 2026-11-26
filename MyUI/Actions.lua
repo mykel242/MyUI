@@ -349,6 +349,7 @@ function Actions.SetAssign(on)
         ns.Reveal.Release("target")
         ns.Reveal.Claim("target")
     end
+    ns.Reveal.Always()
     return true
 end
 
@@ -734,6 +735,8 @@ function Actions.Start()
         end
     end)
     Actions.HookBooks()
+    -- A druid's forms are up from the start (Reveal.StancesAlways).
+    ns.Reveal.Always()
     return true
 end
 

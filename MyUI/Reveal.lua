@@ -146,13 +146,18 @@ local SCOPE = {
                end },
     lowhealth = { SelfStack = true },
     calm = { Minimap = true, MinimapMap = true },
-    hold = { ActionBar = true },
+    -- Charon play (a druid): "missing the druid forms buttons ... showed up
+    -- once I targeted an enemy. not a good UX." Holding the modifier brings
+    -- the stances with the bar, and a shapeshifter keeps them up (always).
+    hold = { ActionBar = true,
+             StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
     assign = { ActionBar = true, WingCooldowns = true, WingUtility = true, WingBuffs = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
     -- Round 005: the quest list, opened by its key (Quests.lua).
     quests = { QuestList = true },
     map = { MinimapMap = true },
-    always = { Group = function() return ns.Clear and ns.Clear.GroupAlways() end },
+    always = { Group = function() return ns.Clear and ns.Clear.GroupAlways() end,
+               StanceBar = function() return Reveal.StancesAlways() end },
 }
 
 -- ---------------------------------------------------------------------------
@@ -613,12 +618,34 @@ end
 --- The always claim: group frames up all the time for a role set to
 -- "always". Scope is decided at claim time, so it is asked again whenever
 -- the role or the setting changes.
+-- Classes whose forms are travel as much as fighting: a druid shifts to
+-- travel, cat (prowl) and bear out of combat, so the forms stay up.
+Reveal.STANCE_CLASSES = { DRUID = true }
+
+function Reveal.StancesAlways()
+    if ns.Actions and ns.Actions.IsStacked() then return false end
+    if not _G.UnitClass then return false end
+    local ok, _, class = pcall(_G.UnitClass, "player")
+    if not ok or type(class) ~= "string" or (ns.Compat and ns.Compat.IsSecret(class)) then
+        return false
+    end
+    return Reveal.STANCE_CLASSES[class] == true
+end
+
+local ALWAYS = {
+    Group = function() return ns.Clear ~= nil and ns.Clear.GroupAlways() == true end,
+    StanceBar = function() return Reveal.StancesAlways() end,
+}
+
 function Reveal.Always()
-    local want = ns.Clear ~= nil and ns.Clear.GroupAlways() == true
     -- Only a real change: the debug log showed a release and a claim for
     -- every /myui group that changed nothing.
-    if want == Reveal.HasClaim("always", "Group") then return end
-    if want then Reveal.Claim("always") else Reveal.Release("always") end
+    for name, want in pairs(ALWAYS) do
+        local on = want()
+        if on ~= Reveal.HasClaim("always", name) then
+            if on then Reveal.Claim("always", name) else Reveal.Release("always", name) end
+        end
+    end
 end
 
 function Reveal.OnLogin()
