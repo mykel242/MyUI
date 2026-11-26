@@ -57,9 +57,15 @@ local function DB()
     return ns.db.switches
 end
 
+-- 2026-11-26 (Mykel, Charon): "our chat panel work is too pre-alpha and we
+-- should leave blizz chat enabled until later". Off unless turned on.
+Switches.DEFAULT_OFF = { chat = true }
+
 --- Is this switch on (MyUI's way)? Unknown keys are on.
 function Switches.On(key)
-    return DB()[key] ~= false
+    local v = DB()[key]
+    if v == nil then return not Switches.DEFAULT_OFF[key] end
+    return v == true
 end
 
 --- May Clear adopt this frame (by its Clear.ADOPT name)?
@@ -81,8 +87,8 @@ function Switches.Set(key, on)
     if not s then return nil, ("no switch %q"):format(tostring(key)) end
     on = on and true or false
     if Switches.On(key) == on then return s, false end
-    -- Stored only when off ("x and false or nil" is always nil in Lua).
-    if on then DB()[key] = nil else DB()[key] = false end
+    -- Stored only when it differs from the default.
+    if on == not Switches.DEFAULT_OFF[key] then DB()[key] = nil else DB()[key] = on end
     if s.reload then return s, true end
     -- Giving a frame back always works; taking it again only while
     -- clearing is on (/myui restore turns it all off).

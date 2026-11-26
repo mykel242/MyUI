@@ -746,7 +746,8 @@ hearthstone and the like on hover.
 
 **Switches.** Every place MyUI replaces or hides Blizzard chrome is one player switch
 (`Switches.lua`): quests, chat, minimap, buffs, castbar, cooldowns, menu, meter, bars, unitframes,
-group. On (default) is MyUI's way; off gives that piece back to Blizzard. Alpha-only switches apply
+group. On (default) is MyUI's way; off gives that piece back to Blizzard. Chat is the exception:
+off by default (2026-11-26, Mykel: "too pre-alpha ... leave blizz chat enabled until later"). Alpha-only switches apply
 at once; bars, unitframes and group (protected frames) on `/reload`. `/myui override` lists them;
 `/myui override <name> on|off` flips one. Saved in `MyUIDB.switches` (only the ones turned off).
 
@@ -761,7 +762,8 @@ Pinned, it comes back after the reload.
 **Room for what is given back** (same day, Charon: "we will need to account for where the default
 blizz components expect space"). A Blizzard frame a switch gives back keeps its own place, and a
 dock column that would cover it moves (`Summon.Origin`): under a short one (the minimap, the buffs),
-beside a tall one (the quest tracker). Only frames in the top half of the screen across the
+beside a tall one (the quest tracker), and under Blizzard's party and unit frames when the group
+or unitframes switch is off (re-checked when the group changes). Only frames in the top half of the screen across the
 column's width. The bottom of the screen -- the bar, the unit frames, Blizzard's own given back --
 is not solved yet.
 Blizzard's talking head (an NPC's portrait and line) is never MyUI's, but it sat over PLAYER and the

@@ -400,6 +400,13 @@ local function Target(api, name)
     return e and e.target
 end
 
+-- A frame whose switch is off is Blizzard's: never adopted (Switches.lua).
+-- 2026-11-26: chat is off by default.
+local function Adopted(api, name)
+    local S = api.ns().Switches
+    return not S or S.Adopts(name)
+end
+
 T.Suite("myui-clear", {
     title = "R3b -- clearing the screen",
     requires = function(api)
@@ -427,7 +434,9 @@ T.Suite("myui-clear", {
                   -- out of the registry.
                   local ok
                   local calm = api.ns().Reveal.MapMode and api.ns().Reveal.MapMode() == "calm"
-                  if calm and (spec[1] == "Minimap" or spec[1] == "MinimapMap") then
+                  if not Adopted(api, spec[1]) then
+                      ok = Target(api, spec[1]) == nil    -- given back by its switch
+                  elseif calm and (spec[1] == "Minimap" or spec[1] == "MinimapMap") then
                       ok = true      -- round 004: up out of combat by design (/myui map)
                   elseif spec.yieldsTo and api.ns().Registry.Get(spec.yieldsTo) then
                       local f = _G[spec[2]]
@@ -445,7 +454,10 @@ T.Suite("myui-clear", {
           check = function(api)
               local talk = api.ns().Reveal.TalkActive()
               local chat = Target(api, "Chat")
-              return chat == (talk and 0 or 1) and Target(api, "Minimap") == 1,
+              local want
+              if Adopted(api, "Chat") then want = talk and 0 or 1 end
+              local map = not Adopted(api, "Minimap") or Target(api, "Minimap") == 1
+              return chat == want and map,
                      ("chat %s (panel %s), minimap %s"):format(tostring(chat), talk and "on" or "off",
                                                               tostring(Target(api, "Minimap")))
           end,
@@ -456,6 +468,9 @@ T.Suite("myui-clear", {
           setup = function(api) api.ns().Clear.OnWhisper() end,
           check = function(api)
               local ns = api.ns()
+              if not Adopted(api, "Chat") then
+                  return Target(api, "Chat") == nil, "chat is Blizzard's (its switch is off)"
+              end
               if ns.Talk and ns.Talk.Active() then
                   return Target(api, "Chat") == 0, ("chat %s (MyUI's panel on)"):format(tostring(Target(api, "Chat")))
               end
@@ -473,7 +488,8 @@ T.Suite("myui-clear", {
               local main, chat, party = Target(api, "Bags"), Target(api, "Chat"), Target(api, "Party")
               local ours = Target(api, "ActionBar")
               local wantParty = Clear.GroupInCombat() and 1 or 0
-              return (main == nil or main == 0) and chat == 0 and (ours == nil or ours == 1)
+              local chatOk = chat == 0 or (chat == nil and not Adopted(api, "Chat"))
+              return (main == nil or main == 0) and chatOk and (ours == nil or ours == 1)
                      and (party == nil or party == wantParty),
                      ("bags %s, our bar %s, chat %s, party %s (mode %s, role %s)"):format(tostring(main), tostring(ours),
                          tostring(chat), tostring(party), Clear.GroupMode(), Clear.Role())

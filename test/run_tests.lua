@@ -29,7 +29,9 @@ local Compat, Guard, Registry, Rules = ns.Compat, ns.Guard, ns.Registry, ns.Rule
 -- Bring the addon up the way the client does.
 -- The offline suite exercises every module, extras included; the MVP's
 -- extras-off behaviour has its own section near the end.
-_G.MyUIDB = { schema = ns.SCHEMA_VERSION, extras = true }
+-- MyUI's chat panel is off by default (2026-11-26, "too pre-alpha"); the
+-- suite turns it on to exercise it, and checks the default on its own.
+_G.MyUIDB = { schema = ns.SCHEMA_VERSION, extras = true, switches = { chat = true } }
 
 local loader = _G.MyUILoader
 loader:Fire("ADDON_LOADED", "MyUI")
@@ -5228,9 +5230,19 @@ section("The features panel (2026-11-26)")
 -- ---------------------------------------------------------------------------
 do
     local F, S = ns.Features, ns.Switches
+    do
+        local was = ns.db.switches
+        ns.db.switches = {}
+        check("Blizzard's chat by default (MyUI's panel is pre-alpha)", S.On("chat") == false and S.On("bars"))
+        S.Set("chat", true)
+        check("  turned on, it is remembered", ns.db.switches.chat == true and S.On("chat"))
+        S.Set("chat", false)
+        check("  and off again stores nothing", ns.db.switches.chat == nil and not S.On("chat"))
+        ns.db.switches = was
+    end
     local saved = {}
     for k, v in pairs(ns.db.switches or {}) do saved[k] = v end
-    ns.db.switches = {}
+    ns.db.switches = { chat = true }
     F.Snapshot()
     run("features")
     check("/myui features opens a panel", F.IsOpen())

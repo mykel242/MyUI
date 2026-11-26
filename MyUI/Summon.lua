@@ -409,6 +409,12 @@ function Summon.GivenBack()
                 local f = global[name] and _G[global[name]]
                 if f and f.IsShown and f:IsShown() and f.GetRect then out[#out + 1] = f end
             end
+            -- Blizzard's unit and party frames, back (Charon: "some blizz UI
+            -- is occluded (party frames)").
+            for _, g in ipairs(s.units or {}) do
+                local f = _G[g]
+                if f and f.IsShown and f:IsShown() and f.GetRect then out[#out + 1] = f end
+            end
         end
     end
     return out
@@ -624,7 +630,19 @@ end
 function Summon.OnLogin()
     local driver = CreateFrame("Frame", "MyUISummonDriver", UIParent)
     driver:RegisterEvent("PLAYER_REGEN_DISABLED")
-    driver:SetScript("OnEvent", function() Summon.OnCombat() end)
+    -- Blizzard's party frames, given back, appear with a group: the columns
+    -- move off them once they have (Summon.Origin).
+    driver:RegisterEvent("GROUP_ROSTER_UPDATE")
+    driver:SetScript("OnEvent", function(_, event)
+        if event == "GROUP_ROSTER_UPDATE" then
+            if not Summon.relayoutQueued then
+                Summon.relayoutQueued = true
+                C_Timer.After(0.5, function() Summon.relayoutQueued = false; Summon.Layout() end)
+            end
+            return
+        end
+        Summon.OnCombat()
+    end)
     Summon.driver = driver
     -- After everything that attaches a panel has built (Core runs this last).
     C_Timer.After(0, Summon.Restore)
