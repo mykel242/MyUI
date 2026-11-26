@@ -705,6 +705,14 @@ function Summon.Attach(spec)
                 -- How it shares its column (Summon.Share); none: a fixed size.
                 rowH = spec.rowH, want = spec.want, prefer = spec.prefer, min = spec.min,
                 chrome = spec.chrome, expanded = spec.expanded }
+    -- Panels that asked to close on Escape (they put themselves in
+    -- UISpecialFrames before attaching); a pin takes them out (SyncEscape).
+    do
+        local name = spec.frame and spec.frame.GetName and spec.frame:GetName()
+        for _, n in ipairs(type(_G.UISpecialFrames) == "table" and _G.UISpecialFrames or {}) do
+            if n == name then c.escapes = true end
+        end
+    end
     Summon.all[spec.key] = c
 
     function c:IsPinned() return DB()[self.key] == true end
@@ -769,6 +777,7 @@ function Summon.Attach(spec)
     function c:SetPinned(on)
         DB()[self.key] = on and true or nil
         self:PaintPin()
+        Summon.SyncEscape(self)
         if not on and self.open then
             self.seen, self.openedAt = true, ns.Reveal.Now()
             self.lastOver = self.openedAt
@@ -785,7 +794,26 @@ function Summon.Attach(spec)
         end)
     end
     c:PaintPin()
+    Summon.SyncEscape(c)
     return c
+end
+
+--- Escape closes a panel only while it is not pinned. Charon: the pinned
+-- panels on the left kept vanishing -- the three in UISpecialFrames (the
+-- history, the debug log, the features), which Escape hides whatever
+-- else it is closing, such as the spellbook. The right column's panels
+-- were never in it, and never vanished.
+function Summon.SyncEscape(c)
+    local list = _G.UISpecialFrames
+    local name = c.frame and c.frame.GetName and c.frame:GetName()
+    if type(list) ~= "table" or type(name) ~= "string" then return end
+    local at
+    for i, n in ipairs(list) do if n == name then at = i end end
+    if c:IsPinned() then
+        if at then table.remove(list, at) end
+    elseif not at and c.escapes then
+        list[#list + 1] = name
+    end
 end
 
 --- Combat puts away every summoned panel that is not pinned.

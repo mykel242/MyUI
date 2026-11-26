@@ -5302,6 +5302,21 @@ do
     -- Charon play: "the features panel did not stay after the reload
     -- despite being pinned" -- it was attached only when first opened.
     check("it is attached at login, so a pin can bring it back", ns.Summon.all.features ~= nil)
+    -- Charon: the pinned panels on the left kept vanishing -- Escape hides
+    -- everything in UISpecialFrames, pinned or not.
+    do
+        local c = ns.Summon.all.features
+        local function listed()
+            for _, n in ipairs(_G.UISpecialFrames or {}) do if n == "MyUIFeatures" then return true end end
+            return false
+        end
+        local was = c:IsPinned()
+        c:SetPinned(false)
+        check("unpinned, Escape closes the panel", listed())
+        c:SetPinned(true)
+        check("  pinned, Escape leaves it", not listed())
+        c:SetPinned(was)
+    end
 
     -- Charon play: Blizzard's minimap and quest tracker, given back, were
     -- under the right dock.

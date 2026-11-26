@@ -421,6 +421,8 @@ function M.install()
         end,
     }
     _G.SlashCmdList = {}
+    -- Frames Escape hides (CloseSpecialWindows).
+    _G.UISpecialFrames = {}
     _G.C_Timer = { After = function(_, fn) fn() end }
     -- A controllable clock. Nothing in Phase 2 -- the 140ms dwell, the 120/260ms
     -- fades, the 3s peek -- can be tested against a real one.
