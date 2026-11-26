@@ -233,6 +233,7 @@ local COMMANDS = {
     { "test",         "the acceptance checklist; test report | reset | <phase>" },
     { "outline",      "diagnostic boxes around every frame, above everything" },
     { "claims",       "who is claiming each frame, and every recent transition" },
+    { "panels",       "the summoned panels: open, pinned, column, rows, where" },
     { "notify",       "send a toast: <hue> [name] [count] | demo | clear | dismiss" },
     { "sources",      "what feeds the toasts: thresholds, readings, latches" },
     { "log",          "the notification record: <hue> to filter | clear" },
@@ -934,6 +935,28 @@ local HANDLERS = {
                    .. table.concat(held, ", ") .. "|r")
         end
     end,
+    panels       = function()
+        local S = ns.Summon
+        ns.Print("summoned panels -- the columns and what is in them")
+        for _, side in ipairs({ "left", "right" }) do
+            local point, x, y = S.Origin(side)
+            ns.Raw(("  %s: %s %+.1f %+.1f, floor %.1f, span %s"):format(side, point, x, y, S.Floor(side),
+                   tostring(S.Span(side))))
+        end
+        local keys = {}
+        for k in pairs(S.all) do keys[#keys + 1] = k end
+        table.sort(keys)
+        for _, k in ipairs(keys) do
+            local c = S.all[k]
+            local f = c.frame
+            local l, b, w, h
+            if f and f.GetRect then l, b, w, h = f:GetRect() end
+            ns.Raw(("  %-9s open %-5s pinned %-5s shown %-5s alpha %s col %s rows %s rect %s"):format(k,
+                tostring(c.open), tostring(c:IsPinned()), tostring(f and f:IsShown()),
+                tostring(f and f.GetEffectiveAlpha and f:GetEffectiveAlpha()), tostring(c.column or c.dock),
+                tostring(c.alloc), l and ("%.0f,%.0f %.0fx%.0f"):format(l, b, w, h) or "none"))
+        end
+    end,
     claims       = function(arg)
         local Reveal = ns.Reveal
         if arg == "clear" then
@@ -1067,7 +1090,7 @@ local Report = { SCHEMA = 1, MAX_TEXT = 60000, RECENT = 15 }
 ns.Commands = ns.Commands or {}
 ns.Commands.Report = Report
 
-Report.SECTIONS = { "version", "override", "audit", "claims", "sources", "taint" }
+Report.SECTIONS = { "version", "override", "audit", "claims", "panels", "sources", "taint" }
 
 -- Every binding in Bindings.xml; a test keeps the two in step.
 Report.BINDINGS = { "MYUI_PEEK", "MYUI_REPLY", "MYUI_CENTER", "MYUI_WHAT", "MYUI_ARRANGE",

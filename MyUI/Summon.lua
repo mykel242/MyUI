@@ -797,9 +797,15 @@ end
 
 --- At login, a panel left pinned comes back open.
 function Summon.Restore()
+    local opened = {}
     for key, c in pairs(Summon.all) do
-        if DB()[key] == true and not c.open then c:Open() end
+        if DB()[key] == true and not c.open then
+            local ok, err = pcall(c.Open, c)
+            opened[#opened + 1] = key .. (ok and "" or (" failed: " .. tostring(err)))
+        end
     end
+    -- Charon: pinned panels on the left did not come back at login.
+    if ns.Dev then ns.Dev.Add("layout", "pinned panels back: " .. table.concat(opened, ", ")) end
 end
 
 function Summon.OnLogin()
