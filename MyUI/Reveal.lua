@@ -151,7 +151,8 @@ local SCOPE = {
     -- the stances with the bar, and a shapeshifter keeps them up (always).
     hold = { ActionBar = true,
              StanceBar = function() return not (ns.Actions and ns.Actions.IsStacked()) end },
-    assign = { ActionBar = true, WingCooldowns = true, WingUtility = true, WingBuffs = true },
+    -- The wings are hushed while arranging (Reveal.HUSH), not brought up.
+    assign = { ActionBar = true },
     whisper = { Chat = true, ChatDock = true, ChatButtons = true, ChatSocial = true },
     -- Round 005: the quest list, opened by its key (Quests.lua).
     quests = { QuestList = true },
@@ -339,6 +340,25 @@ end
 
 --- Highest claim wins; with none, the frame returns to its resting alpha --
 -- never to zero unless its resting alpha is zero (SPEC.md 4).
+-- 2026-11-26 (Mykel): "when I open the spellbook to configure my 3 action
+-- bars - we should hide other things too like the player target and focus
+-- frames". While the bar is arranging (every page drawn stacked), the unit
+-- frames over it are down, whatever claims them; they come back when it
+-- ends. Arranging is out of combat only (Actions.SetAssign).
+local function Arranging()
+    return ns.Actions ~= nil and ns.Actions.IsStacked() == true
+end
+-- Mykel, same day: "and CDs" -- the Cooldown Manager's wings, and the
+-- cooldown line on your strip.
+Reveal.HUSH = { SelfStack = Arranging, Pet = Arranging, TargetStrip = Arranging, Focus = Arranging,
+                Cooldowns = Arranging, WingCooldowns = Arranging, WingUtility = Arranging,
+                WingBuffs = Arranging }
+
+function Reveal.Hushed(name)
+    local fn = Reveal.HUSH[name]
+    return fn ~= nil and fn() == true
+end
+
 local function Arbitrate(entry)
     local best, winner = entry.resting, nil
     local byChannel = claims[entry.name]
@@ -372,6 +392,8 @@ function Reveal.Resolve()
         if leader and (not entry.followWhen or entry.followWhen()) and leader.target > target then
             target, winner = leader.target, leader.claim
         end
+        -- Hushed: down whatever claims it (Reveal.HUSH).
+        if Reveal.Hushed(entry.name) then target, winner = 0, "hushed" end
         local previous = entry.claim
         entry.claim = winner
 

@@ -3818,8 +3818,23 @@ do
     A.events:Fire("ADDON_LOADED", "Blizzard_PlayerSpells")
     book:Show(); book.scripts.OnShow(book)
     check("opening the spellbook arranges the bar", stacked())
+    -- Mykel (2026-11-26): "hide other things too like the player target
+    -- and focus frames" -- "and CDs".
+    local function down(names)
+        for _, n in ipairs(names) do
+            local e = Registry.Get(n)
+            if e and e.target ~= 0 then return false, n end
+        end
+        return true
+    end
+    local hushed = { "SelfStack", "TargetStrip", "Focus", "Cooldowns", "WingCooldowns", "WingUtility", "WingBuffs" }
+    ns.Reveal.Claim("cursor", "SelfStack")
+    check("  and the unit frames and cooldowns are down while it is, whatever claims them",
+          down(hushed) and Registry.Get("ActionBar").target == 1)
+    ns.Reveal.Release("cursor", "SelfStack")
     book:Hide(); book.scripts.OnHide(book)
     check("  closing it folds it", hidden("a"))
+    check("  and brings them back", Registry.Get("SelfStack").target > 0)
     _G.PlayerSpellsFrame = nil
 
     -- Round 005 play: "I actually can't change specs".

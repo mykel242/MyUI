@@ -624,6 +624,8 @@ buttons (8 shown); a page's buttons are 30 px when drawn small.
   item or macro is on the cursor, while the spellbook or macro window is open, or while the
   player toggles it (`/myui bars`, key "Arrange the action bars"). Out of combat; a fight folds it
   and it returns after.
+  While arranging, the unit frames (you, pet, target, focus) and the cooldowns (your strip's line,
+  the three wings) are down whatever claims them (`Reveal.HUSH`; 2026-11-26, Mykel).
 - **The bar comes up with a target** as well as in combat (Mykel: target, hold ALT, tap a taunt to
   pull).
 - **Items, trinkets and potions** need nothing special: they sit on action slots, usually as
