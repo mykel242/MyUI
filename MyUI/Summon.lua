@@ -379,6 +379,67 @@ Summon.DOCK = {
 }
 Summon.DOCK_GAP = 8
 
+-- 2026-11-26 (Charon, the features panel): "several myui panels were
+-- disabled correctly but we will need to account for where the default
+-- blizz components expect space". A Blizzard frame given back by a switch
+-- (Switches.lua) keeps its own place; a dock column that would cover it
+-- moves. A tall one (the quest tracker) is stepped aside; a short one (the
+-- minimap, the buffs) is gone under. Only frames up in the column's reach:
+-- the top half of the screen, across the column's width.
+
+local function Rect(f)
+    local ui = _G.UIParent
+    local ok, l, b, w, h = pcall(f.GetRect, f)
+    if not ok or type(l) ~= "number" or type(w) ~= "number" then return nil end
+    local s1, s2 = f:GetEffectiveScale(), ui:GetEffectiveScale()
+    local s = (type(s1) == "number" and type(s2) == "number" and s2 > 0) and s1 / s2 or 1
+    return l * s, (l + w) * s, (b + h) * s, b * s
+end
+
+--- The Blizzard frames a switch has given back, shown now.
+function Summon.GivenBack()
+    local out = {}
+    local S, C = ns.Switches, ns.Clear
+    if not (S and C and C.ADOPT) then return out end
+    local global = {}
+    for _, a in ipairs(C.ADOPT) do global[a[1]] = a[2] end
+    for _, s in ipairs(S.LIST) do
+        if not S.On(s.key) then
+            for _, name in ipairs(s.frames or {}) do
+                local f = global[name] and _G[global[name]]
+                if f and f.IsShown and f:IsShown() and f.GetRect then out[#out + 1] = f end
+            end
+        end
+    end
+    return out
+end
+
+--- Where a dock column starts: point, x, y in UI units against UIParent.
+function Summon.Origin(side)
+    local d = Summon.DOCK[side]
+    local x, y = U(d.x), U(d.y)
+    local ui = _G.UIParent
+    local W = ui and ui.GetWidth and ui:GetWidth() or 0
+    local H = ui and ui.GetHeight and ui:GetHeight() or 0
+    if type(W) ~= "number" or type(H) ~= "number" or W <= 0 or H <= 0 then return d.point, x, y end
+    local gap, colW = U(Summon.DOCK_GAP), U(Summon.WIDTH)
+    for _, f in ipairs(Summon.GivenBack()) do
+        local l, r, t, b = Rect(f)
+        if l then
+            local cl, cr
+            if side == "left" then cl, cr = x, x + colW else cr = W + x; cl = cr - colW end
+            if r > cl and l < cr and t > H / 2 then
+                if t - b > H / 2 then
+                    if side == "right" then x = math.min(x, l - W - gap) else x = math.max(x, r + gap) end
+                else
+                    y = math.min(y, b - H - gap)
+                end
+            end
+        end
+    end
+    return d.point, x, y
+end
+
 --- Stack the open panels of each dock column, in order. Called whenever a
 -- panel opens, closes or changes height.
 --- How tall a docked panel may be: the screen under the dock's top, less
@@ -387,7 +448,8 @@ Summon.DOCK_GAP = 8
 function Summon.Room(c)
     local screen = _G.UIParent and _G.UIParent.GetHeight and _G.UIParent:GetHeight() or 0
     if type(screen) ~= "number" or screen <= 0 or not c or not c.dock then return math.huge end
-    local used = U(-Summon.DOCK_TOP) + U(Summon.BOTTOM_RESERVE)
+    local _, _, top = Summon.Origin(c.dock)
+    local used = -top + U(Summon.BOTTOM_RESERVE)
     for _, o in pairs(Summon.all) do
         if o ~= c and o.open and o.dock == c.dock and (o.order or 0) < (c.order or 0) then
             used = used + o.frame:GetHeight() + U(Summon.DOCK_GAP)
@@ -426,7 +488,7 @@ function Summon.Layout()
     local tops = {}
     for side, col in pairs(columns) do
         table.sort(col, function(a, b) return (a.order or 0) < (b.order or 0) end)
-        local d = Summon.DOCK[side]
+        local point, ox, oy = Summon.Origin(side)
         local prev
         for _, c in ipairs(col) do
             c.frame:ClearAllPoints()
@@ -434,7 +496,7 @@ function Summon.Layout()
                 local edge = side == "left" and "LEFT" or "RIGHT"
                 c.frame:SetPoint("TOP" .. edge, prev.frame, "BOTTOM" .. edge, 0, -U(Summon.DOCK_GAP))
             else
-                c.frame:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
+                c.frame:SetPoint(point, UIParent, point, ox, oy)
             end
             prev = c
         end
@@ -448,10 +510,10 @@ end
 --- A docked panel's resting place while closed (peek can still show the
 -- quest list): the top of its column.
 function Summon.Home(c)
-    local d = c.dock and Summon.DOCK[c.dock]
-    if not d then return end
+    if not (c.dock and Summon.DOCK[c.dock]) then return end
+    local point, x, y = Summon.Origin(c.dock)
     c.frame:ClearAllPoints()
-    c.frame:SetPoint(d.point, UIParent, d.point, U(d.x), U(d.y))
+    c.frame:SetPoint(point, UIParent, point, x, y)
 end
 
 --- Give a panel the shared behaviour. spec: { key, frame, header (from

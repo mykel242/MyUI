@@ -5265,6 +5265,40 @@ do
     check("the reload button reloads (a click is a hardware event)", reloaded == 1)
     F.Close()
     check("  and it closes", not F.IsOpen())
+
+    -- Charon play: "the features panel did not stay after the reload
+    -- despite being pinned" -- it was attached only when first opened.
+    check("it is attached at login, so a pin can bring it back", ns.Summon.all.features ~= nil)
+
+    -- Charon play: Blizzard's minimap and quest tracker, given back, were
+    -- under the right dock.
+    do
+        local ui = _G.UIParent
+        local wasW, wasH = ui.__w, ui.__h
+        ui.__w, ui.__h = 2000, 1200
+        local cluster = mock.frame({ name = "MinimapCluster" })
+        local tracker = mock.frame({ name = "ObjectiveTrackerFrame" })
+        local wasC, wasT = _G.MinimapCluster, _G.ObjectiveTrackerFrame
+        _G.MinimapCluster, _G.ObjectiveTrackerFrame = cluster, tracker
+        cluster.__rect = { 1760, 940, 2000, 1200 }     -- 240 x 260, top right
+        tracker.__rect = { 1740, 200, 2000, 930 }      -- 260 wide, 730 tall, under it
+        cluster:Show(); tracker:Show()
+        local _, x0, y0 = ns.Summon.Origin("right")
+        S.Set("minimap", false)
+        local _, x1, y1 = ns.Summon.Origin("right")
+        check("a short Blizzard frame given back: the column starts under it",
+              near(x1, x0) and y1 < -(1200 - 940), y1)
+        S.Set("quests", false)
+        local _, x2 = ns.Summon.Origin("right")
+        check("  a tall one: the column steps aside, left of it", x2 <= -(2000 - 1740), x2)
+        local _, lx, ly = ns.Summon.Origin("left")
+        check("  and the other column does not move", near(lx, Scale.U(16)) and near(ly, Scale.U(-28)))
+        S.Set("minimap", true); S.Set("quests", true)
+        local _, x3, y3 = ns.Summon.Origin("right")
+        check("  given to MyUI again, the column goes home", near(x3, x0) and near(y3, y0))
+        _G.MinimapCluster, _G.ObjectiveTrackerFrame = wasC, wasT
+        ui.__w, ui.__h = wasW, wasH
+    end
     ns.db.switches = saved
     F.Snapshot()
 end

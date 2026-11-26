@@ -758,6 +758,13 @@ its name and `on` / `off`; a click flips it. Pointing at a row says what MyUI do
 counts them, and the footer has `all on`, `all off` and `reload` (a click is a hardware event).
 Pinned, it comes back after the reload.
 
+**Room for what is given back** (same day, Charon: "we will need to account for where the default
+blizz components expect space"). A Blizzard frame a switch gives back keeps its own place, and a
+dock column that would cover it moves (`Summon.Origin`): under a short one (the minimap, the buffs),
+beside a tall one (the quest tracker). Only frames in the top half of the screen across the
+column's width. The bottom of the screen -- the bar, the unit frames, Blizzard's own given back --
+is not solved yet.
+
 **Quest tracker** (`Quests.lua`, the "quests" switch). Blizzard's objective tracker stays adopted
 at 0; MyUI says what changes:
 - **Toasts, amber.** An objective moving says its own line ("Boars slain: 4/10"); a quest

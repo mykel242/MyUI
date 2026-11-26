@@ -52,6 +52,8 @@ end
 function Features.Flip(key, on)
     if on == nil then on = not ns.Switches.On(key) end
     ns.Switches.Set(key, on)
+    -- A frame given back keeps its place; the dock columns move off it.
+    if ns.Summon then ns.Summon.Layout() end
     if ns.Dev then
         ns.Dev.Add("command", ("feature %s %s"):format(key, on and "on" or "off"))
     end
@@ -62,6 +64,7 @@ end
 --- Every switch at once.
 function Features.All(on)
     for _, s in ipairs(ns.Switches.LIST) do ns.Switches.Set(s.key, on) end
+    if ns.Summon then ns.Summon.Layout() end
     if ns.Dev then ns.Dev.Add("command", "features all " .. (on and "on" or "off")) end
     Features.Refresh()
 end
@@ -220,6 +223,10 @@ _G.BINDING_NAME_MYUI_FEATURES = "Show MyUI's features (on/off)"
 
 function Features.OnLogin()
     Features.Snapshot()
+    -- Built now, not on first open: a panel left pinned comes back at login
+    -- only if it is attached by then (Summon.Restore). Charon play: "the
+    -- features panel did not stay after the reload despite being pinned".
+    Features.Build()
 end
 
 ns.Features = Features
