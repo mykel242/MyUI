@@ -105,10 +105,35 @@ body="$(TAG="$TAG" SHA="$SHA" VERSION="$VERSION" PRE="$PRERELEASE" python3 -c '
 import json, os
 print(json.dumps({"tag_name": os.environ["TAG"], "target_commitish": os.environ["SHA"],
                   "name": os.environ["VERSION"], "prerelease": os.environ["PRE"] == "true"}))')"
+# The tag first. Forgejo 7.0 makes a release on a tag that does not exist
+# yet without making the tag, and dates that release 1970-01-01: it then
+# sorts below every other release (InterWoven never sees it as newest, and
+# pruning by created_at deletes the wrong ones).
+code="$(curl -sS -o /dev/null -w '%{http_code}' -H @"$HDR" "$API/tags/$TAG")"
+if [ "$code" != 200 ]; then
+    tbody="$(TAG="$TAG" SHA="$SHA" python3 -c '
+import json, os
+print(json.dumps({"tag_name": os.environ["TAG"], "target": os.environ["SHA"]}))')"
+    resp="$(curl -sS --fail-with-body -X POST -H @"$HDR" -H "Content-Type: application/json" \
+        "$API/tags" -d "$tbody")" || { echo "release: tag $TAG not created: $resp" >&2; exit 1; }
+    echo "tagged   $TAG at ${SHA:0:7}"
+fi
+
 resp="$(curl -sS --fail-with-body -X POST -H @"$HDR" -H "Content-Type: application/json" \
     "$API/releases" -d "$body")" || { echo "release: create failed: $resp" >&2; exit 1; }
 ID="$(json 'print(d["id"])' <<<"$resp")"
 echo "release  $HOST/$REPO/releases/tag/$TAG (id $ID)"
+
+# Confirm what Forgejo made: the tag is there, on this commit, and the
+# release has a real date.
+got="$(curl -sS --fail-with-body -H @"$HDR" "$API/tags/$TAG" | json 'print(d["commit"]["sha"])')" \
+    || { echo "release: FAILED -- release $ID has no tag $TAG" >&2; exit 1; }
+[ "$got" = "$SHA" ] || { echo "release: FAILED -- tag $TAG is on $got, not $SHA" >&2; exit 1; }
+made="$(curl -sS --fail-with-body -H @"$HDR" "$API/releases/$ID" | json 'print(d["created_at"])')"
+case "$made" in
+    1970*|"") echo "release: FAILED -- release $ID is dated '$made'" >&2; exit 1 ;;
+esac
+echo "dated    $made"
 
 for z in "${ZIPS[@]}"; do
     name="$(basename "$z")"
