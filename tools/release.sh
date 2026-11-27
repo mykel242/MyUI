@@ -89,6 +89,19 @@ if [ -z "$TOKEN" ]; then
 fi
 HDR="$STAGE/auth"
 ( umask 077; printf 'Authorization: token %s\n' "$TOKEN" > "$HDR" )
+
+# The tag goes up with git itself. Over HTTPS with the token in CI (passed
+# through git's environment config, never on a command line); by hand, to
+# origin with the usual credentials.
+push_tag() {
+    if [ -n "${FORGEJO_TOKEN:-}" ]; then
+        GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader \
+            GIT_CONFIG_VALUE_0="Authorization: token $FORGEJO_TOKEN" \
+            git push -q "$HOST/$REPO.git" "refs/tags/$1"
+    else
+        git push -q origin "refs/tags/$1"
+    fi
+}
 unset TOKEN
 API="$HOST/api/v1/repos/$REPO"
 json() { python3 -c "import json,sys; d=json.load(sys.stdin); $1"; }
@@ -111,11 +124,10 @@ print(json.dumps({"tag_name": os.environ["TAG"], "target_commitish": os.environ[
 # pruning by created_at deletes the wrong ones).
 code="$(curl -sS -o /dev/null -w '%{http_code}' -H @"$HDR" "$API/tags/$TAG")"
 if [ "$code" != 200 ]; then
-    tbody="$(TAG="$TAG" SHA="$SHA" python3 -c '
-import json, os
-print(json.dumps({"tag_name": os.environ["TAG"], "target": os.environ["SHA"]}))')"
-    resp="$(curl -sS --fail-with-body -X POST -H @"$HDR" -H "Content-Type: application/json" \
-        "$API/tags" -d "$tbody")" || { echo "release: tag $TAG not created: $resp" >&2; exit 1; }
+    # Not POST /tags: on 2026-11-27 that left a release row with no git tag
+    # behind it, and the name could not be used again.
+    git tag -f "$TAG" "$SHA" > /dev/null
+    push_tag "$TAG" || { echo "release: tag $TAG not pushed" >&2; exit 1; }
     echo "tagged   $TAG at ${SHA:0:7}"
 fi
 
