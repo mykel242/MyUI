@@ -1,0 +1,54 @@
+# CI on Cronus's runner (ops-agent runbooks/forgejo-runner.md): label
+# `docker`, a Debian bookworm image with git, curl, zip and python3.
+#
+# Pull requests: the checks and a build of both zips, nothing uploaded.
+# Push to main: the same, then a prerelease (tools/release.sh names it by
+#   git describe --tags --long).
+# Tag v*: the same, then the release.
+# The zips are MyUI-<version>.zip and MyUI_Test-<version>.zip; InterWoven
+# matches on those names.
+
+name: release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+# One release run at a time, so two pushes cannot prune each other's work.
+concurrency:
+  group: release-${{ github.ref }}
+
+jobs:
+  build:
+    runs-on: docker
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # git describe needs the whole history and every tag.
+          fetch-depth: 0
+
+      - name: compliance lint
+        run: python3 rules_lint.py MyUI MyUI_Test
+
+      - name: lint self-test
+        run: python3 test/test_lint.py > /dev/null
+
+      - name: toc files
+        run: python3 tools/check_toc.py
+
+      - name: dependencies
+        run: python3 tools/check_deps.py
+
+      - name: build both zips (not uploaded)
+        run: |
+          git fetch --tags --force --quiet
+          tools/release.sh --dry-run
+
+      - name: publish
+        if: github.event_name == 'push'
+        env:
+          # Read by tools/release.sh; never echoed.
+          FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: tools/release.sh

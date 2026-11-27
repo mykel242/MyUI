@@ -39,6 +39,7 @@ fi
 run "bindings xml"         python3 -c "import xml.etree.ElementTree as ET; [ET.parse(f) for f in ('MyUI/Bindings.xml', 'MyUI_Test/Bindings.xml')]"
 run "compliance lint"      python3 rules_lint.py MyUI MyUI_Test
 run "dependencies"         python3 tools/check_deps.py
+run "toc files"            python3 tools/check_toc.py
 run "lint self-test"       bash -c "python3 test/test_lint.py >/dev/null"
 
 # The screenshot tools need Pillow, which lives in tools/.venv (dev only).

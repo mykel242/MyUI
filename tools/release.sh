@@ -10,7 +10,10 @@
 # named by `git describe --tags --long` (never tagged by hand). The newest
 # PRERELEASES_KEPT prereleases are kept; releases are never deleted.
 #
-# The write token comes from $FORGEJO_TOKEN or the file $FORGEJO_TOKEN_FILE
+# Needs git, curl, zip and python3 (the CI image has no jq).
+#
+# The write token comes from $FORGEJO_TOKEN (CI: the RELEASE_TOKEN secret) or
+# the file $FORGEJO_TOKEN_FILE
 # (default ~/.config/forgejo/release-token). It is never printed, and never put on a
 # command line: curl reads the header from a private temp file.
 
@@ -39,11 +42,12 @@ fi
 SHA="$(git rev-parse HEAD)"
 
 # 2. The version, from git.
-if EXACT="$(git describe --exact-match --tags HEAD 2>/dev/null)" \
-        && [[ "$EXACT" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+# A prerelease's tag (vX.Y.Z-N-gSHA) is never a base for the next one's name.
+EXACT="$(git tag --points-at HEAD | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sort -V | tail -1 || true)"
+if [ -n "$EXACT" ]; then
     TAG="$EXACT"; PRERELEASE=false
 else
-    TAG="$(git describe --tags --long)"; PRERELEASE=true
+    TAG="$(git describe --tags --long --exclude 'v*-[0-9]*-g[0-9a-f]*')"; PRERELEASE=true
 fi
 VERSION="${TAG#v}"
 
@@ -87,12 +91,23 @@ HDR="$STAGE/auth"
 ( umask 077; printf 'Authorization: token %s\n' "$TOKEN" > "$HDR" )
 unset TOKEN
 API="$HOST/api/v1/repos/$REPO"
+json() { python3 -c "import json,sys; d=json.load(sys.stdin); $1"; }
 
-body="$(jq -n --arg t "$TAG" --arg c "$SHA" --arg n "$VERSION" --argjson p "$PRERELEASE" \
-    '{tag_name:$t, target_commitish:$c, name:$n, prerelease:$p}')"
+# Already made (the tag's run and main's run on the same commit, or a rerun):
+# nothing to do.
+code="$(curl -sS -o /dev/null -w '%{http_code}' -H @"$HDR" "$API/releases/tags/$TAG")"
+if [ "$code" = 200 ]; then
+    echo "release  $TAG exists already; nothing to do"
+    exit 0
+fi
+
+body="$(TAG="$TAG" SHA="$SHA" VERSION="$VERSION" PRE="$PRERELEASE" python3 -c '
+import json, os
+print(json.dumps({"tag_name": os.environ["TAG"], "target_commitish": os.environ["SHA"],
+                  "name": os.environ["VERSION"], "prerelease": os.environ["PRE"] == "true"}))')"
 resp="$(curl -sS --fail-with-body -X POST -H @"$HDR" -H "Content-Type: application/json" \
     "$API/releases" -d "$body")" || { echo "release: create failed: $resp" >&2; exit 1; }
-ID="$(jq -r '.id' <<<"$resp")"
+ID="$(json 'print(d["id"])' <<<"$resp")"
 echo "release  $HOST/$REPO/releases/tag/$TAG (id $ID)"
 
 for z in "${ZIPS[@]}"; do
@@ -106,8 +121,9 @@ done
 # 5. Keep the newest prereleases; the older ones go, with the tags they made.
 if [ "$PRERELEASE" = true ]; then
     old="$(curl -sS --fail-with-body -H @"$HDR" "$API/releases?limit=50" \
-        | jq -r --argjson k "$PRERELEASES_KEPT" \
-            '[.[] | select(.prerelease)] | sort_by(.created_at) | reverse | .[$k:] | .[] | "\(.id) \(.tag_name)"')"
+        | json "
+pre = sorted((r for r in d if r['prerelease']), key=lambda r: r['created_at'], reverse=True)
+for r in pre[$PRERELEASES_KEPT:]: print(r['id'], r['tag_name'])")"
     while read -r id tag; do
         [ -n "$id" ] || continue
         curl -sS --fail-with-body -X DELETE -H @"$HDR" "$API/releases/$id" > /dev/null
