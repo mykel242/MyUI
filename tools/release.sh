@@ -11,7 +11,7 @@
 # PRERELEASES_KEPT prereleases are kept; releases are never deleted.
 #
 # The write token comes from $FORGEJO_TOKEN or the file $FORGEJO_TOKEN_FILE
-# (default ~/.config/forgejo/token). It is never printed, and never put on a
+# (default ~/.config/forgejo/release-token). It is never printed, and never put on a
 # command line: curl reads the header from a private temp file.
 
 set -euo pipefail
@@ -79,7 +79,7 @@ fi
 # 4. The release, and its zips.
 TOKEN="${FORGEJO_TOKEN:-}"
 if [ -z "$TOKEN" ]; then
-    f="${FORGEJO_TOKEN_FILE:-$HOME/.config/forgejo/token}"
+    f="${FORGEJO_TOKEN_FILE:-$HOME/.config/forgejo/release-token}"
     [ -r "$f" ] || { echo "release: no token (set FORGEJO_TOKEN or put it in $f)" >&2; exit 1; }
     TOKEN="$(tr -d '[:space:]' < "$f")"
 fi
