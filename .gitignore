@@ -11,3 +11,6 @@ design/rounds/000 - rebar proposal 2/
 shots/runs/
 shots/results/
 tools/.venv/
+
+# Release zips (tools/release.sh)
+dist/

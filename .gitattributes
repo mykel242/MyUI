@@ -1,0 +1,12 @@
+# Release zips (tools/release.sh) carry only the addon folders; nothing
+# else belongs in them.
+.gitattributes export-ignore
+.gitignore export-ignore
+.luarc.json export-ignore
+*.md export-ignore
+design/ export-ignore
+shots/ export-ignore
+test/ export-ignore
+tools/ export-ignore
+rules_lint.py export-ignore
+smoke.sh export-ignore

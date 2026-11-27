@@ -1,6 +1,6 @@
 ## Interface: 120105
 ## Title: MyUI Test
-## Notes: Screenshot test harness for MyUI. Development environment only -- never shipped.
+## Notes: In-game test suite and screenshot harness for MyUI. For test kits; ships as its own zip.
 ## Author: mykel
 ## Version: 0.1.0
 ## X-License: MIT
