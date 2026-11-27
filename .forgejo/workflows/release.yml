@@ -7,6 +7,10 @@
 # Tag v*: the same, then the release.
 # The zips are MyUI-<version>.zip and MyUI_Test-<version>.zip; InterWoven
 # matches on those names.
+#
+# Checked out with git itself, not actions/checkout: the image has no node.
+# A failed pull-request run posts its log's tail on the pull request, since
+# this Forgejo has no API for job logs.
 
 name: release
 
@@ -16,39 +20,48 @@ on:
     branches: [main]
     tags: ["v*"]
 
-# One release run at a time, so two pushes cannot prune each other's work.
 concurrency:
   group: release-${{ github.ref }}
+
+defaults:
+  run:
+    shell: bash --noprofile --norc -eo pipefail {0}
 
 jobs:
   build:
     runs-on: docker
     steps:
-      - uses: actions/checkout@v4
-        with:
-          # git describe needs the whole history and every tag.
-          fetch-depth: 0
-
-      - name: compliance lint
-        run: python3 rules_lint.py MyUI MyUI_Test
-
-      - name: lint self-test
-        run: python3 test/test_lint.py > /dev/null
-
-      - name: toc files
-        run: python3 tools/check_toc.py
-
-      - name: dependencies
-        run: python3 tools/check_deps.py
-
-      - name: build both zips (not uploaded)
+      - name: checkout (full history and tags, for git describe)
+        env:
+          TOKEN: ${{ github.token }}
         run: |
-          git fetch --tags --force --quiet
-          tools/release.sh --dry-run
+          {
+            git config --global --add safe.directory "$PWD"
+            git init -q .
+            git -c http.extraHeader="Authorization: token $TOKEN" fetch -q --tags \
+              "$GITHUB_SERVER_URL/$GITHUB_REPOSITORY.git" \
+              "+refs/heads/*:refs/remotes/origin/*" "+$GITHUB_REF:refs/ci/head"
+            git checkout -q --detach "$GITHUB_SHA"
+            git log --oneline -1
+          } 2>&1 | tee -a /tmp/ci.log
+
+      - name: checks, and both zips built (not uploaded)
+        run: tools/ci.sh 2>&1 | tee -a /tmp/ci.log
 
       - name: publish
         if: github.event_name == 'push'
         env:
           # Read by tools/release.sh; never echoed.
           FORGEJO_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        run: tools/release.sh
+        run: tools/release.sh 2>&1 | tee -a /tmp/ci.log
+
+      - name: report the failure on the pull request
+        if: failure() && github.event_name == 'pull_request'
+        env:
+          TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          [ -f /tmp/ci.log ] || echo "(no log: the run failed before its first step)" > /tmp/ci.log
+          body="$(python3 -c 'import json,sys; t=open("/tmp/ci.log").read()[-6000:]; print(json.dumps({"body": "CI failed. Log tail:\n\n```\n" + t + "\n```"}))')"
+          curl -sS -o /dev/null -X POST -H "Authorization: token $TOKEN" -H "Content-Type: application/json" \
+            "$GITHUB_SERVER_URL/api/v1/repos/$GITHUB_REPOSITORY/issues/$PR/comments" -d "$body"
